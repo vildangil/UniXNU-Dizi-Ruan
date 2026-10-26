@@ -1,0 +1,63 @@
+name: Dizi device profile checks
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "board.toml"
+      - "feeds.toml"
+      - "configs/**"
+      - "dts/**"
+      - "package/unixnu.toml"
+      - "porting.toml"
+      - ".github/workflows/validate.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate device identity and documented unimplemented stages
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import tomllib
+
+          root = pathlib.Path(".")
+          def load(path):
+              with (root / path).open("rb") as fh:
+                  return tomllib.load(fh)
+
+          board = load("board.toml")
+          record = load("porting.toml")
+          menu = load("package/unixnu.toml")
+          device = board["board"]
+          assert board["schema_version"] == 2
+          assert device["name"] == "dizi"
+          assert device["soc"] == "SM7435"
+          assert device["example"] is True, "Keep native XNU builds disabled until SM7435 is validated"
+          assert record["device"]["name"] == device["name"]
+          assert record["device"]["soc"] == device["soc"]
+          assert board["kernel"]["defconfig"] == "dizi_defconfig"
+          assert (root / "configs/dizi_defconfig").is_file()
+          assert (root / "dts/dizi.dts").is_file()
+          assert "sm8550" not in (root / "feeds.toml").read_text().lower().replace("sm8550-common", "")
+          assert menu["version"] == 1
+          assert any(entry.get("type") == "xnu" for entry in menu["entry"])
+          assert any(entry.get("action") == "exit" for entry in menu["entry"])
+          observations = json.loads((root / "data/dizi-fdt-observed.json").read_text())
+          assert observations["device"] == "dizi"
+          assert observations["ram_candidate"]["validated_on_device"] is False
+          required = {"configuration", "firmware", "cpu", "memory", "storage", "display",
+                      "input", "gpu", "network", "audio", "power", "packaging", "diagnostics"}
+          assert required <= {area["id"] for area in record["area"]}
+          print("Dizi SM7435 device-port scaffolding: validated (not bootable)")
+          PY

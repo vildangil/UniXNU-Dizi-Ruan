@@ -72,8 +72,8 @@ def patch(mu: Path, dry_run: bool = False) -> None:
     menutxt = replace_once(
         paths[menu],
         "  UniXNUUiDrawFrame (Ui, Config);",
-        "  // Dizi: do not auto-scroll the selection with no physical key.\\n"
-        "  RotateMs = 0;\\n"
+        "  // Dizi: do not auto-scroll the selection with no physical key.\n"
+        "  RotateMs = 0;\n"
         "  UniXNUUiDrawFrame (Ui, Config);",
         "no-input rotation guard",
     )

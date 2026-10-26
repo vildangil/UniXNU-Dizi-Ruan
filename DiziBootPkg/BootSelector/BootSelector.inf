@@ -1,0 +1,41 @@
+## @file
+# Firmware-embedded DIZI menu; also buildable as standalone EFI.
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = DiziBootSelector
+  FILE_GUID                      = 8B56DAB9-A18D-40A4-97EC-DFCC72EE1F66
+  MODULE_TYPE                    = UEFI_APPLICATION
+  VERSION_STRING                 = 0.3
+  ENTRY_POINT                    = UefiMain
+[Sources]
+  BootSelector.c
+  DiziScaledUi.c
+  DiziPmicKeys.c
+  DiziSpmiArbProbe.c
+  DiziSpmiArbRead.c
+[Packages]
+  MdePkg/MdePkg.dec
+[LibraryClasses]
+  UefiApplicationEntryPoint
+  UefiBootServicesTableLib
+  UefiLib
+  DevicePathLib
+  MemoryAllocationLib
+  BaseLib
+  BaseMemoryLib
+  PrintLib
+  IoLib
+[Protocols]
+  gEfiSimpleTextInProtocolGuid
+  gEfiSimpleTextInputExProtocolGuid
+  gEfiDevicePathProtocolGuid
+  gEfiUsb2HcProtocolGuid
+  gEfiUsbIoProtocolGuid
+  gEfiPciIoProtocolGuid
+  gEfiPciRootBridgeIoProtocolGuid
+  gEfiFirmwareVolume2ProtocolGuid
+  gEfiSimpleFileSystemProtocolGuid
+  gEfiLoadedImageProtocolGuid
+  gEfiDriverBindingProtocolGuid
+  gEfiGraphicsOutputProtocolGuid

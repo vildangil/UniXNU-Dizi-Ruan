@@ -1,0 +1,98 @@
+{
+  "device": "dizi",
+  "soc": "SM7435",
+  "evidence": "derived from supplied Mu-dizi.img FDT (not intended for ruan)",
+  "gic": {
+    "distributor": 387973120,
+    "redistributor": 388366336,
+    "redistributor_size": 1048576
+  },
+  "ufs": {
+    "controller": 30949376,
+    "phy": 30961664
+  },
+  "timer": {
+    "frequency_hz": 19200000,
+    "virtual_ppi_intid": 27,
+    "fdt_interrupt_cells": [
+      1,
+      11,
+      65288
+    ]
+  },
+  "cpus": 8,
+  "memory_banks": [
+    {
+      "base": 2147483648,
+      "size": 1759510528
+    },
+    {
+      "base": 4088397824,
+      "size": 206569472
+    },
+    {
+      "base": 34359738368,
+      "size": 1069547520
+    },
+    {
+      "base": 35433480192,
+      "size": 1073741824
+    },
+    {
+      "base": 36507222016,
+      "size": 967835648
+    },
+    {
+      "base": 37481349120,
+      "size": 31457280
+    },
+    {
+      "base": 37580963840,
+      "size": 3221225472
+    }
+  ],
+  "ram_candidate": {
+    "base": 37580963840,
+    "size": 1073741824,
+    "validated_on_device": false,
+    "reason": "first 1 GiB of the 3 GiB upper bank, no overlap with fixed reservations described in DTB; runtime allocations NOT verified"
+  },
+  "reserved_fixed": [
+    {
+      "base": 2147483648,
+      "size": 6291456
+    },
+    {
+      "base": 2156920832,
+      "size": 2097152
+    },
+    {
+      "base": 2672820224,
+      "size": 51380224
+    },
+    {
+      "base": 3087007744,
+      "size": 45088768
+    },
+    {
+      "base": 3769630720,
+      "size": 78589952
+    },
+    {
+      "base": 3908567040,
+      "size": 5242880
+    },
+    {
+      "base": 2801795072,
+      "size": 4194304
+    }
+  ],
+  "uncertain": [
+    "framebuffer resolution/GOP mapping",
+    "secure memory and dynamic carveouts",
+    "UFS PHY sequencing",
+    "kernel platform drivers",
+    "ruan variant",
+    "firmware XNU boot chain"
+  ]
+}

@@ -1,5 +1,2 @@
-[[source]]
-kind = "soc"
-name = "sm8550"
-git = "https://github.com/UniXNU/UniXNU-sm8550-common.git"
-commit = "23b2049fcd9e30356161def84231334fb55ecca9"
+# SM7435 SoC common source is not yet validated or pinned.
+# Never select the unrelated sheng/SM8550 source in this device port.

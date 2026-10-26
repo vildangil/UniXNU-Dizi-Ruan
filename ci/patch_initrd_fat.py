@@ -212,7 +212,10 @@ DiziFindFatAfterLz4 (
   Available = End - Start;
   mDiziRamStatus.SpanMiB = (UINT32)(Available / (1024 * 1024));
   mDiziRamStatus.FirstWord =
-    *(CONST UINT32 *)(UINTN)Start;
+    ((UINT32)((CONST UINT8 *)(UINTN)Start)[0]) |
+    ((UINT32)((CONST UINT8 *)(UINTN)Start)[1] << 8) |
+    ((UINT32)((CONST UINT8 *)(UINTN)Start)[2] << 16) |
+    ((UINT32)((CONST UINT8 *)(UINTN)Start)[3] << 24);
   if (!DiziFindFatAfterLz4 ((UINT8 *)(UINTN)Start, Available,
                             &FatBase, &FatBytes)) {
     mDiziRamStatus.Stage = Available < DIZI_EXPECTED_FAT_BYTES ? 6 : 7;

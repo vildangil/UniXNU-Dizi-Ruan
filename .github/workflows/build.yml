@@ -8,10 +8,8 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: dizi-public-uefi
-  cancel-in-progress: false
-
+# Do not add a workflow-level concurrency gate: stalled workflow runs
+# with zero created jobs can block all further manual dispatches.
 env:
   MU_REPO: https://github.com/vildangil/Mu-Silicium.git
   MU_SHA: 39fbbc20885325044cfeaf8428efb7267e0bbe35

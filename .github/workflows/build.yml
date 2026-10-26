@@ -160,9 +160,9 @@ jobs:
             dist/SHA256SUMS.txt
             dist/NOT-FLASHABLE.txt
 
-      # Release creation needs an effective contents:write token. An org/repo
-      # policy may prevent this even with permissions: contents: write above.
-      # Allow publishing failure, because verified output is already retained.
+      # GitHub may reject Release creation with HTTP 403 even when the job
+      # reports Contents: write; previous jobs with the same scope succeeded.
+      # Preserve the verified output independently of that API response.
       - name: Publish successful public-source test build
         id: publish
         continue-on-error: true
@@ -192,9 +192,8 @@ jobs:
             echo "Artifact: dizi-public-uefi-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT} (retained 7 days)."
             if [ "$PUBLISH_OUTCOME" != "success" ]; then
               echo ""
-              echo "⚠️ Release publishing was unavailable (GitHub token lacks effective Releases write access)."
-              echo "The Actions artifact is the download source; enable Releases write access in"
-              echo "**Settings → Actions → General → Workflow permissions** if permitted."
+              echo "⚠️ GitHub Releases returned an error despite the requested contents:write scope."
+              echo "The Actions artifact remains available for download; check the publish step for the exact response."
             else
               echo ""
               echo "Release publishing succeeded."

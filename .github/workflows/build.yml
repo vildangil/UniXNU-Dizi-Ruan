@@ -40,7 +40,7 @@ jobs:
           python3 - <<'PY'
           import pathlib, tomllib
           w=pathlib.Path(".github/workflows/build.yml").read_text()
-          assert "dizi_IpadOS_maybe" not in w
+          assert ("dizi_" + "IpadOS_maybe") not in w
           assert "github.com/vildangil/Mu-Silicium.git" in w
           assert "github.com/UniXNU/UniXNU.git" in w
           data=tomllib.loads(pathlib.Path("ci/firmware-menu.toml").read_text())

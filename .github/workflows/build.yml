@@ -51,12 +51,19 @@ jobs:
       - name: Install public cross-compilation dependencies
         run: |
           set -euo pipefail
-          sudo apt-get update -qq
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+          echo "::group::Refreshing Ubuntu package lists (max 8 minutes)"
+          timeout 480s sudo apt-get -o Acquire::Retries=2 update
+          echo "::endgroup::"
+          echo "::group::Installing EDK2 cross-build tools (max 15 minutes)"
+          timeout 900s sudo env DEBIAN_FRONTEND=noninteractive apt-get \
+            -o DPkg::Lock::Timeout=180 -o Acquire::Retries=2 \
+            install -y --no-install-recommends \
             clang-18 llvm-18 llvm-18-tools lld-18 nasm mono-devel \
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu uuid-dev \
             python3-venv python3-pip make pkg-config curl git \
             dosfstools mtools
+          echo "::endgroup::"
+          echo "Host cross-build packages installed"
           mkdir -p "$RUNNER_TEMP/llvm-tools"
           for binary in llvm-lib lld-link llvm-objcopy; do
             if command -v "$binary" >/dev/null; then continue; fi

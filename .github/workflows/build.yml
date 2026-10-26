@@ -34,7 +34,7 @@ jobs:
       - name: Preflight public-only dependencies and firmware-only menu
         run: |
           set -euo pipefail
-          python3 -m py_compile ci/integrate_unixnu.py
+          python3 -m py_compile ci/integrate_unixnu.py ci/patch_initrd_fat.py
           python3 - <<'PY'
           import pathlib, tomllib
           w=pathlib.Path(".github/workflows/build.yml").read_text()
@@ -90,6 +90,10 @@ jobs:
           test "$(git -C mu/External/UniXNU rev-parse HEAD)" = "$UNIXNU_SHA"
           python3 ci/integrate_unixnu.py mu --dry-run
           python3 ci/integrate_unixnu.py mu
+          python3 ci/patch_initrd_fat.py mu --dry-run
+          python3 ci/patch_initrd_fat.py mu
+          grep -q 'DIZI_FAT_AFTER_LZ4_V1' mu/External/UniXNU/package/UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.c
+          grep -q 'DIZI_FAT_AFTER_LZ4_V1' mu/External/UniXNU/package/UniXNUPkg/Library/UniXNULib/Config.c
 
       - name: Make safe FAT32 menu (no XNU kernel provided)
         run: |

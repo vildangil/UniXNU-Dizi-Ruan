@@ -32,7 +32,8 @@ def patch(mu: Path, dry_run: bool = False) -> None:
     dev = mu / "Platforms/Xiaomi/diziPkg/DeviceBuild.py"
     dsc = mu / "Platforms/Xiaomi/diziPkg/dizi.dsc"
     fdf = mu / "Platforms/Xiaomi/diziPkg/dizi.fdf"
-    paths = {p: p.read_text() for p in (dev, dsc, fdf)}
+    menu = mu / "External/UniXNU/package/UniXNUPkg/Library/UniXNULib/Menu.c"
+    paths = {p: p.read_text() for p in (dev, dsc, fdf, menu)}
     if any("DIZI_PUBLIC_UNIXNU_V1" in s for s in paths.values()):
         raise ValueError("Already integrated")
 

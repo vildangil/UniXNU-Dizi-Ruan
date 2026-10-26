@@ -1,7 +1,7 @@
-name: Dizi experimental EDK2 (GitHub-hosted)
-# Manual only, on a clean GitHub-provided Ubuntu 24.04 VM.
-# Reuses a pinned legacy UniXNU/EDK2 integration while the native Dizi
-# format-2 XNU profile is deliberately incomplete.
+name: Dizi standalone UEFI + UniXNU (public only)
+
+# No private repositories, GitHub-hosted runners, or prebuilt XNU.
+# Only manually dispatched; never runs on a push.
 on:
   workflow_dispatch:
 
@@ -9,163 +9,127 @@ permissions:
   contents: write
 
 concurrency:
-  group: dizi-github-hosted-firmware
+  group: dizi-public-uefi
   cancel-in-progress: false
 
 env:
+  MU_REPO: https://github.com/vildangil/Mu-Silicium.git
   MU_SHA: 39fbbc20885325044cfeaf8428efb7267e0bbe35
-  MU_URL: https://github.com/vildangil/Mu-Silicium.git
+  UNIXNU_REPO: https://github.com/UniXNU/UniXNU.git
   UNIXNU_SHA: 759eb61b6b8d475de5b3d1b39e1de1f5294e8d9a
-  LEGACY_SHA: 1494b2784119cb826ee8e44f3428e7011c0fd959
-  FAT_SHA256: d04a111a7c73dc16fe1de208a096f4f077fa8abdf1acc52e43d371ff739c75ae
+  CLANGPDB_AARCH64_PREFIX: aarch64-linux-gnu-
   PYTHONUNBUFFERED: "1"
   CI_BUILD: "false"
-  CLANGPDB_AARCH64_PREFIX: aarch64-linux-gnu-
 
 jobs:
-  firmware:
-    name: Pinned Dizi EDK2 test image
+  uefi:
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     defaults:
       run:
         shell: bash
     steps:
-      - name: Checkout device repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Checkout verified legacy integration without copying it into this repository
-        uses: actions/checkout@v4
-        with:
-          repository: vildangil/dizi_IpadOS_maybe
-          ref: 1494b2784119cb826ee8e44f3428e7011c0fd959
-          path: compat
-          persist-credentials: false
-      - name: Install UEFI cross-build dependencies (GitHub-hosted only)
-        shell: bash
+
+      - name: Install public cross-compilation dependencies
         run: |
           set -euo pipefail
           sudo apt-get update -qq
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
-            clang-18 lld-18 llvm-18 llvm-18-tools nasm mono-devel \
-            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
-            uuid-dev python3-venv python3-pip make pkg-config curl git
-          # EDK2 CLANGPDB calls llvm-lib and lld-link without a version suffix.
-          # Ubuntu keeps versioned LLVM binaries in /usr/lib/llvm-18/bin.
-          mkdir -p "$RUNNER_TEMP/dizi-llvm-bin"
-          for binary in llvm-lib lld-link; do
-            if command -v "$binary" >/dev/null; then
-              continue
-            fi
+            clang-18 llvm-18 llvm-18-tools lld-18 nasm mono-devel \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu uuid-dev \
+            python3-venv python3-pip make pkg-config curl git \
+            dosfstools mtools
+          mkdir -p "$RUNNER_TEMP/llvm-tools"
+          for binary in llvm-lib lld-link llvm-objcopy; do
+            if command -v "$binary" >/dev/null; then continue; fi
             candidate=""
-            for path in "/usr/lib/llvm-18/bin/$binary" "/usr/bin/${binary}-18"; do
-              if [ -x "$path" ]; then candidate="$path"; break; fi
+            for p in "/usr/lib/llvm-18/bin/$binary" "/usr/bin/${binary}-18"; do
+              if [ -x "$p" ]; then candidate="$p"; break; fi
             done
-            if [ -z "$candidate" ]; then
-              echo "::error::Ubuntu LLVM did not provide $binary"
-              exit 1
-            fi
-            ln -s "$candidate" "$RUNNER_TEMP/dizi-llvm-bin/$binary"
+            test -n "$candidate" || { echo "::error::$binary not found"; exit 1; }
+            ln -s "$candidate" "$RUNNER_TEMP/llvm-tools/$binary"
           done
-          echo "$RUNNER_TEMP/dizi-llvm-bin" >> "$GITHUB_PATH"
-          df -h "$GITHUB_WORKSPACE"
+          echo "$RUNNER_TEMP/llvm-tools" >> "$GITHUB_PATH"
 
-      - name: Preflight host and immutable source revisions
+      - name: Fetch pinned PUBLIC Mu-Silicium
         run: |
           set -euo pipefail
-          test "$(uname -m)" = x86_64
-          test "$(git -C compat rev-parse HEAD)" = "$LEGACY_SHA"
-          for cmd in git python3 curl sha256sum clang llvm-lib lld-link nasm mono make aarch64-linux-gnu-gcc pkg-config; do
-            command -v "$cmd" >/dev/null || { echo "::error::Install missing tool: $cmd"; exit 1; }
-          done
-          test -f /usr/include/uuid/uuid.h
-          test "$(python3 -c 'import sys;print(sys.version_info >= (3, 11))')" = True
-          echo "Pinned Mu=$MU_SHA UniXNU=$UNIXNU_SHA integration=$LEGACY_SHA"
-      - name: Fetch pinned Mu-Silicium and submodules
-        working-directory: compat
+          git init -q mu
+          git -C mu remote add origin "$MU_REPO"
+          git -C mu fetch --depth 1 origin "$MU_SHA"
+          git -C mu checkout -q FETCH_HEAD
+          test "$(git -C mu rev-parse HEAD)" = "$MU_SHA"
+          git -C mu submodule update --init --recursive --depth 1 --jobs 4
+
+      - name: Fetch pinned PUBLIC UniXNU
         run: |
           set -euo pipefail
-          git init -q mu-dizi
-          git -C mu-dizi fetch --depth 1 "$MU_URL" "$MU_SHA"
-          git -C mu-dizi checkout -q FETCH_HEAD
-          test "$(git -C mu-dizi rev-parse HEAD)" = "$MU_SHA"
-          git -C mu-dizi submodule update --init --recursive --depth 1 --jobs 4
-          python3 -m venv .venv
-          .venv/bin/python -m pip install --disable-pip-version-check -r mu-dizi/pip-requirements.txt
-      - name: Integrate verified PMIC R3 selector and upstream UniXNU
-        working-directory: compat
+          install -d mu/External/UniXNU
+          git -C mu/External/UniXNU init -q
+          git -C mu/External/UniXNU remote add origin "$UNIXNU_REPO"
+          git -C mu/External/UniXNU fetch --depth 1 origin "$UNIXNU_SHA"
+          git -C mu/External/UniXNU checkout -q FETCH_HEAD
+          test "$(git -C mu/External/UniXNU rev-parse HEAD)" = "$UNIXNU_SHA"
+          python3 ci/integrate_unixnu.py mu --dry-run
+          python3 ci/integrate_unixnu.py mu
+
+      - name: Make safe FAT32 menu (no XNU kernel provided)
         run: |
           set -euo pipefail
           mkdir -p dist
-          cp ../package/unixnu.toml config/dizi-unixnu.toml
-          python3 tools/dizi_binary_depex_report.py mu-dizi --json-out dist/REAL_BINARY_DEPEX.json
-          python3 mu-dizi/tools/dizi_buttons_preflight.py --root mu-dizi --require-binary --json-out dist/BUTTONS_PREFLIGHT.json
-          python3 tools/overlay_ksn_dizi.py mu-dizi --report dist/MENU_OVERLAY_REPORT.json
-          install -d mu-dizi/External
-          git clone --quiet --no-checkout https://github.com/UniXNU/UniXNU.git mu-dizi/External/UniXNU
-          git -C mu-dizi/External/UniXNU checkout -q "$UNIXNU_SHA"
-          git -C mu-dizi/External/UniXNU submodule update --init --recursive --depth 1 drivers/DarwinBoot
-          python3 tools/overlay_unixnu_dizi.py mu-dizi \
-            --unixnu-package mu-dizi/External/UniXNU/package \
-            --darwinboot-package mu-dizi/External/UniXNU/drivers/DarwinBoot \
-            --report dist/UNIXNU_OVERLAY.json
-          python3 tools/patch_dizi_native_unixnu.py mu-dizi --report dist/NATIVE_MENU_OVERLAY.json
-          python3 tools/patch_unixnu_pmic.py mu-dizi --report dist/PMIC_UNIXNU_BRIDGE.json
-          python3 tools/patch_dizi_ramdisk_diag.py mu-dizi --report dist/RAMDISK_DXE_DIAGNOSTIC.json
-          python3 tools/patch_dizi_fat_bounds.py mu-dizi --report dist/INITRD_BOUNDED_FAT.json
-          python3 tools/patch_dizi_pmic_deglitch.py mu-dizi --report dist/PMIC_DEGLITCH.json
-          python3 tools/patch_dizi_unixnu_no_rotation.py mu-dizi --report dist/UNIXNU_NO_AUTOROTATE.json
-          python3 tools/patch_dizi_initrd_prefix.py mu-dizi --report dist/INITRD_PREFIX_REPORT.json
-      - name: Fetch pinned historical XNU FAT stage1 and verify hash
-        working-directory: compat
+          truncate -s 64M dist/DIZI-UEFI-menu.fat
+          mkfs.fat -F 32 -n DIZIUEFI dist/DIZI-UEFI-menu.fat
+          mmd -i dist/DIZI-UEFI-menu.fat ::/EFI ::/EFI/UniXNU
+          mcopy -i dist/DIZI-UEFI-menu.fat ci/firmware-menu.toml ::/EFI/UniXNU/unixnu.toml
+          mtype -i dist/DIZI-UEFI-menu.fat ::/EFI/UniXNU/unixnu.toml | grep -q 'UEFI only'
+          cp dist/DIZI-UEFI-menu.fat mu/Resources/ramdisk
+          echo "UEFI ONLY. No XNU/ADT or Android dualboot. NEVER FLASH." > dist/NOT-FLASHABLE.txt
+
+      - name: Compile Mu-Silicium firmware with public UniXNU
         run: |
           set -euo pipefail
-          url="https://github.com/vildangil/dizi_IpadOS_maybe/releases/download/dizi-pmic-r3-unixnu-40325974016/DIZI-UNIXNU-FAT.img"
-          curl --fail --location --retry 3 --connect-timeout 30 --output dist/DIZI-UNIXNU-FAT.img "$url"
-          printf '%s  %s\n' "$FAT_SHA256" dist/DIZI-UNIXNU-FAT.img | sha256sum -c -
-          cp dist/DIZI-UNIXNU-FAT.img mu-dizi/Resources/ramdisk
-      - name: Compile and verify experimental EDK2 image
-        working-directory: compat
+          python3 -m venv mu/.venv
+          mu/.venv/bin/python -m pip install --disable-pip-version-check -r mu/pip-requirements.txt
+          source mu/.venv/bin/activate
+          (cd mu && python3 build_uefi.py -d dizi -r RELEASE -c) 2>&1 | tee dist/build.log
+
+      - name: Verify boot-v4 and collect reproducible binaries
         run: |
           set -euo pipefail
-          python3 tools/stamp_dizi_selector.py mu-dizi \
-            --run-id "$GITHUB_RUN_ID" --source-sha "$GITHUB_SHA" \
-            --manifest dist/BUILD_ID.json
-          source .venv/bin/activate
-          (cd mu-dizi && python3 build_uefi.py -d dizi -r RELEASE -c) 2>&1 | tee mu-dizi-build.log
-          install -m 0644 mu-dizi/Mu-dizi.img dist/Mu-dizi-PMIC-R3-UniXNU-NOT-FLASHABLE.img
-          install -m 0644 mu-dizi/Build/diziPkg/RELEASE_CLANGPDB/FV/SILICIUM_UEFI.fd dist/SILICIUM_UEFI-dizi-PMIC-R3-UniXNU.fd
-          boot=dist/Mu-dizi-PMIC-R3-UniXNU-NOT-FLASHABLE.img
-          fd=dist/SILICIUM_UEFI-dizi-PMIC-R3-UniXNU.fd
-          python3 tools/verify_dizi_fd_boot_pair.py "$boot" "$fd" --report dist/FD_BOOT_MATCH.json
-          python3 tools/verify_ksn_dizi_fv.py "$boot" --report dist/FV_SELECTOR_REPORT.json
-          python3 tools/verify_dizi_unixnu_fv.py "$boot" --report dist/UNIXNU_FV_VERIFICATION.json
-          python3 tools/verify_dizi_boot_v4_fat.py "$boot" dist/DIZI-UNIXNU-FAT.img --report dist/BOOT_V4_FAT_VERIFICATION.json
-          cp dist/MENU_OVERLAY_REPORT.json dist/SELECTOR_OVERLAY.json
-          cp dist/BUTTONS_PREFLIGHT.json dist/DIZI_BUTTONS.json
-          printf '%s\n' "$GITHUB_SHA" > dist/DIZI_SOURCE_SHA.txt
-          printf 'Dizi UniXNU firmware experiment.\nXNU FAT payload included: true\nNot a native XNU kernel boot. Temporary fastboot boot ONLY; NEVER flash.\nLegacy source: %s\n' "$LEGACY_SHA" > dist/README-DO-NOT-FLASH.txt
-          (cd dist && sha256sum Mu-dizi-PMIC-R3-UniXNU-NOT-FLASHABLE.img SILICIUM_UEFI-dizi-PMIC-R3-UniXNU.fd DIZI-UNIXNU-FAT.img > SHA256SUMS.txt)
-      - name: Publish validated images to GitHub Release (no Actions Artifacts)
-        if: success()
-        working-directory: compat
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
+          install -m 0644 mu/Mu-dizi.img dist/Mu-dizi-UNIXNU-PUBLIC-UEFI-NOT-FLASHABLE.img
+          install -m 0644 mu/Build/diziPkg/RELEASE_CLANGPDB/FV/SILICIUM_UEFI.fd dist/SILICIUM_UEFI-dizi-PUBLIC.fd
           python3 - <<'PY'
-          import os
-          import sys
-          from pathlib import Path
-          sys.path.insert(0, "tools")
-          import publish_dizi_unixnu_release as publisher
-          publisher.REPO = "vildangil/UniXNU-Dizi-Ruan"
-          publisher.publish(
-              Path("dist"),
-              os.environ["GITHUB_RUN_ID"],
-              os.environ["GITHUB_SHA"],
-              os.environ["GITHUB_TOKEN"],
-              False,
-          )
+          import pathlib
+          import struct
+          boot=pathlib.Path("dist/Mu-dizi-UNIXNU-PUBLIC-UEFI-NOT-FLASHABLE.img").read_bytes()
+          fat=pathlib.Path("dist/DIZI-UEFI-menu.fat").read_bytes()
+          assert boot[:8]==b"ANDROID!"
+          assert struct.unpack_from("<I",boot,40)[0]==4
+          ksize=struct.unpack_from("<I",boot,8)[0]
+          rsize=struct.unpack_from("<I",boot,12)[0]
+          pos=4096+((ksize+4095)//4096)*4096
+          assert rsize==len(fat), (rsize,len(fat))
+          assert boot[pos:pos+rsize]==fat, "ramdisk differs from menu FAT"
+          assert b"FAT32   " in fat[:512]
+          print("Android boot-v4 image contains the checked standalone FAT32 menu")
           PY
+          (cd dist && sha256sum Mu-dizi-UNIXNU-PUBLIC-UEFI-NOT-FLASHABLE.img SILICIUM_UEFI-dizi-PUBLIC.fd DIZI-UEFI-menu.fat > SHA256SUMS.txt)
+
+      - name: Publish successful public-source test build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="dizi-public-uefi-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          gh release create "$tag" \
+            dist/Mu-dizi-UNIXNU-PUBLIC-UEFI-NOT-FLASHABLE.img \
+            dist/SILICIUM_UEFI-dizi-PUBLIC.fd \
+            dist/DIZI-UEFI-menu.fat \
+            dist/SHA256SUMS.txt \
+            dist/NOT-FLASHABLE.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --prerelease --title "Dizi UEFI + upstream UniXNU (no XNU kernel) #$GITHUB_RUN_ID" \
+            --notes-file dist/NOT-FLASHABLE.txt

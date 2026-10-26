@@ -12,6 +12,14 @@ Experimental [UniXNU](https://github.com/UniXNU/UniXNU) port for Xiaomi Redmi Pa
 
 The checkout was initially derived from `UniXNU-sheng` (SM8550). Its drivers, MMIO values, firmware and iPadOS-specific settings must not be used on SM7435. Cleanup is required before native builds. The previous Dizi experiments and temporary images are in [dizi_IpadOS_maybe](https://github.com/vildangil/dizi_IpadOS_maybe).
 
+## Building EDK2 on GitHub
+
+Open [Actions → Dizi experimental EDK2 (GitHub-hosted)](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/workflows/build.yml), choose **Run workflow**, and select **main**. No self-hosted runner or additional repository secret is required.
+
+The workflow installs the cross-compiler on GitHub's `ubuntu-24.04` runner, uses pinned Mu-Silicium and UniXNU sources, verifies the experimental boot-v4 image and publishes successful results to [Releases](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases). It does not use Actions Artifacts, and it does not run automatically on push.
+
+**This is only an EDK2/UniXNU firmware experiment, not a working native XNU or iPadOS image.** The image must only be tried using an already tested temporary `fastboot boot` path, never flashed to Android partitions.
+
 ## Next milestones
 
 1. Correctly expose a raw FAT32 payload to UniXNU across the LZ4/initrd handoff.

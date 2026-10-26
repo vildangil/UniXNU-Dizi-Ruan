@@ -1,0 +1,8 @@
+/dts-v1/;
+/ {
+    model = "Xiaomi Redmi Pad Pro (dizi)";
+    compatible = "xiaomi,dizi", "qcom,sm7435";
+    #address-cells = <2>;
+    #size-cells = <2>;
+    // No unverified RAM/IRQ/MMIO addresses: not yet usable to boot XNU.
+};

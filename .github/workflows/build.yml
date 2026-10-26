@@ -144,7 +144,28 @@ jobs:
           PY
           (cd dist && sha256sum Mu-dizi-UNIXNU-PUBLIC-UEFI-NOT-FLASHABLE.img SILICIUM_UEFI-dizi-PUBLIC.fd DIZI-UEFI-menu.fat > SHA256SUMS.txt)
 
+      # Artifacts need no repository contents:write permission. Upload first
+      # so a release API 403 cannot discard successfully built images.
+      - name: Upload verified binaries to Actions Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dizi-public-uefi-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 6
+          path: |
+            dist/Mu-dizi-UNIXNU-PUBLIC-UEFI-NOT-FLASHABLE.img
+            dist/SILICIUM_UEFI-dizi-PUBLIC.fd
+            dist/DIZI-UEFI-menu.fat
+            dist/SHA256SUMS.txt
+            dist/NOT-FLASHABLE.txt
+
+      # Release creation needs an effective contents:write token. An org/repo
+      # policy may prevent this even with permissions: contents: write above.
+      # Allow publishing failure, because verified output is already retained.
       - name: Publish successful public-source test build
+        id: publish
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -159,3 +180,23 @@ jobs:
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --prerelease --title "Dizi UEFI + upstream UniXNU (no XNU kernel) #$GITHUB_RUN_ID" \
             --notes-file dist/NOT-FLASHABLE.txt
+
+      - name: Report publication result
+        if: always()
+        env:
+          PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
+        run: |
+          {
+            echo "## Dizi verified boot image"
+            echo "Download the files from **Actions → this workflow run → Artifacts**."
+            echo "Artifact: dizi-public-uefi-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT} (retained 7 days)."
+            if [ "$PUBLISH_OUTCOME" != "success" ]; then
+              echo ""
+              echo "⚠️ Release publishing was unavailable (GitHub token lacks effective Releases write access)."
+              echo "The Actions artifact is the download source; enable Releases write access in"
+              echo "**Settings → Actions → General → Workflow permissions** if permitted."
+            else
+              echo ""
+              echo "Release publishing succeeded."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

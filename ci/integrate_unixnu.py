@@ -69,7 +69,15 @@ def patch(mu: Path, dry_run: bool = False) -> None:
         + "".join(f"  INF {inf}\n" for inf in DSC_INFS),
         "Dizi FVMAIN insert",
     )
-    updated = {dev: devtext, dsc: dsctext, fdf: fdftxt}
+    menutxt = replace_once(
+        paths[menu],
+        "  UniXNUUiDrawFrame (Ui, Config);",
+        "  // Dizi: do not auto-scroll the selection with no physical key.\\n"
+        "  RotateMs = 0;\\n"
+        "  UniXNUUiDrawFrame (Ui, Config);",
+        "no-input rotation guard",
+    )
+    updated = {dev: devtext, dsc: dsctext, fdf: fdftxt, menu: menutxt}
     for path, text in updated.items():
         if not dry_run:
             path.write_text(text)

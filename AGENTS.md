@@ -17,6 +17,7 @@ https://unixnu.com/porting/records.
 - Separate source preflight, successful firmware build, EFI menu boot, FAT
   mount, XNU entry, storage and userland into distinct verified checkpoints.
 - Do not commit generated images, vendor firmware or secrets.
-- Hosted CI is for static checks only. Self-hosted firmware builds are
-  manual, pinned and reversible; no automatic push builds.
+- GitHub-hosted `ubuntu-24.04` is used for both static checks and the
+  pinned experimental EDK2 build. The build runs on manual dispatch only,
+  with no automatic push builds or Actions Artifacts.
 - Do not flash experimental images into Android partitions.

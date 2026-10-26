@@ -49,7 +49,8 @@ jobs:
           assert board["kernel"]["defconfig"] == "dizi_defconfig"
           assert (root / "configs/dizi_defconfig").is_file()
           assert (root / "dts/dizi.dts").is_file()
-          assert "sm8550" not in (root / "feeds.toml").read_text().lower().replace("sm8550-common", "")
+          feeds = load("feeds.toml")
+          assert all("sm8550" not in str(source).lower() for source in feeds.get("source", []))
           assert menu["version"] == 1
           assert any(entry.get("type") == "xnu" for entry in menu["entry"])
           assert any(entry.get("action") == "exit" for entry in menu["entry"])

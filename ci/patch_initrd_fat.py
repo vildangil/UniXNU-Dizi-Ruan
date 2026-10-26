@@ -298,7 +298,7 @@ DiziRamNotice (OUT CHAR8 *Notice, IN UINTN Size)
 #define UNIXNU_ARCH_NAME        "AARCH64"''',
         "UniXNU diagnostic function")
     cfg = once(cfg,
-        '       AsciiStrCpyS (Config->Notice, sizeof (Config->Notice), "no boot entry found");',
+        '      AsciiStrCpyS (Config->Notice, sizeof (Config->Notice), "no boot entry found");',
         '       DiziRamNotice (Config->Notice, sizeof (Config->Notice));',
         "fallback diagnostic")
     if not dry_run:

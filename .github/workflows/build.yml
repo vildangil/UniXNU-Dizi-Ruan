@@ -1,6 +1,7 @@
-name: Dizi experimental EDK2 (self-hosted)
-# Manual only. Uses the pinned, previously successful legacy EDK2 integration,
-# NOT the incomplete native UniXNU board.example profile.
+name: Dizi experimental EDK2 (GitHub-hosted)
+# Manual only, on a clean GitHub-provided Ubuntu 24.04 VM.
+# Reuses a pinned legacy UniXNU/EDK2 integration while the native Dizi
+# format-2 XNU profile is deliberately incomplete.
 on:
   workflow_dispatch:
 
@@ -8,7 +9,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: dizi-selfhost-firmware
+  group: dizi-github-hosted-firmware
   cancel-in-progress: false
 
 env:
@@ -24,7 +25,7 @@ env:
 jobs:
   firmware:
     name: Pinned Dizi EDK2 test image
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ubuntu-24.04
     timeout-minutes: 180
     defaults:
       run:
@@ -41,6 +42,35 @@ jobs:
           ref: 1494b2784119cb826ee8e44f3428e7011c0fd959
           path: compat
           persist-credentials: false
+      - name: Install UEFI cross-build dependencies (GitHub-hosted only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+            clang-18 lld-18 llvm-18 llvm-18-tools nasm mono-devel \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+            uuid-dev python3-venv python3-pip make pkg-config curl git
+          # EDK2 CLANGPDB calls llvm-lib and lld-link without a version suffix.
+          # Ubuntu keeps versioned LLVM binaries in /usr/lib/llvm-18/bin.
+          mkdir -p "$RUNNER_TEMP/dizi-llvm-bin"
+          for binary in llvm-lib lld-link; do
+            if command -v "$binary" >/dev/null; then
+              continue
+            fi
+            candidate=""
+            for path in "/usr/lib/llvm-18/bin/$binary" "/usr/bin/${binary}-18"; do
+              if [ -x "$path" ]; then candidate="$path"; break; fi
+            done
+            if [ -z "$candidate" ]; then
+              echo "::error::Ubuntu LLVM did not provide $binary"
+              exit 1
+            fi
+            ln -s "$candidate" "$RUNNER_TEMP/dizi-llvm-bin/$binary"
+          done
+          echo "$RUNNER_TEMP/dizi-llvm-bin" >> "$GITHUB_PATH"
+          df -h "$GITHUB_WORKSPACE"
+
       - name: Preflight host and immutable source revisions
         run: |
           set -euo pipefail
@@ -117,18 +147,13 @@ jobs:
           printf '%s\n' "$GITHUB_SHA" > dist/DIZI_SOURCE_SHA.txt
           printf 'Dizi UniXNU firmware experiment.\nXNU FAT payload included: true\nNot a native XNU kernel boot. Temporary fastboot boot ONLY; NEVER flash.\nLegacy source: %s\n' "$LEGACY_SHA" > dist/README-DO-NOT-FLASH.txt
           (cd dist && sha256sum Mu-dizi-PMIC-R3-UniXNU-NOT-FLASHABLE.img SILICIUM_UEFI-dizi-PMIC-R3-UniXNU.fd DIZI-UNIXNU-FAT.img > SHA256SUMS.txt)
-      - name: Retain outputs locally and upload to public GitHub pre-release
+      - name: Publish validated images to GitHub Release (no Actions Artifacts)
         if: success()
         working-directory: compat
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          dest="$HOME/dizi-unixnu-artifacts/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-          install -d -m 0700 "$dest"
-          cp -a dist/. "$dest/"
-          cp mu-dizi-build.log "$dest/"
-          export DIZI_RELEASE_DIR="$dest"
           python3 - <<'PY'
           import os
           import sys
@@ -137,11 +162,10 @@ jobs:
           import publish_dizi_unixnu_release as publisher
           publisher.REPO = "vildangil/UniXNU-Dizi-Ruan"
           publisher.publish(
-              Path(os.environ["DIZI_RELEASE_DIR"]),
+              Path("dist"),
               os.environ["GITHUB_RUN_ID"],
               os.environ["GITHUB_SHA"],
               os.environ["GITHUB_TOKEN"],
               False,
           )
           PY
-          echo "Local archived artifacts: $dest" >> "$GITHUB_STEP_SUMMARY"

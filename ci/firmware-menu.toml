@@ -1,0 +1,36 @@
+# Public-source-only Dizi UEFI smoke test.
+# There is no validated XNU kernel or ADT image in this build.
+# Avoid displaying nonfunctional kernel boot choices.
+version = 1
+
+[boot]
+timeout = 15
+fallback_timeout = 15
+rotate = 0
+default = "return"
+connect_all = true
+
+[ui]
+title = "UniXNU / Dizi UEFI only"
+logo = true
+layout = "portrait"
+scale = 0
+console = "auto"
+
+[[entry]]
+id = "return"
+title = "Return to firmware (safe)"
+type = "action"
+action = "exit"
+
+[[entry]]
+id = "restart"
+title = "Restart tablet"
+type = "action"
+action = "reset"
+
+[[entry]]
+id = "shutdown"
+title = "Power off tablet"
+type = "action"
+action = "shutdown"

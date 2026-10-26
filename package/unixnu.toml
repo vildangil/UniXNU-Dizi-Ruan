@@ -1,17 +1,68 @@
+# DIZI (SM7435) UniXNU native GUI, kernel bring-up ONLY.
+# This does not provide bootable iPadOS, Android EFI, a working rootfs,
+# GPU or device drivers. Never use a release as a flash image.
+# The three XNU choices below are TEST PROFILES for the SAME stage1 Mach-O,
+# not three independently ported kernels.
 version = 1
 
 [boot]
-timeout = 3
-default = "preflight"
+timeout = 15
+fallback_timeout = 15
+rotate = 0
+default = "return"
+connect_all = true
+
+[ui]
+title = "UniXNU / Redmi Pad Pro"
+logo = true
+layout = "portrait"
+scale = 0
+console = "auto"
 
 [[entry]]
-id = "preflight"
-title = "sheng boot diagnostics"
-type = "efi"
-path = "Payloads/ShengPreflight.efi"
-
-[[entry]]
-id = "exit"
-title = "Return to firmware"
+id = "return"
+title = "Return to EDK2 (safe default)"
 type = "action"
 action = "exit"
+
+[[entry]]
+id = "xnu-singlecpu"
+title = "XNU stage1 | 1 CPU + verbose"
+type = "xnu"
+path = "Payloads/kernel.macho"
+args = "-v keepsyms=1 debug=0x14e cpus=1"
+confirm = "Test unverified XNU on dizi?"
+
+[[entry]]
+id = "xnu-normal"
+title = "XNU stage1 | normal CPUs"
+type = "xnu"
+path = "Payloads/kernel.macho"
+args = "-v keepsyms=1 debug=0x14e"
+confirm = "Test unverified XNU SMP?"
+
+[[entry]]
+id = "xnu-minimal"
+title = "XNU stage1 | minimal boot args"
+type = "xnu"
+path = "Payloads/kernel.macho"
+args = "-v cpus=1"
+confirm = "Test minimal XNU arguments?"
+
+[[entry]]
+id = "restart"
+title = "Reboot tablet"
+type = "action"
+action = "reset"
+
+[[entry]]
+id = "shutdown"
+title = "Power off tablet"
+type = "action"
+action = "shutdown"
+
+[[entry]]
+id = "tools"
+title = "UniXNU tools"
+type = "action"
+action = "tools"

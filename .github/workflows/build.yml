@@ -33,6 +33,23 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Preflight public-only dependencies and firmware-only menu
+        run: |
+          set -euo pipefail
+          python3 -m py_compile ci/integrate_unixnu.py
+          python3 - <<'PY'
+          import pathlib, tomllib
+          w=pathlib.Path(".github/workflows/build.yml").read_text()
+          assert "dizi_IpadOS_maybe" not in w
+          assert "github.com/vildangil/Mu-Silicium.git" in w
+          assert "github.com/UniXNU/UniXNU.git" in w
+          data=tomllib.loads(pathlib.Path("ci/firmware-menu.toml").read_text())
+          assert data["version"] == 1
+          assert all(entry.get("type") == "action" for entry in data["entry"])
+          assert data["boot"]["default"] == "return"
+          print("No private dependencies and no unverified XNU payload")
+          PY
+
       - name: Install public cross-compilation dependencies
         run: |
           set -euo pipefail

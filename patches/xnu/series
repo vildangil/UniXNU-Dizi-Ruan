@@ -1,4 +1,9 @@
-# Board patch paths, one per line in application order.
-zzyd-sheng-audio-addon-mount.patch
-zzye-sheng-cpu-idle.patch
-zzyf-sheng-amp.patch
+# UniXNU format-2 DIZI board patch series.
+# Add only patches that have been reviewed for Snapdragon SM7435/dizi.
+# Shared ARM64 patches are supplied by UniXNU's arch profile (board.toml).
+#
+# Do NOT activate any sheng/SM8550-specific XNU patches here.
+# The historical sheng-named patch files are retained for provenance but
+# must not be applied to DIZI without an actual per-change port and test.
+#
+# Intentionally empty: a successful EDK2 build is not an XNU kernel port.

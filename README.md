@@ -151,6 +151,35 @@ a verified XNU/EFI-owned memory window, a reviewed on-device ADT/identity,
 appropriate trust/security inputs and the first XNU entry checkpoint.
 Do not remove the fail-closed patch until those are checked.
 
+## FIRST XNU entry on hardware: firmware synchronous exception (2026-10-27)
+
+Dizi owner tested the actual XNU branch image
+[release #40577187959](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-first-entry-40577187959-1)
+on the physical tablet. After confirming `EXECUTE XNU`, DarwinBoot
+printed the prelinked SM7435 ARM64 kernel window parameters
+(`va=0xFFFFFFF00427C000`, `pa=0x80007C000`, `args=0x804188000`,
+kernel physical entry `0x8031F0488`, 256 MiB owned), then
+`DARWINBOOT: inputs validated; exiting boot services`.
+The screen subsequently displayed `Synchronous Exception at
+0x00000000FC368EAC`. **No green DarwinEnter stripe was visible.**
+The exception PC is in low EFI firmware code address space rather than
+the reported kernel entry region, so the leading suspicion is a fault in
+the EFI final debug/GetMemoryMap/ExitBootServices path.
+An ordinary EDK2 exception does NOT prove any XNU instruction executed.
+
+The isolated [EBS boundary color probe](.github/workflows/xnu-ebs-boundary.yml)
+is owner-triggered manually via `/run-dizi-ebs-boundary`. It uses
+the same 51.9 MiB prelinked XNU and ADT but **NEVER invokes DarwinEnter**.
+At the top of the framebuffer it paints a blue band before EFI DEBUG calls,
+cyan after DEBUG calls, yellow after final successful GetMemoryMap / before
+ExitBootServices, magenta if ExitBootServices returned EFI_SUCCESS, red
+for an unexpected ExitBootServices error. If firmware crashes, the last
+visible color can localize the crashing substage. Magenta intentionally
+halts instead of calling XNU, and still requires manual hard reboot because
+EFI boot services were terminated. Never `fastboot flash`.
+
+No SMP/secondary-core inference is supported by this screenshot.
+
 ## FIRST REAL XNU entry test (2026-10-27, UNVERIFIED ON HARDWARE)
 
 The [manual FIRST-ENTRY workflow](.github/workflows/xnu-first-entry.yml)

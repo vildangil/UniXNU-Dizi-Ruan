@@ -2,7 +2,7 @@
 
 Experimental [UniXNU](https://github.com/UniXNU/UniXNU) port for Xiaomi Redmi Pad Pro (`dizi`, Snapdragon SM7435). The `ruan` variant is not separately verified.
 
-**Current stage:** EDK2 and the UniXNU graphical menu start on dizi using temporary `fastboot boot`. The payload is still not mounted: the FDT initrd buffer starts with LZ4 Legacy magic `0x184C2102`. XNU kernel entry, storage, GPU and iPadOS userland are not verified.
+**Current stage (2026-10-27):** EDK2 and the UniXNU graphical menu start on dizi through temporary `fastboot boot`. The device owner confirmed that physical Power and Volume keys respond with the native R4 PMIC/SPMI bridge in build #14. Build #15 removes the PMIC/EFI scan diagnostics from the normal UI without changing its key reader; this clean UI image compiles, but has not yet been tested on the tablet. The standalone image still contains **no XNU kernel or DarwinBoot handoff**. XNU runtime, storage, GPU and iPadOS userland are unverified.
 
 ## Ownership
 
@@ -45,6 +45,14 @@ The firmware workflow is intentionally **not** triggered by `push` or `pull_requ
 The second entrypoint is used so ChatGPT, via the connected GitHub app, can explicitly start a build **after code changes**, without making every push trigger CI. The job guard verifies the issue number, PR status, author and exact comment body. The workflow checks out `main` (the latest commit), not the draft PR's branch. Keep the trigger PR open and do not merge it.
 
 Unrelated comments may create skipped workflow entries, but they cannot start a firmware build. No background workflow monitoring is implied: each launch requires an explicit comment at the time of the task.
+
+## Clean UEFI build and experimental XNU baseline
+
+- **Clean firmware:** [GitHub Actions #15](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40544976346), [Release](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-public-uefi-40544976346-1). Input diagnostics and raw SPMI register values are no longer drawn, while the R4 key sampler remains compiled in. This build has **no XNU kernel**. Only temporary `fastboot boot` is supported; never flash it.
+- **Previous stage1 XNU:** privately built on 2026-10-21 in [run #39539783375](https://github.com/vildangil/dizi_IpadOS_maybe/actions/runs/39539783375). Archive `dizi-xnu-stage1-EXPERIMENTAL-NOT-BOOTABLE` contains `kernel.development.dizi` (ARM64 `MH_EXECUTE`, 17,223,520 bytes), `dizi.adt` (9,904 bytes), and a legacy `SWEETXNU` stage1 payload. They pass format/hash validation, **not** on-device XNU handoff.
+- **New XNU compilation attempt:** manually triggered [XNU stage1 #21](https://github.com/vildangil/dizi_IpadOS_maybe/actions/runs/40544685944) on 2026-10-27; preflight failed before producing fresh kernel artifacts. A separate public CI mirror failed at `actions/checkout` because the older source repository is private. The mirror was removed to avoid depending on inaccessible private code or exposing that code in this public firmware repository.
+
+Building a DIZI kernel is not the same as making an iPadOS-bootable firmware. UniXNU requires DarwinBoot, a valid kernel/ADT payload, verified firmware memory mappings and then an observed XNU entry point. Do not claim `kernel.development.dizi` is bootable without that work.
 
 ## Next milestones
 

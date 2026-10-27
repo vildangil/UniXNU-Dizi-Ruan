@@ -35,6 +35,17 @@ fastboot boot Mu-dizi-UNIXNU-PUBLIC-UEFI-NOT-FLASHABLE.img
 
 Record the full red `DIZI:` status text and test Volume Up, Volume Down and Power in the menu. `no-HOB` means the argument HOB is still absent; `bad-FDT` means it exists but `x0` is not recognized as a valid DTB; `LZ4-no-FAT` means the initrd was found but the bounded FAT32 lookup failed; `FAT-published-noFS` means read-only BlockIo published and further filesystem/device registration checks are needed. Avoid reboot/erase/flash actions in any unfamiliar menu. The build has **no XNU payload** and is not an Android/XNU dualboot image.
 
+## Assistant-triggered builds without push
+
+The firmware workflow is intentionally **not** triggered by `push` or `pull_request`. It supports two explicit entrypoints:
+
+- GitHub Actions → `Run workflow` (standard `workflow_dispatch`);
+- a new comment containing exactly `/run-dizi-uefi` on the dedicated [manual build PR #1](https://github.com/vildangil/UniXNU-Dizi-Ruan/pull/1), authored by repository owner `vildangil`.
+
+The second entrypoint is used so ChatGPT, via the connected GitHub app, can explicitly start a build **after code changes**, without making every push trigger CI. The job guard verifies the issue number, PR status, author and exact comment body. The workflow checks out `main` (the latest commit), not the draft PR's branch. Keep the trigger PR open and do not merge it.
+
+Unrelated comments may create skipped workflow entries, but they cannot start a firmware build. No background workflow monitoring is implied: each launch requires an explicit comment at the time of the task.
+
 ## Next milestones
 
 1. Correctly expose a raw FAT32 payload to UniXNU across the LZ4/initrd handoff.

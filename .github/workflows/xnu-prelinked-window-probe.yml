@@ -272,10 +272,14 @@ jobs:
           mkfs.fat -F 32 -n DIZIPROBE dist/DIZI-XNU-PRELINK-RAM-CHECK.fat
           mmd -i dist/DIZI-XNU-PRELINK-RAM-CHECK.fat ::/EFI ::/EFI/UniXNU ::/EFI/UniXNU/Payloads
           mcopy -i dist/DIZI-XNU-PRELINK-RAM-CHECK.fat ci/xnu-prelinked-window-menu.toml ::/EFI/UniXNU/unixnu.toml
+          echo "FAT: writing verified 51.9 MiB prelinked Mach-O"
           mcopy -i dist/DIZI-XNU-PRELINK-RAM-CHECK.fat xnu-prelinked/kernel.prelinked.dizi-CANDIDATE.macho ::/EFI/UniXNU/Payloads/kernel.macho
+          echo "FAT: Mach-O write finished"
           mcopy -i dist/DIZI-XNU-PRELINK-RAM-CHECK.fat adt-result/kernel.macho.adt ::/EFI/UniXNU/Payloads/kernel.macho.adt
           mtype -i dist/DIZI-XNU-PRELINK-RAM-CHECK.fat ::/EFI/UniXNU/unixnu.toml | grep -q 'NOT bootable'
-          mtype -i dist/DIZI-XNU-PRELINK-RAM-CHECK.fat ::/EFI/UniXNU/unixnu.toml | grep -q 'RAM checkpoint'
+          echo "FAT: menu and prelinked kernel copied; verifying menu labels"
+          mtype -i dist/DIZI-XNU-PRELINK-RAM-CHECK.fat ::/EFI/UniXNU/unixnu.toml | grep -q 'PRELINK RAM check'
+          echo "FAT: menu label verified; checking Mach-O and ADT readback"
           # Verify that the *normalized* relative entry path has a file.
           # A FAT-root /Payloads/ path will produce EFI_NOT_FOUND.
           mdir -i dist/DIZI-XNU-PRELINK-RAM-CHECK.fat ::/EFI/UniXNU/Payloads

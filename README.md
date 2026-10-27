@@ -98,13 +98,34 @@ If successful, the job publishes a **source-only unprelinked ARM64 Mach-O** unde
 
 ## Diagnostic Apple ADT parse experiment (eight CPU topology)
 
+### Loader Not Found: root cause (device photos, 2026-10-27)
+
+The Dizi hardware confirmed the unprelinked XNU and ADT boot-v4 probe
+reaches the UniXNU menu, but pressing the XNU entry returned
+`Not Found` (not `Aborted`). The ADT generator succeeded; **the actual
+problem was the FAT pathname**. The menu lived at
+`EFI/UniXNU/unixnu.toml`, and its entry specified the relative
+`Payloads/kernel.macho`. UniXNU's `Config.c` resolves relative paths
+using `MakePath(UNIXNU_CONFIG_DIR, Path)`; the normalized target was
+`/EFI/UniXNU/Payloads/kernel.macho`. The original probe image incorrectly
+stored it at `/Payloads/kernel.macho`, so DarwinBoot returned EFI_NOT_FOUND
+before reading either kernel or ADT.
+
+The corrected manual test stores both `kernel.macho` and
+`kernel.macho.adt` inside `/EFI/UniXNU/Payloads/`, verifies FAT readback
+byte-for-byte, and uses `ci/xnu-adt-probe-menu.toml` with an accurate
+fail-closed warning. This fixes only file discovery, NOT XNU kernel entry,
+memory ownership, prelink, system/root or SMP. The known-good standalone
+UEFI build and hardware PMIC buttons are untouched.
+
+
 The [manual ADT parser probe](.github/workflows/xnu-adt-parse-probe.yml)
 extends the successful DarwinBoot loader smoke test. A photo of the preceding
 loader probe showed `XNU loader probe ... returned: Not Found`, which is
 consistent with DarwinBoot requiring `Payloads/kernel.macho.adt` next to
 the raw `Payloads/kernel.macho`. The previous probe deliberately omitted it.
 
-The new workflow:
+The current corrected workflow:
 - Clones the pinned upstream UniXNU DT-to-ADT converter and pinned
   [SM7435 SoC profile](https://github.com/vildangil/UniXNU-sm7435-common).
 - Stages a **CI-only** memory node from a previously observed 3 GiB upper

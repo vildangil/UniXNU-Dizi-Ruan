@@ -24,7 +24,7 @@ def main():
     targets={
        "  DEBUG ((DEBUG_ERROR, \"\\fDARWINBOOT: hand-off to the kernel\\n\\n\"));":
         "  DiziStageMarker (Video, 0xFF0077FF); // A BLUE: prior to DEBUG diagnostics\n",
-       "  for (Attempt = 0; Attempt < 3; Attempt++) {":
+       "  for (Attempt = 0; Attempt < 3; Attempt++) {\n    MapSize = Capacity;":
         "  DiziStageMarker (Video, 0xFF00FFFF); // B CYAN: EFI DEBUG code completed\n",
        "    Status = gBS->ExitBootServices (mImage, Key);":
         "    DiziStageMarker (Video, 0xFFFFFF00); // C YELLOW: GetMemoryMap success, entering EBS\n",

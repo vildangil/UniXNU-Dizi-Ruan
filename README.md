@@ -153,6 +153,26 @@ Do not remove the fail-closed patch until those are checked.
 
 ## FIRST XNU entry on hardware: firmware synchronous exception (2026-10-27)
 
+### Follow-up: Yellow-only EBS boundary and DXE Core substage test
+
+The owner ran [EBS boundary probe release #40579965947](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-ebs-boundary-40579965947-1) on hardware.
+The screenshot shows a **YELLOW top bar and Synchronous Exception near
+`0xFC369EAC`**; no MAGENTA. This confirms the final
+`GetMemoryMap` succeeded and the exception happens *during*
+`ExitBootServices` (or immediately within its own call); there is still
+no XNU execution.
+
+A new manual [DxeCore substage workflow](.github/workflows/xnu-dxe-ebs.yml)
+builds the *same* kernel/ADT/UEFI with 8 distinct colored tiles inserted
+inside the pinned `Mu_Basecore/MdeModulePkg/Core/Dxe/DxeMain/DxeMain.c`
+`CoreExitBootServices`: entry, BeforeExitBS notify completion, timer,
+memory map, ExitBS notifications, memory protection, debug timer, CPU
+interrupt disable. The tiles mark stages **before** each following call.
+It preserves the fail-closed loader branch from the prior EBS probe,
+so **no DarwinEnter/XNU execution**. A successful EBS leaves EFI and
+halts; manual hard reboot required. Only temporary `fastboot boot`.
+
+
 Dizi owner tested the actual XNU branch image
 [release #40577187959](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-first-entry-40577187959-1)
 on the physical tablet. After confirming `EXECUTE XNU`, DarwinBoot

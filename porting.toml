@@ -4,7 +4,7 @@ schema_version = 1
 name = "dizi"
 soc = "SM7435"
 os_profile = "unselected"
-summary = "Dizi EDK2/UniXNU + native PMIC buttons and DarwinBoot ADT parse verified on hardware. SM7435 XNU source kernel built (40569002417); pinned iPadOS17 kernelcache prelink candidate generated on Linux (40570765147), but runtime remains explicitly UNQUALIFIED and NOT bootable. The 256MiB UEFI window test and prelinked variant have not been device-tested. No XNU instruction executed, no SMP. Ruan remains unverified."
+summary = "Dizi EDK2/UniXNU and PMIC keys, Mach-O/ADT parsing are hardware-verified. XNU native source run 40569002417 and iPadOS17 prelink 40570765147 succeeded. On-device real-entry test release 40577187959 reached DarwinBoot pre-ExitBootServices print then raised EDK2 Synchronous Exception at 0xFC368EAC, without DarwinEnter green bar. No evidence XNU executed; SMP untested. EBS stage-color diagnostic added, still device-untested. Ruan unverified."
 
 [[area]]
 id = "configuration"

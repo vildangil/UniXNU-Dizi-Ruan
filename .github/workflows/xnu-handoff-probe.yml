@@ -65,6 +65,10 @@ jobs:
           assert "NOT bootable" in data["entry"][1]["title"]
           assert data["entry"][1].get("confirm"), "Experiment must ask before testing"
           assert data["entry"][1]["path"] == "Payloads/kernel.macho"
+          # Config.c MakePath(UNIXNU_CONFIG_DIR, path): the relative
+          # path must be *inside* EFI/UniXNU, not the FAT volume root.
+          assert data["entry"][1]["path"].startswith("Payloads/")
+          print("Resolved: /EFI/UniXNU/" + data["entry"][1]["path"])
           print("Raw XNU file only; ADT and prelink deliberately ABSENT")
           PY
 
@@ -214,17 +218,20 @@ jobs:
           print("SOURCE-ONLY Mach-O checked; no kernelcache or Apple ADT")
           PY
 
-      - name: Package RAW XNU into read-only loader probe FAT32
+      - name: Package kernel at UniXNU config-relative path (FAT32)
         run: |
           set -euo pipefail
           mkdir -p dist
           truncate -s 64M dist/DIZI-XNU-loader-probe.fat
           mkfs.fat -F 32 -n DIZIPROBE dist/DIZI-XNU-loader-probe.fat
-          mmd -i dist/DIZI-XNU-loader-probe.fat ::/EFI ::/EFI/UniXNU ::/Payloads
+          mmd -i dist/DIZI-XNU-loader-probe.fat ::/EFI ::/EFI/UniXNU ::/EFI/UniXNU/Payloads
           mcopy -i dist/DIZI-XNU-loader-probe.fat ci/xnu-loader-probe-menu.toml ::/EFI/UniXNU/unixnu.toml
-          mcopy -i dist/DIZI-XNU-loader-probe.fat xnu-raw/kernel.development.dizi-UNPRELINKED.macho ::/Payloads/kernel.macho
+          mcopy -i dist/DIZI-XNU-loader-probe.fat xnu-raw/kernel.development.dizi-UNPRELINKED.macho ::/EFI/UniXNU/Payloads/kernel.macho
           mtype -i dist/DIZI-XNU-loader-probe.fat ::/EFI/UniXNU/unixnu.toml | grep -q 'NOT bootable'
-          mcopy -i dist/DIZI-XNU-loader-probe.fat -o ::/Payloads/kernel.macho "$RUNNER_TEMP/source-from-fat.macho"
+          # Verify that the *normalized* relative entry path has a file.
+          # A FAT-root /Payloads/ path will produce EFI_NOT_FOUND.
+          mdir -i dist/DIZI-XNU-loader-probe.fat ::/EFI/UniXNU/Payloads
+          mcopy -i dist/DIZI-XNU-loader-probe.fat -o ::/EFI/UniXNU/Payloads/kernel.macho "$RUNNER_TEMP/source-from-fat.macho"
           cmp -s xnu-raw/kernel.development.dizi-UNPRELINKED.macho "$RUNNER_TEMP/source-from-fat.macho"
           cp dist/DIZI-XNU-loader-probe.fat mu/Resources/ramdisk
           cat > dist/NOT-BOOTABLE-XNU.txt <<'EOF'

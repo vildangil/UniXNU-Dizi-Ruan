@@ -4,6 +4,57 @@ Experimental [UniXNU](https://github.com/UniXNU/UniXNU) port for Xiaomi Redmi Pa
 
 **Current stage (2026-10-27):** EDK2 and the UniXNU graphical menu start on dizi through temporary `fastboot boot`. The device owner confirmed that physical Power and Volume keys respond with the native R4 PMIC/SPMI bridge in build #14. Build #15 removes the PMIC/EFI scan diagnostics from the normal UI without changing its key reader; this clean UI image compiles, but has not yet been tested on the tablet. The standalone image still contains **no XNU kernel or DarwinBoot handoff**. XNU runtime, storage, GPU and iPadOS userland are unverified.
 
+## UniXNU upstream build model
+
+This is a **UniXNU device port**, using the same format-2 project layout as
+[UniXNU-sheng](https://github.com/UniXNU/UniXNU-sheng) and
+[the official device template](https://github.com/UniXNU/UniXNU/tree/main/examples/device).
+It is not a fork of the entire `UniXNU/UniXNU` framework and should not
+vendor upstream build scripts as an alternative build system.
+
+UniXNU builds its own **patched variant of Apple's open-source XNU**
+through the upstream `./unixnu` tool, source feeds, architecture/OS/board
+patch series, component archives and prelink stages. There is no separate
+fully independent UniXNU kernel implementation. The experimental DIZI
+XNU stage1 kernel built earlier from `ios-sweet` is a distinct historical
+experiment, not the official upstream UniXNU build pipeline.
+
+| Location | Responsibility |
+| --- | --- |
+| `board.toml` | SM7435/dizi identity, component selection, firmware and kernel build profile |
+| `configs/dizi_defconfig` | DIZI-specific kernel options |
+| `feeds.toml` | Reviewed and pinned additional SoC/driver sources (none accepted yet) |
+| `dts/dizi.dts`, `data/` | Board tree and independently observed hardware facts |
+| `patches/xnu/series` | **Only DIZI-reviewed XNU board patches**; currently empty |
+| `package/unixnu.toml`, `package/` | Device boot menu and device-specific payload hooks |
+| `porting.toml` | Port progress, hardware evidence and open blockers |
+| `ci/`, `.github/workflows/build.yml` | Existing standalone Mu-Silicium UEFI smoke build; manual CI |
+
+**Source provenance:** the repository retains historical sheng-derived files
+under `scripts/`, `package/` and `patches/xnu/`. Their presence does not
+make them validated SM7435 modules. The three sheng-named XNU patches
+have been removed from the *active* DIZI patch series; source files have
+not been deleted to preserve historical work.
+
+**XNU build gate:** `board.example = true` remains set deliberately.
+Selecting an unreviewed sheng/SM8550 SoC feed or iPadOS kernelcache just
+to make a native build appear successful would produce the wrong target.
+After a pinned SM7435 SoC module, compatible OS profile, ADT,
+kernelcache/prelink inputs and platform driver setup have been reviewed,
+the native build should use the upstream commands from an external
+`UniXNU` checkout:
+
+```sh
+./unixnu defconfig dizi_defconfig -D ../UniXNU-Dizi-Ruan
+./unixnu status --json -D ../UniXNU-Dizi-Ruan
+./unixnu fetch -D ../UniXNU-Dizi-Ruan
+./unixnu build kernel -D ../UniXNU-Dizi-Ruan
+```
+
+These are **target commands for the completed device profile**, not
+commands that are currently expected to build a bootable DIZI kernel.
+The existing standalone EDK2 workflow is separate and unchanged.
+
 ## Ownership
 
 - **Device repository (this repo):** `board.toml`, defconfig, DTS, device evidence, eventual device drivers and boot profile.

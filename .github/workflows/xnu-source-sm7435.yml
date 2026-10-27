@@ -67,12 +67,30 @@ jobs:
           assert "os_profile" not in tomllib.loads(source)["board"]
           source = source.replace('example = true',
                                   'example = false\nos_profile = "ipados-17.7.11-21H461"', 1)
+          # Include the OS-owned XnuPrelink patches. Previous source-only
+          # build omitted this series, producing a Mach-O without
+          # _kalloc_sparse_prelink_index_version / security_init_version.
+          expected_config = 'config_fragments = ["arch:configs/common.config", "soc:configs/sm7435.config"]'
+          expected_series = 'patch_series = ["arch:patches/xnu/series", "soc:patches/xnu/series", "device:patches/xnu/series"]'
+          assert source.count(expected_config) == 1
+          assert source.count(expected_series) == 1
+          source = source.replace(
+              expected_config,
+              'config_fragments = ["arch:configs/common.config", "soc:configs/sm7435.config", "os:configs/ipados.config"]',
+              1
+          ).replace(
+              expected_series,
+              'patch_series = ["arch:patches/xnu/series", "soc:patches/xnu/series", "os:patches/xnu/series", "device:patches/xnu/series"]',
+              1
+          )
           p.write_text(source)
           board = tomllib.loads(p.read_text())
           assert board["board"]["soc"] == "SM7435"
           assert board["board"]["example"] is False
           assert board["payload"]["kernel_args"] == ["-v", "cpus=1"]
           assert board["kernel"]["patch_series"].count("soc:patches/xnu/series") == 1
+          assert board["kernel"]["patch_series"].count("os:patches/xnu/series") == 1
+          assert board["kernel"]["config_fragments"][-1] == "os:configs/ipados.config"
           print("CI-ONLY staged profile: SM7435, iPadOS 17 source ABI candidate, cpus=1")
           print("Production device board.toml was not edited.")
           PY
@@ -86,6 +104,11 @@ jobs:
           assert data["board"]["board"]["os_profile"] == "ipados-17.7.11-21H461"
           order = "\n".join(data["patch_order"])
           assert "sm7435-smp-secondary.patch" in order
+          assert "xnu-10063.141.1-sparse-index.patch" in order
+          assert "xnu-10063.141.1-security-init.patch" in order
+          assert "zzz-boot-progress.patch" in order
+          assert len(data["patch_order"]) >= 50
+          print("PRELINK ABI PATCHES SELECTED:", [x for x in data["patch_order"] if "xnu-10063.141.1" in x])
           assert "sheng-platform-power.patch" not in order
           assert "native-smp-secondary.patch" not in order
           print("Resolved correct SoC patch and ABI candidate; no SM8550 power patch")

@@ -162,6 +162,8 @@ The screenshot shows a **YELLOW top bar and Synchronous Exception near
 `ExitBootServices` (or immediately within its own call); there is still
 no XNU execution.
 
+[**DXE Core stage probe Release #40582370738**](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-dxe-ebs-40582370738-1) was built successfully (boot-v4 image `Mu-dizi-XNU-DXE-EBS-NO-XNU.img`, 68,800,512 bytes), but **has not yet been tested on hardware**. Temporary `fastboot boot` only, never flash. Its 8 DXE color tiles are distinct from the full-width yellow loader marker.
+
 A new manual [DxeCore substage workflow](.github/workflows/xnu-dxe-ebs.yml)
 builds the *same* kernel/ADT/UEFI with 8 distinct colored tiles inserted
 inside the pinned `Mu_Basecore/MdeModulePkg/Core/Dxe/DxeMain/DxeMain.c`

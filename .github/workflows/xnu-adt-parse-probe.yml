@@ -62,18 +62,21 @@ jobs:
           assert ("dizi_" + "IpadOS_maybe") not in w
           assert "github.com/vildangil/Mu-Silicium.git" in w
           assert "github.com/UniXNU/UniXNU.git" in w
-          data=tomllib.loads(pathlib.Path("ci/xnu-loader-probe-menu.toml").read_text())
+          data=tomllib.loads(pathlib.Path("ci/xnu-adt-probe-menu.toml").read_text())
           assert data["version"] == 1
           assert data["boot"]["default"] == "return"
           assert [e.get("type") for e in data["entry"]].count("xnu") == 1
           assert "NOT bootable" in data["entry"][1]["title"]
           assert data["entry"][1].get("confirm"), "Experiment must ask before testing"
+          assert "execution is blocked" in data["entry"][1]["confirm"]
+          assert data["entry"][1]["type"] == "xnu"
           assert data["entry"][1]["path"] == "Payloads/kernel.macho"
           # Config.c MakePath(UNIXNU_CONFIG_DIR, path): the relative
           # path must be *inside* EFI/UniXNU, not the FAT volume root.
           assert data["entry"][1]["path"].startswith("Payloads/")
           print("Resolved: /EFI/UniXNU/" + data["entry"][1]["path"])
           print("XNU raw source + generated reference ADT; PRELINK ABSENT and DarwinBoot FAIL CLOSED")
+          print("CONFIG RELATIVE FAT PATH: EFI/UniXNU/" + data["entry"][1]["path"])
           PY
 
       - name: Install public cross-compilation dependencies
@@ -266,10 +269,11 @@ jobs:
           truncate -s 64M dist/DIZI-XNU-ADT-parse-probe.fat
           mkfs.fat -F 32 -n DIZIPROBE dist/DIZI-XNU-ADT-parse-probe.fat
           mmd -i dist/DIZI-XNU-ADT-parse-probe.fat ::/EFI ::/EFI/UniXNU ::/EFI/UniXNU/Payloads
-          mcopy -i dist/DIZI-XNU-ADT-parse-probe.fat ci/xnu-loader-probe-menu.toml ::/EFI/UniXNU/unixnu.toml
+          mcopy -i dist/DIZI-XNU-ADT-parse-probe.fat ci/xnu-adt-probe-menu.toml ::/EFI/UniXNU/unixnu.toml
           mcopy -i dist/DIZI-XNU-ADT-parse-probe.fat xnu-raw/kernel.development.dizi-UNPRELINKED.macho ::/EFI/UniXNU/Payloads/kernel.macho
           mcopy -i dist/DIZI-XNU-ADT-parse-probe.fat adt-result/kernel.macho.adt ::/EFI/UniXNU/Payloads/kernel.macho.adt
           mtype -i dist/DIZI-XNU-ADT-parse-probe.fat ::/EFI/UniXNU/unixnu.toml | grep -q 'NOT bootable'
+          mtype -i dist/DIZI-XNU-ADT-parse-probe.fat ::/EFI/UniXNU/unixnu.toml | grep -q 'ADT parse probe'
           # Verify that the *normalized* relative entry path has a file.
           # A FAT-root /Payloads/ path will produce EFI_NOT_FOUND.
           mdir -i dist/DIZI-XNU-ADT-parse-probe.fat ::/EFI/UniXNU/Payloads
@@ -281,6 +285,8 @@ jobs:
           cp dist/DIZI-XNU-ADT-parse-probe.fat mu/Resources/ramdisk
           cat > dist/NOT-BOOTABLE-XNU.txt <<'EOF'
           DIZI experimental ADT parse check: NOT a bootable XNU kernel.
+          FAT layout: /EFI/UniXNU/Payloads/kernel.macho and kernel.macho.adt,
+          because UniXNU resolves entry.path relative to /EFI/UniXNU.
           Android boot-v4 image enters EDK2/UniXNU with physical PMIC keys.
           FAT contains ARM64 UNPRELINKED source Mach-O plus a diagnostic Apple ADT.
           ADT includes 8 SM7435 CPUs/GICv3/PSCI and an observed 3 GiB RAM bank.

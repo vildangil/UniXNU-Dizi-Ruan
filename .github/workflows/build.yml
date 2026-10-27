@@ -147,7 +147,10 @@ jobs:
           grep -q 'gEfiSimpleTextInputExProtocolGuid' "$libinf"
           grep -q 'DIZI_R4_PMIC_BRIDGE_V1' "$menu"
           grep -q 'DiziPollR4PmicKey (&Key)' "$menu"
-          grep -q 'DiziR4DrawStatus (Ui)' "$menu"
+          if grep -q 'DiziR4DrawStatus\|DiziShowInputStatus' "$menu"; then
+            echo '::error::PMIC or EFI input diagnostics must not appear in normal menu'
+            exit 1
+          fi
           grep -q 'Dizi/DiziPmicKeys.c' "$libinf"
           grep -q 'Dizi/DiziSpmiArbRead.c' "$libinf"
           grep -q '^  IoLib$' "$libinf"
@@ -172,8 +175,8 @@ jobs:
           {
             echo 'DIZI standalone UEFI-only test image'
             echo 'SEC: DIZI_ENTRY_ARG_HOB_V1 (ABL x0 -> GUID HOB)'
-            echo 'Menu: DIZI_EFI_BUTTON_POLL_V2 (100ms timer, EFI TextIn + TextInEx + scan diagnostic)'
-            echo 'PMIC: DIZI_R4_PMIC_BRIDGE_V1 (Mu R4 71b8dedd, SPMI observer read command)'
+            echo 'Menu: DIZI_EFI_BUTTON_POLL_V2 (100ms timer, EFI TextIn + TextInEx; diagnostics hidden)'
+            echo 'PMIC: DIZI_R4_PMIC_BRIDGE_V1 (Mu R4 71b8dedd; hardware buttons preserved, overlay hidden)'
             echo 'Initrd: DIZI_FAT_AFTER_LZ4_V1 (bounded FAT32 lookup)'
             echo 'Hardware validation: PENDING'
             echo 'Not for flashing; use temporary fastboot boot only.'

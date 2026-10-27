@@ -96,6 +96,38 @@ The workflow pins the upstream UniXNU source and the `sm7435` SoC fork. Its CI-o
 
 If successful, the job publishes a **source-only unprelinked ARM64 Mach-O** under `xnu-dizi-sm7435-UNPRELINKED-<runid>` plus `BUILD-RESULT.json` with SHA-256 and file size. This cannot be booted by itself and is not an Android/Apple dualboot image. Errors produce redacted text logs in a separate artifact, including the first source/patch/compiler failure. The pinned SM7435 SMP patch is a source-level adaptation, not hardware verification.
 
+## Experimental boot-v4 loader probe
+
+The separate [XNU loader-probe workflow](.github/workflows/xnu-handoff-probe.yml)
+is manual-only (`/run-dizi-loader-probe` from the owner on
+[control PR #1](https://github.com/vildangil/UniXNU-Dizi-Ruan/pull/1),
+or `workflow_dispatch`). It starts with the source-compiled
+`kernel.development.dizi-UNPRELINKED.macho` verified from
+[XNU source run #1](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40552223877),
+and rebuilds the known dizi Mu-Silicium UEFI with an **additional pinned
+DarwinBoot UEFI driver**. The hardware PMIC R4 and EFI input fixes remain in
+place. This new firmware is separate from the confirmed UEFI-only release.
+
+The loader probe copies the raw Mach-O to `Payloads/kernel.macho` inside
+a 64 MiB FAT32 ramdisk and packs it in an Android boot-v4
+`Mu-dizi-XNU-LOADER-PROBE-NO-PRELINK.img`. It uses the *same* 64 MiB
+ramdisk size and temporary `fastboot boot` mechanism as the UEFI-only
+test. The source artifact is checked against its JSON SHA-256 before use;
+a mtools readback confirms the FAT copy is byte-identical to that source.
+
+**This is a loader-protocol / payload-discovery probe, not a bootable
+XNU or iPadOS release**: there is no qualified prelinked kernel,
+`kernel.macho.adt`, trust cache, root filesystem or DarwinBoot-to-XNU
+execution checkpoint. The new firmware must not be flashed. The probe's
+XNU menu choice is opt-in and is expected to return a loader error.
+Do not equate an Android boot-v4 container with a working Darwin boot
+handoff. At any failure, revert to the previous UEFI-only image.
+
+See [manual loader probe runs](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/workflows/xnu-handoff-probe.yml)
+and [Releases](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases) for
+actual generated files; release availability is not guaranteed until CI
+finishes and the GitHub Release API succeeds.
+
 ## Building EDK2 on GitHub
 
 Open [Actions → Dizi standalone UEFI + UniXNU (public only)](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/workflows/build.yml), choose **Run workflow**, and select **main**. No self-hosted runner or additional repository secret is required.

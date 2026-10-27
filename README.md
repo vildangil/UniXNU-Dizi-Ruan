@@ -88,6 +88,14 @@ the tested R4 PMIC buttons remain in the separate firmware workflow.
 
 The checkout was initially derived from `UniXNU-sheng` (SM8550). Its drivers, MMIO values, firmware and iPadOS-specific settings must not be used on SM7435. Native XNU builds remain blocked pending device-specific verification.
 
+## Experimental patched XNU source build (public macOS runner)
+
+[Manual XNU workflow](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/workflows/xnu-source-sm7435.yml) compiles the **real upstream UniXNU-patched XNU source**, not the legacy ios-sweet stage1 shim and not EDK2. Trigger **Run workflow** or post exactly `/run-dizi-xnu` as repository owner on [the build-control PR #1](https://github.com/vildangil/UniXNU-Dizi-Ruan/pull/1). It has **no push trigger**.
+
+The workflow pins the upstream UniXNU source and the `sm7435` SoC fork. Its CI-only copy of the board selects the upstream iPadOS 17.7.11 source ABI for compile testing and temporarily disables the `example` guard. **The committed device manifest remains an unverified example**, with `cpus=1`; this test does not assert compatibility with a device kernelcache. It uses the upstream `kernel.build` function but **does not call `kernel.prelink`** because a reviewed dizi iPadOS kernelcache is not available.
+
+If successful, the job publishes a **source-only unprelinked ARM64 Mach-O** under `xnu-dizi-sm7435-UNPRELINKED-<runid>` plus `BUILD-RESULT.json` with SHA-256 and file size. This cannot be booted by itself and is not an Android/Apple dualboot image. Errors produce redacted text logs in a separate artifact, including the first source/patch/compiler failure. The pinned SM7435 SMP patch is a source-level adaptation, not hardware verification.
+
 ## Building EDK2 on GitHub
 
 Open [Actions → Dizi standalone UEFI + UniXNU (public only)](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/workflows/build.yml), choose **Run workflow**, and select **main**. No self-hosted runner or additional repository secret is required.

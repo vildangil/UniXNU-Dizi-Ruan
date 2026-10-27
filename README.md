@@ -151,6 +151,38 @@ a verified XNU/EFI-owned memory window, a reviewed on-device ADT/identity,
 appropriate trust/security inputs and the first XNU entry checkpoint.
 Do not remove the fail-closed patch until those are checked.
 
+## FIRST REAL XNU entry test (2026-10-27, UNVERIFIED ON HARDWARE)
+
+The [manual FIRST-ENTRY workflow](.github/workflows/xnu-first-entry.yml)
+rebuilds the pinned, confirmed EDK2/UniXNU/DarwinBoot stack with the freshly
+prelinked SM7435 + iPadOS 17.7.11 kernel candidate and reference Apple ADT.
+It makes a *separate* Android boot-v4 `Mu-dizi-XNU-FIRST-ENTRY-EXPERIMENTAL.img`
+rather than changing the known-good firmware. [Successful CI run #40577187959](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40577187959),
+[release](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-first-entry-40577187959-1).
+
+Unlike the RAM and ADT probes, this image explicitly retains the original
+DarwinBoot `ExitBootServices` and `DarwinEnter` calls, which copy kernel
+segments and Apple Darwin23 `boot_args`, disable the EL1 MMU, then branch
+to the physical XNU entry. Menu default is still the safe Return option.
+The high-risk XNU menu action has a required Power confirmation, never
+autoboots, and forces `cpus=1`.
+
+**Danger:** XNU's memory ABI is NOT runtime-qualified, the reference ADT's
+DRAM ownership is NOT validated, there is no mounted Apple OS/root/trust cache
+or tested Qualcomm SMP. The image may hang, reboot, or black-screen after
+`ExitBootServices` and can no longer return to UEFI. After choosing it,
+a green bar at the top of the screen indicates the **loader reached the
+DarwinEnter stage**, not that XNU's first instruction executed. The last
+UEFI diagnostic warns that ExitBootServices is imminent. A visible XNU
+log/panic after that point would be stronger evidence of real kernel code.
+
+**Use only reversible `fastboot boot`, never `fastboot flash`.** Test only
+with stable USB connection and a known hard-reboot/fastboot recovery route.
+The existing UEFI and RAM-check releases remain available as fallbacks.
+Before attempting the 8-core `sm7435-common` SMP/PSCI runtime changes,
+obtain a reliable XNU entry or panic checkpoint and an EFI/ADT ownership
+assessment.
+
 ## Prelinked XNU memory-check workflow (still NO kernel entry)
 
 The host-side [XNU prelink workflow](.github/workflows/xnu-prelink-sm7435-linux.yml)

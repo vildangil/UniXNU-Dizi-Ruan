@@ -20,7 +20,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 150
     env:
-      XNU_SOURCE_RUN: '40568497282'
+      XNU_SOURCE_RUN: '40569002417'
     defaults:
       run:
         shell: bash

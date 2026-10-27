@@ -1,0 +1,166 @@
+name: Dizi SM7435 XNU source compile (manual)
+on:
+  workflow_dispatch:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dizi-sm7435-xnu-source
+  cancel-in-progress: false
+
+jobs:
+  xnu-source:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.number == 1 &&
+       github.event.issue.pull_request != null &&
+       github.event.comment.user.login == 'vildangil' &&
+       github.event.comment.body == '/run-dizi-xnu')
+    runs-on: macos-26
+    timeout-minutes: 240
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+      HOMEBREW_NO_ENV_HINTS: "1"
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out Dizi device port (no push trigger)
+        uses: actions/checkout@v4
+        with:
+          path: device
+          persist-credentials: false
+
+      - name: Check out pinned official UniXNU
+        uses: actions/checkout@v4
+        with:
+          repository: UniXNU/UniXNU
+          ref: 0fc0fc1f9ddd0fbd4787738afef38667df5e0a95
+          path: unixnu
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Prepare isolated experimental ABI profile
+        run: |
+          set -euo pipefail
+          test -d "$DEVELOPER_DIR"
+          test -f device/ci/build_xnu_source_only.py
+          test -f device/configs/dizi_defconfig
+          mkdir -p "$RUNNER_TEMP/dizi-ci-stage"
+          cp -R device/. "$RUNNER_TEMP/dizi-ci-stage/"
+          python3 - <<'PY'
+          from pathlib import Path
+          import tomllib
+          p = Path(__import__("os").environ["RUNNER_TEMP"]) / "dizi-ci-stage/board.toml"
+          source = p.read_text()
+          assert source.count('example = true') == 1
+          assert source.count('soc_source = "sm7435"') == 1
+          assert "os_profile" not in tomllib.loads(source)["board"]
+          source = source.replace('example = true',
+                                  'example = false\nos_profile = "ipados-17.7.11-21H461"', 1)
+          p.write_text(source)
+          board = tomllib.loads(p.read_text())
+          assert board["board"]["soc"] == "SM7435"
+          assert board["board"]["example"] is False
+          assert board["payload"]["kernel_args"] == ["-v", "cpus=1"]
+          assert board["kernel"]["patch_series"].count("soc:patches/xnu/series") == 1
+          print("CI-ONLY staged profile: SM7435, iPadOS 17 source ABI candidate, cpus=1")
+          print("Production device board.toml was not edited.")
+          PY
+          cd unixnu
+          ./unixnu defconfig dizi_defconfig -D "$RUNNER_TEMP/dizi-ci-stage"
+          ./unixnu status --json -D "$RUNNER_TEMP/dizi-ci-stage" > "$RUNNER_TEMP/dizi-xnu-status.json"
+          python3 - <<'PY'
+          import json, os
+          data = json.load(open(os.environ["RUNNER_TEMP"] + "/dizi-xnu-status.json"))
+          assert data["board"]["board"]["soc_source"] == "sm7435"
+          assert data["board"]["board"]["os_profile"] == "ipados-17.7.11-21H461"
+          order = "\n".join(data["patch_order"])
+          assert "sm7435-smp-secondary.patch" in order
+          assert "sheng-platform-power.patch" not in order
+          assert "native-smp-secondary.patch" not in order
+          print("Resolved correct SoC patch and ABI candidate; no SM8550 power patch")
+          PY
+
+      - name: Install XNU host build tools
+        run: |
+          set -euo pipefail
+          brew install llvm lld mtools dtc
+          if ! command -v unifdef >/dev/null; then
+            brew install unifdef
+            echo "$(brew --prefix unifdef)/bin" >> "$GITHUB_PATH"
+          fi
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Compile patched XNU (stop before proprietary prelink)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cd unixnu
+          python3 "$GITHUB_WORKSPACE/device/ci/build_xnu_source_only.py" \
+            --device "$RUNNER_TEMP/dizi-ci-stage" \
+            --output "$GITHUB_WORKSPACE/xnu-result" --jobs 4
+
+      - name: Upload compiled public-source kernel when successful
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xnu-dizi-sm7435-UNPRELINKED-${{ github.run_id }}
+          path: xnu-result/
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Collect redacted build logs
+        if: always()
+        env:
+          TOKEN_TO_REDACT: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          root = Path(os.environ["GITHUB_WORKSPACE"])
+          out = root / "xnu-text-logs"
+          out.mkdir(exist_ok=True)
+          status = Path(os.environ["RUNNER_TEMP"]) / "dizi-xnu-status.json"
+          if status.is_file():
+              (out / "profile-status.json").write_bytes(status.read_bytes())
+          token = os.environ.get("TOKEN_TO_REDACT", "")
+          count = 0
+          for file in (root / "unixnu" / "out").glob("**/logs/*.log"):
+              if count >= 50: break
+              content = file.read_text(errors="replace")[-180000:]
+              if token: content = content.replace(token, "***")
+              (out / (str(count).zfill(2) + "-" + file.name)).write_text(content)
+              count += 1
+          print(f"Captured {count} text logs; no IPSW, kernelcache or firmware")
+          PY
+
+      - name: Upload logs on failure and success
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xnu-dizi-sm7435-build-logs-${{ github.run_id }}
+          path: xnu-text-logs/
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Summarize source-build boundary
+        if: always()
+        run: |
+          {
+            echo '## Dizi XNU: native ARM64 source build'
+            echo 'Uses upstream UniXNU with pinned SM7435 SoC, public-source candidate iPadOS 17 ABI.'
+            echo 'Does not include an iPadOS kernelcache, Apple ADT, DarwinBoot handoff or XNU boot image.'
+            echo 'A successful raw kernel build is NOT device boot verification; runtime stays cpus=1.'
+          } >> "$GITHUB_STEP_SUMMARY"

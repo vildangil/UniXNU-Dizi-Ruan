@@ -69,7 +69,7 @@ def main():
     text = file.read_text()
     if MARK in text:
         raise RuntimeError("DXE core instrumented twice")
-    boundary = "CoreExitBootServices (\n  IN EFI_HANDLE  ImageHandle,"
+    boundary = "EFI_STATUS\nEFIAPI\nCoreExitBootServices (\n  IN EFI_HANDLE  ImageHandle,"
     if text.count(boundary) != 1:
         raise RuntimeError("Pinned DXE Core ExitBootServices function changed")
     before, body = text.split(boundary, 1)

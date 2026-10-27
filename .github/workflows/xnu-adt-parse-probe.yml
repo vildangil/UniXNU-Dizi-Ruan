@@ -69,6 +69,10 @@ jobs:
           assert "NOT bootable" in data["entry"][1]["title"]
           assert data["entry"][1].get("confirm"), "Experiment must ask before testing"
           assert data["entry"][1]["path"] == "Payloads/kernel.macho"
+          # Config.c MakePath(UNIXNU_CONFIG_DIR, path): the relative
+          # path must be *inside* EFI/UniXNU, not the FAT volume root.
+          assert data["entry"][1]["path"].startswith("Payloads/")
+          print("Resolved: /EFI/UniXNU/" + data["entry"][1]["path"])
           print("XNU raw source + generated reference ADT; PRELINK ABSENT and DarwinBoot FAIL CLOSED")
           PY
 
@@ -255,20 +259,23 @@ jobs:
           print('8 CPU ADT generated, XNU execution explicitly BLOCKED')
           PY
 
-      - name: Package RAW XNU into read-only loader probe FAT32
+      - name: Package kernel at UniXNU config-relative path (FAT32)
         run: |
           set -euo pipefail
           mkdir -p dist
           truncate -s 64M dist/DIZI-XNU-ADT-parse-probe.fat
           mkfs.fat -F 32 -n DIZIPROBE dist/DIZI-XNU-ADT-parse-probe.fat
-          mmd -i dist/DIZI-XNU-ADT-parse-probe.fat ::/EFI ::/EFI/UniXNU ::/Payloads
+          mmd -i dist/DIZI-XNU-ADT-parse-probe.fat ::/EFI ::/EFI/UniXNU ::/EFI/UniXNU/Payloads
           mcopy -i dist/DIZI-XNU-ADT-parse-probe.fat ci/xnu-loader-probe-menu.toml ::/EFI/UniXNU/unixnu.toml
-          mcopy -i dist/DIZI-XNU-ADT-parse-probe.fat xnu-raw/kernel.development.dizi-UNPRELINKED.macho ::/Payloads/kernel.macho
-          mcopy -i dist/DIZI-XNU-ADT-parse-probe.fat adt-result/kernel.macho.adt ::/Payloads/kernel.macho.adt
+          mcopy -i dist/DIZI-XNU-ADT-parse-probe.fat xnu-raw/kernel.development.dizi-UNPRELINKED.macho ::/EFI/UniXNU/Payloads/kernel.macho
+          mcopy -i dist/DIZI-XNU-ADT-parse-probe.fat adt-result/kernel.macho.adt ::/EFI/UniXNU/Payloads/kernel.macho.adt
           mtype -i dist/DIZI-XNU-ADT-parse-probe.fat ::/EFI/UniXNU/unixnu.toml | grep -q 'NOT bootable'
-          mcopy -i dist/DIZI-XNU-ADT-parse-probe.fat -o ::/Payloads/kernel.macho "$RUNNER_TEMP/source-from-fat.macho"
+          # Verify that the *normalized* relative entry path has a file.
+          # A FAT-root /Payloads/ path will produce EFI_NOT_FOUND.
+          mdir -i dist/DIZI-XNU-ADT-parse-probe.fat ::/EFI/UniXNU/Payloads
+          mcopy -i dist/DIZI-XNU-ADT-parse-probe.fat -o ::/EFI/UniXNU/Payloads/kernel.macho "$RUNNER_TEMP/source-from-fat.macho"
           cmp -s xnu-raw/kernel.development.dizi-UNPRELINKED.macho "$RUNNER_TEMP/source-from-fat.macho"
-          mcopy -i dist/DIZI-XNU-ADT-parse-probe.fat -o ::/Payloads/kernel.macho.adt "$RUNNER_TEMP/adt-from-fat.adt"
+          mcopy -i dist/DIZI-XNU-ADT-parse-probe.fat -o ::/EFI/UniXNU/Payloads/kernel.macho.adt "$RUNNER_TEMP/adt-from-fat.adt"
           cmp -s adt-result/kernel.macho.adt "$RUNNER_TEMP/adt-from-fat.adt"
           cp adt-result/ADT-REFERENCE-RESULT.json dist/ADT-REFERENCE-RESULT.json
           cp dist/DIZI-XNU-ADT-parse-probe.fat mu/Resources/ramdisk
@@ -289,7 +296,7 @@ jobs:
             echo 'Input: DIZI_R4_PMIC_BRIDGE_V1 and DIZI_EFI_BUTTON_POLL_V2'
             echo "DarwinBoot commit: $DARWINBOOT_SHA"
             echo "XNU raw source artifact: $XNU_SOURCE_RUN"
-            echo 'No prelink; diagnostic ADT parsed, fail-closed before XNU execution'
+            echo 'Dizi kernel/ADT stored at /EFI/UniXNU/Payloads (fixed path)'
           } > dist/BOOT-PATCHES.txt
 
       - name: Compile Mu-Silicium firmware with public UniXNU

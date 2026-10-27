@@ -1,0 +1,130 @@
+name: Dizi SM7435 XNU prelink candidate (manual)
+on:
+  workflow_dispatch:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  prelink:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.number == 1 &&
+       github.event.issue.pull_request != null &&
+       github.event.comment.user.login == 'vildangil' &&
+       github.event.comment.body == '/run-dizi-prelink')
+    runs-on: macos-26
+    timeout-minutes: 150
+    env:
+      XNU_SOURCE_RUN: '40552223877'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out Dizi build controls (no push builds)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Check out fixed UniXNU and exact XnuPrelink submodule
+        uses: actions/checkout@v4
+        with:
+          repository: UniXNU/UniXNU
+          ref: 0fc0fc1f9ddd0fbd4787738afef38667df5e0a95
+          path: upstream
+          persist-credentials: false
+
+      - name: Install pinned prelink component and Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Verify prelink inputs
+        run: |
+          set -euo pipefail
+          python3 -m py_compile ci/prelink_sm7435_candidate.py
+          git -C upstream submodule update --init --depth 1 kits/XnuPrelink
+          test "$(git -C upstream/kits/XnuPrelink rev-parse HEAD)" = "f876e3ee62e18fc06653dd75ed7dafcfb3950ac0"
+          test -x /usr/bin/compression_tool
+          python3 - <<'PY'
+          import pathlib, tomllib
+          x = tomllib.loads(pathlib.Path('upstream/profiles/os/ipados-17.7.11-21H461/profile.toml').read_text())
+          assert x['ipsw']['product'] == 'iPad7,1'
+          assert x['ipsw']['build'] == '21H461'
+          assert x['kernel']['prelink']['kernelcache_sha256'] == 'f18b4df865405f2a287b84977d7aca745e056d656d9fc9df1662970ce2969de7'
+          assert x['kernel']['prelink']['tool'] == 'kits/XnuPrelink/emit_prelink.py'
+          assert len(x['kernel']['prelink']['roots']) >= 15
+          print('UniXNU OS ABI candidate and gitlink pinned; runtime qualification absent')
+          PY
+
+      - name: Retrieve successful native SM7435 XNU Mach-O
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p xnu-native
+          gh run download "$XNU_SOURCE_RUN" --repo "$GITHUB_REPOSITORY" \
+            --name "xnu-dizi-sm7435-UNPRELINKED-$XNU_SOURCE_RUN" --dir xnu-native
+          test -s xnu-native/kernel.development.dizi-UNPRELINKED.macho
+          shasum -a 256 xnu-native/kernel.development.dizi-UNPRELINKED.macho
+          python3 - <<'PY'
+          import hashlib, pathlib
+          p = pathlib.Path("xnu-native/kernel.development.dizi-UNPRELINKED.macho")
+          assert hashlib.sha256(p.read_bytes()).hexdigest() == "bb0f258f3ccb08538b541f6d3165a23bfbf3c4a4ffbb3ab9d26f1e1efb916923"
+          print("Native XNU artifact matches source run #40552223877")
+          PY
+
+      - name: Read pinned kernelcache through HTTPS ranges and prelink
+        run: |
+          set -euo pipefail
+          python3 ci/prelink_sm7435_candidate.py \
+            --upstream upstream \
+            --native xnu-native/kernel.development.dizi-UNPRELINKED.macho \
+            --output prelink-result
+
+      - name: Validate prelink result, not device boot
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, pathlib
+          root=pathlib.Path("prelink-result")
+          r=json.loads((root/"PRELINK-RESULT.json").read_text())
+          assert r["apple_kernelcache_sha256"] == "f18b4df865405f2a287b84977d7aca745e056d656d9fc9df1662970ce2969de7"
+          assert r["bootable"] is False and r["entry_allowed"] is False
+          assert r["verified_ddr_map"] is False and r["secondary_cpu_runtime"] is False
+          assert r["candidate_size"] > 19_073_880
+          assert (root/"kernel.prelinked.dizi-CANDIDATE.macho").stat().st_size == r["candidate_size"]
+          assert not (root/"private-work").exists()
+          print("Host PRELINK okay. Actual XNU entry NOT tested/authorized.")
+          PY
+          {
+            echo '## Dizi XNU prelink source + original iPadOS ABI'
+            echo 'Prelink assembled by official UniXNU XnuPrelink. This is an experimental candidate, not a boot image.'
+            echo 'Missing: device-specific ABI/ADT review, proven EFI memory window, tested XNU entry and secondary CPU bring-up.'
+            echo 'No firmware was modified; no fastboot flash was performed; there is no push trigger.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload experimental prelinked candidate as temporary artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dizi-xnu-ipados17-PRELINK-CANDIDATE-${{ github.run_id }}
+          path: |
+            prelink-result/kernel.prelinked.dizi-CANDIDATE.macho
+            prelink-result/kernel.prelinked.dizi-CANDIDATE.json
+            prelink-result/PRELINK-RESULT.json
+          retention-days: 3
+          if-no-files-found: error
+
+      - name: Save failure stage (no Apple kernelcache)
+        if: failure()
+        run: |
+          {
+            echo '## SM7435 prelink attempt failed'
+            echo 'See the failed step for first pinned input, network, decompression, or prelink issue.'
+            echo 'No boot image was produced. Apple IPSW content is not published in a Release.'
+          } >> "$GITHUB_STEP_SUMMARY"

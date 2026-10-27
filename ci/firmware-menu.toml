@@ -4,8 +4,8 @@
 version = 1
 
 [boot]
-timeout = 15
-fallback_timeout = 15
+timeout = 60
+fallback_timeout = 60
 rotate = 0
 default = "return"
 connect_all = true

@@ -89,11 +89,16 @@ def extract_original(upstream: Path, os_profile: dict, output: Path):
     pack = output / "apple-kernelcache.lzfse"
     fat = output / "apple-kernelcache.fat"
     pack.write_bytes(packed_bytes)
-    decoder = Path("/usr/bin/compression_tool")
-    if not decoder.is_file():
-        raise RuntimeError("macOS native compression_tool unavailable")
-    subprocess.run([str(decoder), "-decode", "-a", "lzfse",
-                    "-i", str(pack), "-o", str(fat)], check=True)
+    mac_decoder = Path("/usr/bin/compression_tool")
+    if mac_decoder.is_file():
+        decoder = [str(mac_decoder), "-decode", "-a", "lzfse"]
+    else:
+        # Ubuntu 24.04 packages the official LZFSE command line decoder.
+        linux_decoder = shutil.which("lzfse")
+        if linux_decoder is None:
+            raise RuntimeError("Need macOS compression_tool or Ubuntu lzfse binary")
+        decoder = [linux_decoder, "-decode"]
+    subprocess.run([*decoder, "-i", str(pack), "-o", str(fat)], check=True)
     data = fat.read_bytes()
     if data[:4] == b"\xca\xfe\xba\xbe":
         ns = struct.unpack_from(">I", data, 4)[0]

@@ -20,7 +20,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 150
     env:
-      XNU_SOURCE_RUN: '40552223877'
+      XNU_SOURCE_RUN: '40568497282'
     defaults:
       run:
         shell: bash
@@ -72,10 +72,13 @@ jobs:
           test -s xnu-native/kernel.development.dizi-UNPRELINKED.macho
           shasum -a 256 xnu-native/kernel.development.dizi-UNPRELINKED.macho
           python3 - <<'PY'
-          import hashlib, pathlib
-          p = pathlib.Path("xnu-native/kernel.development.dizi-UNPRELINKED.macho")
-          assert hashlib.sha256(p.read_bytes()).hexdigest() == "bb0f258f3ccb08538b541f6d3165a23bfbf3c4a4ffbb3ab9d26f1e1efb916923"
-          print("Native XNU artifact matches source run #40552223877")
+          import hashlib,json,pathlib
+          p=pathlib.Path("xnu-native/kernel.development.dizi-UNPRELINKED.macho")
+          meta=json.loads(pathlib.Path("xnu-native/BUILD-RESULT.json").read_text())
+          assert meta["soc"]=="SM7435" and meta["bootable"] is False and meta["prelinked"] is False
+          assert p.stat().st_size==meta["bytes"]
+          assert hashlib.sha256(p.read_bytes()).hexdigest()==meta["sha256"]
+          print("Verified native SM7435 XNU and source SHA256:",meta["sha256"])
           PY
 
       - name: Read pinned kernelcache through HTTPS ranges and prelink
@@ -84,6 +87,8 @@ jobs:
           python3 ci/prelink_sm7435_candidate.py \
             --upstream upstream \
             --native xnu-native/kernel.development.dizi-UNPRELINKED.macho \
+            --native-report xnu-native/BUILD-RESULT.json \
+            --source-run "$XNU_SOURCE_RUN" \
             --output prelink-result
 
       - name: Validate prelink result, not device boot

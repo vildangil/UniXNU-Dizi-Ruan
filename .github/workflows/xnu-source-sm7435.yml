@@ -95,6 +95,12 @@ jobs:
           print("Production device board.toml was not edited.")
           PY
           cd unixnu
+          # Resolve official OS patch series requires the XnuPrelink gitlink
+          # even before the kernel source fetch / status command.
+          git submodule update --init --depth 1 kits/XnuPrelink
+          test "$(git -C kits/XnuPrelink rev-parse HEAD)" = "f876e3ee62e18fc06653dd75ed7dafcfb3950ac0"
+          test -s kits/XnuPrelink/patches/xnu-10063.141.1-sparse-index.patch
+          test -s kits/XnuPrelink/patches/xnu-10063.141.1-security-init.patch
           ./unixnu defconfig dizi_defconfig -D "$RUNNER_TEMP/dizi-ci-stage"
           ./unixnu status --json -D "$RUNNER_TEMP/dizi-ci-stage" > "$RUNNER_TEMP/dizi-xnu-status.json"
           python3 - <<'PY'

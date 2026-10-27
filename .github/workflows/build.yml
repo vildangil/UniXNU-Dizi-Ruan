@@ -34,7 +34,7 @@ jobs:
       - name: Preflight public-only dependencies and firmware-only menu
         run: |
           set -euo pipefail
-          python3 -m py_compile ci/integrate_unixnu.py ci/patch_initrd_fat.py
+          python3 -m py_compile ci/integrate_unixnu.py ci/patch_initrd_fat.py ci/patch_sec_entry_hob.py ci/patch_public_buttons.py
           python3 - <<'PY'
           import pathlib, tomllib
           w=pathlib.Path(".github/workflows/build.yml").read_text()
@@ -86,6 +86,16 @@ jobs:
           test "$(git -C mu rev-parse HEAD)" = "$MU_SHA"
           git -C mu submodule update --init --recursive --depth 1 --jobs 4
 
+      - name: Restore SEC entry argument and publish UniXNU GUID HOB
+        run: |
+          set -euo pipefail
+          python3 ci/patch_sec_entry_hob.py mu --dry-run
+          python3 ci/patch_sec_entry_hob.py mu
+          grep -q 'DIZI_ENTRY_ARG_HOB_V1' mu/Silicon/Silicium/SiliciumPkg/Sec/AArch64/ModuleEntryPoint.S
+          grep -q 'DIZI_ENTRY_ARG_HOB_V1' mu/Silicon/Silicium/SiliciumPkg/Sec/Sec.c
+          grep -q 'BuildGuidDataHob (&mDiziEntryArgHobGuid' mu/Silicon/Silicium/SiliciumPkg/Sec/Sec.c
+          echo 'SEC x0-to-HOB handoff patched in firmware source'
+
       - name: Fetch pinned PUBLIC UniXNU
         run: |
           set -euo pipefail
@@ -99,6 +109,10 @@ jobs:
           python3 ci/integrate_unixnu.py mu
           python3 ci/patch_initrd_fat.py mu --dry-run
           python3 ci/patch_initrd_fat.py mu
+          python3 ci/patch_public_buttons.py mu --dry-run
+          python3 ci/patch_public_buttons.py mu
+          grep -q 'DIZI_EFI_BUTTON_FALLBACK_V1' mu/External/UniXNU/package/UniXNUPkg/Library/UniXNULib/Menu.c
+          grep -q 'DiziReadExistingPhysicalKey (&Key)' mu/External/UniXNU/package/UniXNUPkg/Library/UniXNULib/Menu.c
           grep -q 'DIZI_FAT_AFTER_LZ4_V1' mu/External/UniXNU/package/UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.c
           grep -q 'DIZI_FAT_AFTER_LZ4_V1' mu/External/UniXNU/package/UniXNUPkg/Library/UniXNULib/Config.c
 
@@ -113,6 +127,14 @@ jobs:
           mtype -i dist/DIZI-UEFI-menu.fat ::/EFI/UniXNU/unixnu.toml | grep -q 'UEFI only'
           cp dist/DIZI-UEFI-menu.fat mu/Resources/ramdisk
           echo "UEFI ONLY. No XNU/ADT or Android dualboot. NEVER FLASH." > dist/NOT-FLASHABLE.txt
+          {
+            echo 'DIZI standalone UEFI-only test image'
+            echo 'SEC: DIZI_ENTRY_ARG_HOB_V1 (ABL x0 -> GUID HOB)'
+            echo 'Menu: DIZI_EFI_BUTTON_FALLBACK_V1 (existing EFI SimpleTextIn only)'
+            echo 'Initrd: DIZI_FAT_AFTER_LZ4_V1 (bounded FAT32 lookup)'
+            echo 'Hardware validation: PENDING'
+            echo 'Not for flashing; use temporary fastboot boot only.'
+          } > dist/BOOT-PATCHES.txt
 
       - name: Compile Mu-Silicium firmware with public UniXNU
         run: |
@@ -159,6 +181,7 @@ jobs:
             dist/DIZI-UEFI-menu.fat
             dist/SHA256SUMS.txt
             dist/NOT-FLASHABLE.txt
+            dist/BOOT-PATCHES.txt
 
       # GitHub may reject Release creation with HTTP 403 even when the job
       # reports Contents: write; previous jobs with the same scope succeeded.
@@ -177,6 +200,7 @@ jobs:
             dist/DIZI-UEFI-menu.fat \
             dist/SHA256SUMS.txt \
             dist/NOT-FLASHABLE.txt \
+            dist/BOOT-PATCHES.txt \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --prerelease --title "Dizi UEFI + upstream UniXNU (no XNU kernel) #$GITHUB_RUN_ID" \
             --notes-file dist/NOT-FLASHABLE.txt

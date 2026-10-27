@@ -30,12 +30,16 @@ def digest(path: Path):
     return h.hexdigest()
 
 
-def native_check(path: Path):
+def native_check(path: Path, report: Path):
     if not path.is_file() or not 1_000_000 < path.stat().st_size < 100_000_000:
         raise ValueError("Missing or implausible built native Mach-O")
+    details = json.loads(report.read_text())
+    if (details.get("soc") != "SM7435" or details.get("prelinked") is not False
+            or details.get("bootable") is not False):
+        raise ValueError("Native artifact not a Dizi SM7435 source-only build")
     h = digest(path)
-    if h != "bb0f258f3ccb08538b541f6d3165a23bfbf3c4a4ffbb3ab9d26f1e1efb916923":
-        raise ValueError(f"Native XNU digest differs from host-compiled run #40552223877: {h}")
+    if h != details.get("sha256") or path.stat().st_size != details.get("bytes"):
+        raise ValueError("Native XNU fails its source-compiled artifact SHA256/size pin")
     with path.open("rb") as stream:
         header = stream.read(16)
     if struct.unpack("<4I", header)[:2] != (0xfeedfacf, 0x0100000c):
@@ -118,6 +122,8 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--upstream", type=Path, required=True)
     p.add_argument("--native", type=Path, required=True)
+    p.add_argument("--native-report", type=Path, required=True)
+    p.add_argument("--source-run", type=int, required=True)
     p.add_argument("--output", type=Path, required=True)
     args = p.parse_args()
     upstream, native, output = (x.resolve() for x in (args.upstream, args.native, args.output))
@@ -129,7 +135,7 @@ def main():
         raise FileNotFoundError("Missing pinned upstream XnuPrelink git submodule")
     if prelink["slide"] != "-0x1000000":
         raise ValueError("Unexpected slide; do not silently change ABI")
-    native_check(native)
+    native_check(native, args.native_report.resolve())
     output.mkdir(parents=True, exist_ok=True)
     scratch = output / "private-work"
     scratch.mkdir(exist_ok=True)
@@ -159,7 +165,7 @@ def main():
         if struct.unpack("<4I", f.read(16))[:2] != (0xfeedfacf, 0x0100000c):
             raise ValueError("Prelink output not an ARM64 Mach-O")
     report = {
-        "source_run": 40552223877,
+        "source_run": args.source_run,
         "native_sha256": digest(native),
         "candidate_sha256": digest(candidate),
         "candidate_size": candidate.stat().st_size,

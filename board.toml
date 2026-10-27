@@ -8,8 +8,17 @@ description = "Xiaomi Redmi Pad Pro (dizi); ruan unverified"
 kit = "dizi"
 example = true
 
+# UniXNU format 2: select only generic source components here.
+# Device- and SoC-specific XNU support must not be borrowed from sheng/SM8550.
+[components]
+include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "XnuPrelink", "DarwinBoot"]
+
 [kernel]
 defconfig = "dizi_defconfig"
+# Shared ARM64 series can be resolved by the upstream UniXNU tool.
+# The DIZI board series remains empty until the XNU port is reviewed.
+config_fragments = ["arch:configs/common.config"]
+patch_series = ["arch:patches/xnu/series", "device:patches/xnu/series"]
 
 [device_tree]
 source = "device:dts/dizi.dts"

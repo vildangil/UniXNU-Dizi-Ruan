@@ -62,35 +62,6 @@ DiziPollR4PmicKey (OUT EFI_INPUT_KEY *Key)
   return Pressed;
 }
 
-// Alternate the mapping and raw readout every second. A single status
-// line is used so the menu still fits the portrait device screen.
-// "R:" values are raw Qualcomm SPMI error codes, not UEFI status codes.
-STATIC
-VOID
-DiziR4DrawStatus (IN UNIXNU_UI *Ui)
-{
-  CHAR16 Line[128];
-  if (((mDiziPmicTick / 10U) & 1U) == 0U) {
-    UnicodeSPrint (
-      Line, sizeof (Line),
-      L"SPMI v:%08x APIDs:%u P:%u/%u G:%u/%u",
-      mDiziArb.Version, mDiziArb.ApidCount,
-      mDiziArb.PonMapped ? 1U : 0U, mDiziArb.PonApid,
-      mDiziArb.GpioMapped ? 1U : 0U, mDiziArb.GpioApid
-    );
-  } else {
-    UnicodeSPrint (
-      Line, sizeof (Line),
-      L"PON:%02x R:%x DN:%u PWR:%u GPIO:%02x R:%x UP:%u",
-      mDiziPmic.PonRaw, mDiziPmic.PonResult,
-      mDiziPmic.VolDown ? 1U : 0U,
-      mDiziPmic.PowerDown ? 1U : 0U,
-      mDiziPmic.GpioRaw, mDiziPmic.GpioResult,
-      mDiziPmic.VolUp ? 1U : 0U
-    );
-  }
-  UniXNUUiDrawStatus (Ui, 2, Line);
-}
 
 """
 
@@ -148,9 +119,8 @@ def patch(root: Path, dry_run: bool = False) -> None:
         "      EFI_INPUT_KEY Unused;\n"
         "      (VOID)DiziPollR4PmicKey (&Unused);\n"
         "    }\n"
-        "    if ((mDiziPmicTick % 10U) == 0U) DiziR4DrawStatus (Ui);\n"
         "    if (!DiziGotKey) {",
-        "R4 key delivery and diagnostic",
+        "R4 key delivery without overlay",
     )
     menu = once(
         menu,

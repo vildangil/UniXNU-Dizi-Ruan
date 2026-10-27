@@ -1,0 +1,45 @@
+# Public XNU source-build loader-probe, not a bootable XNU payload.
+# The raw source Mach-O is NOT prelinked, and it has no validated Apple DT.
+# Selecting xnu-loader-probe should only exercise the loader's validation:
+# no kernel entry is authorized by this test profile.
+version = 1
+
+[boot]
+timeout = 60
+fallback_timeout = 60
+rotate = 0
+default = "return"
+connect_all = true
+
+[ui]
+title = "UniXNU / dizi XNU loader probe"
+logo = true
+layout = "portrait"
+scale = 0
+console = "auto"
+
+[[entry]]
+id = "return"
+title = "Return to firmware (safe)"
+type = "action"
+action = "exit"
+
+[[entry]]
+id = "xnu-loader-probe"
+title = "XNU loader probe (NOT bootable)"
+type = "xnu"
+path = "Payloads/kernel.macho"
+args = "-v keepsyms=1 debug=0x14e cpus=1"
+confirm = "UNPRELINKED kernel, no ADT: test loader error only?"
+
+[[entry]]
+id = "restart"
+title = "Restart tablet"
+type = "action"
+action = "reset"
+
+[[entry]]
+id = "shutdown"
+title = "Power off tablet"
+type = "action"
+action = "shutdown"

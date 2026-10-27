@@ -6,6 +6,7 @@ name = "dizi"
 soc = "SM7435"
 description = "Xiaomi Redmi Pad Pro (dizi); ruan unverified"
 kit = "dizi"
+soc_source = "sm7435"
 example = true
 
 # UniXNU format 2: select only generic source components here.
@@ -17,11 +18,12 @@ include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "XnuPrelink", "DarwinBoot"]
 defconfig = "dizi_defconfig"
 # Shared ARM64 series can be resolved by the upstream UniXNU tool.
 # The DIZI board series remains empty until the XNU port is reviewed.
-config_fragments = ["arch:configs/common.config"]
-patch_series = ["arch:patches/xnu/series", "device:patches/xnu/series"]
+config_fragments = ["arch:configs/common.config", "soc:configs/sm7435.config"]
+patch_series = ["arch:patches/xnu/series", "soc:patches/xnu/series", "device:patches/xnu/series"]
 
 [device_tree]
 source = "device:dts/dizi.dts"
+include_dirs = ["soc:dts"]
 
 [firmware]
 config = "dizi"

@@ -123,8 +123,19 @@ jobs:
           python3 ci/patch_initrd_fat.py mu
           python3 ci/patch_public_buttons.py mu --dry-run
           python3 ci/patch_public_buttons.py mu
-          grep -q 'DIZI_EFI_BUTTON_FALLBACK_V1' mu/External/UniXNU/package/UniXNUPkg/Library/UniXNULib/Menu.c
-          grep -q 'DiziReadExistingPhysicalKey (&Key)' mu/External/UniXNU/package/UniXNUPkg/Library/UniXNULib/Menu.c
+          menu=mu/External/UniXNU/package/UniXNUPkg/Library/UniXNULib/Menu.c
+          libinf=mu/External/UniXNU/package/UniXNUPkg/Library/UniXNULib/UniXNULib.inf
+          grep -q 'DIZI_EFI_BUTTON_POLL_V2' "$menu"
+          grep -q 'DiziPollEfiKey (&Key, &DiziKeySource)' "$menu"
+          grep -q 'gEfiSimpleTextInputExProtocolGuid' "$menu"
+          grep -q 'DiziWaitEfiKey (&Key)' "$menu"
+          grep -q 'SCAN_VOLUME_UP' "$menu"
+          grep -q 'SCAN_VOLUME_DOWN' "$menu"
+          grep -q 'gEfiSimpleTextInputExProtocolGuid' "$libinf"
+          if grep -q 'ConIn->WaitForKey' "$menu"; then
+            echo '::error::Dizi UniXNU unexpectedly waits on ConIn key event'
+            exit 1
+          fi
           grep -q 'DIZI_FAT_AFTER_LZ4_V1' mu/External/UniXNU/package/UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.c
           grep -q 'DIZI_FAT_AFTER_LZ4_V1' mu/External/UniXNU/package/UniXNUPkg/Library/UniXNULib/Config.c
 
@@ -142,7 +153,7 @@ jobs:
           {
             echo 'DIZI standalone UEFI-only test image'
             echo 'SEC: DIZI_ENTRY_ARG_HOB_V1 (ABL x0 -> GUID HOB)'
-            echo 'Menu: DIZI_EFI_BUTTON_FALLBACK_V1 (existing EFI SimpleTextIn only)'
+            echo 'Menu: DIZI_EFI_BUTTON_POLL_V2 (100ms timer, EFI TextIn + TextInEx + scan diagnostic)'
             echo 'Initrd: DIZI_FAT_AFTER_LZ4_V1 (bounded FAT32 lookup)'
             echo 'Hardware validation: PENDING'
             echo 'Not for flashing; use temporary fastboot boot only.'

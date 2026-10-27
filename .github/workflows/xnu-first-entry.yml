@@ -1,0 +1,416 @@
+name: Dizi FIRST XNU kernel entry HIGH-RISK (manual)
+
+# No private repositories, GitHub-hosted runners, or prebuilt XNU.
+# Explicit manual dispatch OR a trusted owner comment on control PR #1.
+# NEVER triggers on push, pull_request, or synchronize.
+on:
+  workflow_dispatch:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  actions: read
+
+# Do not add a workflow-level concurrency gate: stalled workflow runs
+# with zero created jobs can block all further manual dispatches.
+env:
+  MU_REPO: https://github.com/vildangil/Mu-Silicium.git
+  MU_SHA: 39fbbc20885325044cfeaf8428efb7267e0bbe35
+  MU_R4_SHA: 71b8dedd0c00f85eb5bcf10a647f0d698d81b6ac
+  DARWINBOOT_REPO: https://github.com/UniXNU/DarwinBoot.git
+  DARWINBOOT_SHA: 3325e352d7df68a9f9ad74832ed94a6acbbd7390
+  XNU_PRELINK_RUN: "40570765147"
+  ADT_UNIXNU_REPO: https://github.com/UniXNU/UniXNU.git
+  ADT_UNIXNU_SHA: 0fc0fc1f9ddd0fbd4787738afef38667df5e0a95
+  SM7435_REPO: https://github.com/vildangil/UniXNU-sm7435-common.git
+  SM7435_SHA: 98d9b9bd35c530c2c9a4ea338fbabe5c341c005b
+  UNIXNU_REPO: https://github.com/UniXNU/UniXNU.git
+  UNIXNU_SHA: 759eb61b6b8d475de5b3d1b39e1de1f5294e8d9a
+  CLANGPDB_AARCH64_PREFIX: aarch64-linux-gnu-
+  PYTHONUNBUFFERED: "1"
+  CI_BUILD: "false"
+
+jobs:
+  uefi:
+    # Only the repository owner's exact command on control PR #1 is accepted.
+    # Other GitHub comments create at most a skipped run, never a build.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.number == 1 &&
+       github.event.issue.pull_request != null &&
+       github.event.comment.user.login == 'vildangil' &&
+       github.event.comment.body == '/run-dizi-first-entry')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Preflight pinned public inputs and safe XNU loader probe
+        run: |
+          set -euo pipefail
+          python3 -m py_compile ci/integrate_unixnu.py ci/patch_initrd_fat.py ci/patch_sec_entry_hob.py ci/patch_public_buttons.py ci/patch_native_pmic_r4.py ci/patch_darwinboot_dizi.py ci/patch_darwinboot_first_entry.py ci/build_dizi_reference_adt.py ci/validate_prelinked_darwinboot.py
+          python3 - <<'PY'
+          import pathlib, tomllib
+          w=pathlib.Path(".github/workflows/build.yml").read_text()
+          assert ("dizi_" + "IpadOS_maybe") not in w
+          assert "github.com/vildangil/Mu-Silicium.git" in w
+          assert "github.com/UniXNU/UniXNU.git" in w
+          data=tomllib.loads(pathlib.Path("ci/xnu-first-entry-menu.toml").read_text())
+          assert data["version"] == 1
+          assert data["boot"]["default"] == "return"
+          assert [e.get("type") for e in data["entry"]].count("xnu") == 1
+          assert "EXPERIMENTAL / NO RETURN" in data["entry"][1]["title"]
+          assert data["entry"][1].get("confirm"), "Experiment must ask before testing"
+          assert "POWER confirms" in data["entry"][1]["confirm"]
+          assert data["entry"][1]["type"] == "xnu"
+          assert data["entry"][1]["path"] == "Payloads/kernel.macho"
+          # Config.c MakePath(UNIXNU_CONFIG_DIR, path): the relative
+          # path must be *inside* EFI/UniXNU, not the FAT volume root.
+          assert data["entry"][1]["path"].startswith("Payloads/")
+          print("Resolved: /EFI/UniXNU/" + data["entry"][1]["path"])
+          print("REAL XNU FIRST ENTRY user-confirmed with source prelink + reference ADT; NO UEFI RETURN")
+          print("CONFIG RELATIVE FAT PATH: EFI/UniXNU/" + data["entry"][1]["path"])
+          PY
+
+      - name: Install public cross-compilation dependencies
+        run: |
+          set -euo pipefail
+          # Azure apt archive proved extremely slow (114 MB still downloading
+          # after 15 minutes, exit 124 on 2026-10-27). Prefer Ubuntu's public
+          # archive with a second mirror, instead of a fixed Azure endpoint.
+          mirror_file=/etc/apt/apt-mirrors.txt
+          if [ -f "$mirror_file" ]; then
+            printf '%s\n' \
+              'https://archive.ubuntu.com/ubuntu/' \
+              'https://mirrors.edge.kernel.org/ubuntu/' | sudo tee "$mirror_file"
+          fi
+          echo "::group::Refreshing Ubuntu package lists (max 10 minutes)"
+          timeout 600s sudo apt-get -o Acquire::Retries=1 \
+            -o Acquire::https::Timeout=45 -o Acquire::http::Timeout=45 update
+          echo "::endgroup::"
+          echo "::group::Installing EDK2 cross-build tools (max 28 minutes)"
+          timeout 1680s sudo env DEBIAN_FRONTEND=noninteractive apt-get \
+            -o DPkg::Lock::Timeout=180 -o Acquire::Retries=1 \
+            -o Acquire::https::Timeout=45 -o Acquire::http::Timeout=45 \
+            install -y --no-install-recommends \
+              device-tree-compiler \
+            clang-18 llvm-18 llvm-18-tools lld-18 nasm mono-devel \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu uuid-dev \
+            python3-venv python3-pip make pkg-config curl git \
+            dosfstools mtools
+          echo "::endgroup::"
+          echo "Host cross-build packages installed"
+          mkdir -p "$RUNNER_TEMP/llvm-tools"
+          for binary in llvm-lib lld-link llvm-objcopy; do
+            if command -v "$binary" >/dev/null; then continue; fi
+            candidate=""
+            for p in "/usr/lib/llvm-18/bin/$binary" "/usr/bin/${binary}-18"; do
+              if [ -x "$p" ]; then candidate="$p"; break; fi
+            done
+            test -n "$candidate" || { echo "::error::$binary not found"; exit 1; }
+            ln -s "$candidate" "$RUNNER_TEMP/llvm-tools/$binary"
+          done
+          echo "$RUNNER_TEMP/llvm-tools" >> "$GITHUB_PATH"
+
+      - name: Fetch pinned PUBLIC Mu-Silicium
+        run: |
+          set -euo pipefail
+          git init -q mu
+          git -C mu remote add origin "$MU_REPO"
+          git -C mu fetch --depth 1 origin "$MU_SHA"
+          git -C mu checkout -q FETCH_HEAD
+          test "$(git -C mu rev-parse HEAD)" = "$MU_SHA"
+          git -C mu submodule update --init --recursive --depth 1 --jobs 4
+
+      - name: Restore SEC entry argument and publish UniXNU GUID HOB
+        run: |
+          set -euo pipefail
+          python3 ci/patch_sec_entry_hob.py mu --dry-run
+          python3 ci/patch_sec_entry_hob.py mu
+          grep -q 'DIZI_ENTRY_ARG_HOB_V1' mu/Silicon/Silicium/SiliciumPkg/Sec/AArch64/ModuleEntryPoint.S
+          grep -q 'DIZI_ENTRY_ARG_HOB_V1' mu/Silicon/Silicium/SiliciumPkg/Sec/Sec.c
+          grep -q 'BuildGuidDataHob (&mDiziEntryArgHobGuid' mu/Silicon/Silicium/SiliciumPkg/Sec/Sec.c
+          echo 'SEC x0-to-HOB handoff patched in firmware source'
+
+      - name: Fetch pinned PUBLIC UniXNU
+        run: |
+          set -euo pipefail
+          install -d mu/External/UniXNU
+          git -C mu/External/UniXNU init -q
+          git -C mu/External/UniXNU remote add origin "$UNIXNU_REPO"
+          git -C mu/External/UniXNU fetch --depth 1 origin "$UNIXNU_SHA"
+          git -C mu/External/UniXNU checkout -q FETCH_HEAD
+          test "$(git -C mu/External/UniXNU rev-parse HEAD)" = "$UNIXNU_SHA"
+          python3 ci/integrate_unixnu.py mu --dry-run
+          python3 ci/integrate_unixnu.py mu
+          python3 ci/patch_initrd_fat.py mu --dry-run
+          python3 ci/patch_initrd_fat.py mu
+          python3 ci/patch_public_buttons.py mu --dry-run
+          python3 ci/patch_public_buttons.py mu
+          echo '::group::Fetch pinned native R4 PMIC source'
+          git -C mu fetch --depth 1 origin "$MU_R4_SHA"
+          test "$(git -C mu rev-parse FETCH_HEAD)" = "$MU_R4_SHA"
+          dizi_lib=mu/External/UniXNU/package/UniXNUPkg/Library/UniXNULib/Dizi
+          mkdir -p "$dizi_lib"
+          for src in DiziPmicKeys.c DiziPmicKeys.h DiziSpmiArbProbe.c DiziSpmiArbProbe.h DiziSpmiArbRead.c; do
+            git -C mu show "$MU_R4_SHA:Platforms/Xiaomi/DiziBootPkg/BootSelector/$src" > "$dizi_lib/$src"
+            test -s "$dizi_lib/$src"
+          done
+          echo '::endgroup::'
+          python3 ci/patch_native_pmic_r4.py mu --dry-run
+          python3 ci/patch_native_pmic_r4.py mu
+          menu=mu/External/UniXNU/package/UniXNUPkg/Library/UniXNULib/Menu.c
+          libinf=mu/External/UniXNU/package/UniXNUPkg/Library/UniXNULib/UniXNULib.inf
+          grep -q 'DIZI_EFI_BUTTON_POLL_V2' "$menu"
+          grep -q 'DiziPollEfiKey (&Key, &DiziKeySource)' "$menu"
+          grep -q 'gEfiSimpleTextInputExProtocolGuid' "$menu"
+          grep -q 'DiziWaitEfiKey (&Key)' "$menu"
+          grep -q 'SCAN_VOLUME_UP' "$menu"
+          grep -q 'SCAN_VOLUME_DOWN' "$menu"
+          grep -q 'gEfiSimpleTextInputExProtocolGuid' "$libinf"
+          grep -q 'DIZI_R4_PMIC_BRIDGE_V1' "$menu"
+          grep -q 'DiziPollR4PmicKey (&Key)' "$menu"
+          if grep -q 'DiziR4DrawStatus\|DiziShowInputStatus' "$menu"; then
+            echo '::error::PMIC or EFI input diagnostics must not appear in normal menu'
+            exit 1
+          fi
+          grep -q 'Dizi/DiziPmicKeys.c' "$libinf"
+          grep -q 'Dizi/DiziSpmiArbRead.c' "$libinf"
+          grep -q '^  IoLib$' "$libinf"
+          if grep -q 'ConIn->WaitForKey' "$menu"; then
+            echo '::error::Dizi UniXNU unexpectedly waits on ConIn key event'
+            exit 1
+          fi
+          grep -q 'DIZI_FAT_AFTER_LZ4_V1' mu/External/UniXNU/package/UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.c
+          grep -q 'DIZI_FAT_AFTER_LZ4_V1' mu/External/UniXNU/package/UniXNUPkg/Library/UniXNULib/Config.c
+
+      - name: Fetch pinned PUBLIC DarwinBoot and add its UEFI loader protocol
+        run: |
+          set -euo pipefail
+          git init -q mu/External/DarwinBoot
+          git -C mu/External/DarwinBoot remote add origin "$DARWINBOOT_REPO"
+          git -C mu/External/DarwinBoot fetch --depth 1 origin "$DARWINBOOT_SHA"
+          git -C mu/External/DarwinBoot checkout -q FETCH_HEAD
+          test "$(git -C mu/External/DarwinBoot rev-parse HEAD)" = "$DARWINBOOT_SHA"
+          python3 ci/patch_darwinboot_dizi.py mu --dry-run
+          python3 ci/patch_darwinboot_dizi.py mu
+          grep -q 'DIZI_DARWINBOOT_PROBE_V1' mu/Platforms/Xiaomi/diziPkg/dizi.dsc
+          grep -q 'DarwinBootPkg/Driver/DarwinBoot.inf' mu/Platforms/Xiaomi/diziPkg/dizi.fdf
+
+      - name: Enable real DarwinEnter only after explicit UniXNU confirmation
+        run: |
+          set -euo pipefail
+          python3 ci/patch_darwinboot_first_entry.py mu --dry-run
+          python3 ci/patch_darwinboot_first_entry.py mu
+          driver=mu/External/DarwinBoot/DarwinBootPkg/Driver/DarwinBoot.c
+          grep -q 'DIZI_XNU_REAL_FIRST_ENTRY_V1' "$driver"
+          grep -q 'gBS->ExitBootServices (mImage, Key)' "$driver"
+          grep -q 'DarwinEnter (ArgsAddress,' "$driver"
+          ! grep -q 'DIZI_WINDOW_ALLOCATION_PROBE_V1' "$driver"
+          ! grep -q 'DIZI_ADT_PARSE_PROBE_FAIL_CLOSED_V1' "$driver"
+          grep -q 'if (Used > WindowSize - BLOCK_SIZE)' "$driver"
+
+      - name: Fetch and verify pinned prelinked SM7435 plus iPadOS17 Mach-O
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p xnu-prelinked dist
+          gh run download "$XNU_PRELINK_RUN" --repo "$GITHUB_REPOSITORY" \
+            --name "dizi-xnu-ipados17-PRELINK-CANDIDATE-LINUX-$XNU_PRELINK_RUN" \
+            --dir xnu-prelinked
+          python3 ci/validate_prelinked_darwinboot.py \
+            --kernel xnu-prelinked/kernel.prelinked.dizi-CANDIDATE.macho \
+            --report xnu-prelinked/PRELINK-RESULT.json \
+            --source-run "$XNU_PRELINK_RUN" \
+            --output dist/PRELINK-CHECK.json
+          python3 - <<'PY'
+          import json, pathlib
+          p=json.loads(pathlib.Path("dist/PRELINK-CHECK.json").read_text())
+          assert p["loader_shape_accepted"] and not p["is_bootable"]
+          assert not p["kernel_entry_executed"] and not p["memory_allocated_on_device"]
+          print("Source + iPadOS17 prelinked candidate verified; XNU execution remains blocked")
+          PY
+
+      - name: Generate preliminary Apple ADT reference for eight Dizi CPUs
+        run: |
+          set -euo pipefail
+          git init -q adt-tools
+          git -C adt-tools remote add origin "$ADT_UNIXNU_REPO"
+          git -C adt-tools fetch --depth 1 origin "$ADT_UNIXNU_SHA"
+          git -C adt-tools checkout -q FETCH_HEAD
+          test "$(git -C adt-tools rev-parse HEAD)" = "$ADT_UNIXNU_SHA"
+          git init -q sm7435-src
+          git -C sm7435-src remote add origin "$SM7435_REPO"
+          git -C sm7435-src fetch --depth 1 origin "$SM7435_SHA"
+          git -C sm7435-src checkout -q FETCH_HEAD
+          test "$(git -C sm7435-src rev-parse HEAD)" = "$SM7435_SHA"
+          python3 ci/build_dizi_reference_adt.py \
+            --device "$PWD" --soc "$PWD/sm7435-src" \
+            --unixnu "$PWD/adt-tools" --output "$PWD/adt-result"
+          python3 - <<'PY'
+          import json, pathlib
+          p=pathlib.Path('adt-result/ADT-REFERENCE-RESULT.json')
+          d=json.loads(p.read_text())
+          assert d['cpus']==8 and d['memory_ownership_verified'] is False
+          assert d['kernel_entry_authorized'] is False
+          assert 500 < d['adt_bytes'] < 100_000
+          print('8 CPU ADT generated, XNU execution explicitly BLOCKED')
+          PY
+
+      - name: Package kernel at UniXNU config-relative path (FAT32)
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          truncate -s 64M dist/DIZI-XNU-FIRST-ENTRY.fat
+          mkfs.fat -F 32 -n DIZIPROBE dist/DIZI-XNU-FIRST-ENTRY.fat
+          mmd -i dist/DIZI-XNU-FIRST-ENTRY.fat ::/EFI ::/EFI/UniXNU ::/EFI/UniXNU/Payloads
+          mcopy -i dist/DIZI-XNU-FIRST-ENTRY.fat ci/xnu-first-entry-menu.toml ::/EFI/UniXNU/unixnu.toml
+          echo "FAT: writing verified 51.9 MiB prelinked Mach-O"
+          mcopy -i dist/DIZI-XNU-FIRST-ENTRY.fat xnu-prelinked/kernel.prelinked.dizi-CANDIDATE.macho ::/EFI/UniXNU/Payloads/kernel.macho
+          echo "FAT: Mach-O write finished"
+          mcopy -i dist/DIZI-XNU-FIRST-ENTRY.fat adt-result/kernel.macho.adt ::/EFI/UniXNU/Payloads/kernel.macho.adt
+          mtype -i dist/DIZI-XNU-FIRST-ENTRY.fat ::/EFI/UniXNU/unixnu.toml | grep -q 'EXECUTE XNU'
+          echo "FAT: menu and prelinked kernel copied; verifying menu labels"
+          mtype -i dist/DIZI-XNU-FIRST-ENTRY.fat ::/EFI/UniXNU/unixnu.toml | grep -q 'POWER confirms'
+          echo "FAT: menu label verified; checking Mach-O and ADT readback"
+          # Verify that the *normalized* relative entry path has a file.
+          # A FAT-root /Payloads/ path will produce EFI_NOT_FOUND.
+          mdir -i dist/DIZI-XNU-FIRST-ENTRY.fat ::/EFI/UniXNU/Payloads
+          mcopy -i dist/DIZI-XNU-FIRST-ENTRY.fat -o ::/EFI/UniXNU/Payloads/kernel.macho "$RUNNER_TEMP/source-from-fat.macho"
+          cmp -s xnu-prelinked/kernel.prelinked.dizi-CANDIDATE.macho "$RUNNER_TEMP/source-from-fat.macho"
+          mcopy -i dist/DIZI-XNU-FIRST-ENTRY.fat -o ::/EFI/UniXNU/Payloads/kernel.macho.adt "$RUNNER_TEMP/adt-from-fat.adt"
+          cmp -s adt-result/kernel.macho.adt "$RUNNER_TEMP/adt-from-fat.adt"
+          cp adt-result/ADT-REFERENCE-RESULT.json dist/ADT-REFERENCE-RESULT.json
+          cp dist/DIZI-XNU-FIRST-ENTRY.fat mu/Resources/ramdisk
+          cat > dist/NOT-BOOTABLE-XNU.txt <<'EOF'
+          DIZI SM7435 FIRST REAL XNU ENTRY - HIGH RISK, experimental only!
+          Handoff could hang, reset, black-screen, or require manual reboot.
+          FAT layout: /EFI/UniXNU/Payloads/kernel.macho and kernel.macho.adt,
+          because UniXNU resolves entry.path relative to /EFI/UniXNU.
+          Android boot-v4 image enters EDK2/UniXNU with physical PMIC keys.
+          FAT contains ARM64 PRELINKED XNU candidate and SM7435 reference Apple ADT.
+          ADT includes 8 SM7435 CPUs/GICv3/PSCI and an observed 3 GiB RAM bank.
+          RAM is NOT validated for XNU/EFI ownership. iPadOS identity is only a candidate.
+          After explicit Power confirmation, DarwinBoot allocates 256MiB EFI RAM,
+          writes prelinked XNU segments, passes Darwin23 boot_args+reference ADT,
+          exits EFI BootServices, disables the EL1 MMU, branches to physical XNU.
+          THIS HANDOFF CANNOT RETURN TO MENU. A hang or black screen is possible.
+          The green bar is painted BY THE LOADER BEFORE entering XNU, NOT PROOF of kernel execution.
+          Apple ABI and memory are NOT runtime-qualified, no root/userland, no validated trust cache.
+          cpus=1 only, remaining seven CPUs intentionally not started.
+          Use temporary fastboot boot only; NEVER fastboot flash.
+          EOF
+          {
+            echo 'HIGH RISK: real DarwinBoot-to-XNU first entry, user must confirm'
+            echo 'Input: DIZI_R4_PMIC_BRIDGE_V1 and DIZI_EFI_BUTTON_POLL_V2'
+            echo "DarwinBoot commit: $DARWINBOOT_SHA"
+            echo "XNU prelinked candidate run: $XNU_PRELINK_RUN"
+            echo 'SHA-verified prelinked SM7435 XNU with pinned iPadOS 17.7.11 components, runtime UNQUALIFIED'
+            echo 'DarwinEnter and ExitBootServices ENABLED; no fallback after handoff'
+            echo 'Green bar means loader got to handoff; NOT proof of XNU instruction execution'
+            echo 'Static DarwinBoot loader validation: PRELINK-CHECK.json'
+            echo 'Dizi kernel/ADT stored at /EFI/UniXNU/Payloads (fixed path)'
+          } > dist/BOOT-PATCHES.txt
+
+      - name: Compile Mu-Silicium firmware with public UniXNU
+        run: |
+          set -euo pipefail
+          python3 -m venv mu/.venv
+          mu/.venv/bin/python -m pip install --disable-pip-version-check -r mu/pip-requirements.txt
+          source mu/.venv/bin/activate
+          (cd mu && python3 build_uefi.py -d dizi -r RELEASE -c) 2>&1 | tee dist/build.log
+
+      - name: Verify boot-v4 and collect reproducible binaries
+        run: |
+          set -euo pipefail
+          install -m 0644 mu/Mu-dizi.img dist/Mu-dizi-XNU-FIRST-ENTRY-EXPERIMENTAL.img
+          install -m 0644 mu/Build/diziPkg/RELEASE_CLANGPDB/FV/SILICIUM_UEFI.fd dist/SILICIUM_UEFI-dizi-FIRST-ENTRY.fd
+          python3 - <<'PY'
+          import pathlib
+          import struct
+          boot=pathlib.Path("dist/Mu-dizi-XNU-FIRST-ENTRY-EXPERIMENTAL.img").read_bytes()
+          fat=pathlib.Path("dist/DIZI-XNU-FIRST-ENTRY.fat").read_bytes()
+          assert boot[:8]==b"ANDROID!"
+          assert struct.unpack_from("<I",boot,40)[0]==4
+          ksize=struct.unpack_from("<I",boot,8)[0]
+          rsize=struct.unpack_from("<I",boot,12)[0]
+          pos=4096+((ksize+4095)//4096)*4096
+          assert rsize==len(fat), (rsize,len(fat))
+          assert boot[pos:pos+rsize]==fat, "ramdisk differs from menu FAT"
+          assert b"FAT32   " in fat[:512]
+          assert b"Payloads/kernel.macho" not in boot[:4096], "No file paths expected in header"
+          print("Android boot-v4 verified with prelinked XNU+ADT and ACTIVE DarwinEnter handoff")
+          PY
+          (cd dist && sha256sum Mu-dizi-XNU-FIRST-ENTRY-EXPERIMENTAL.img SILICIUM_UEFI-dizi-FIRST-ENTRY.fd DIZI-XNU-FIRST-ENTRY.fat ADT-REFERENCE-RESULT.json PRELINK-CHECK.json > SHA256SUMS.txt)
+
+      # Artifacts need no repository contents:write permission. Upload first
+      # so a release API 403 cannot discard successfully built images.
+      - name: Upload verified binaries to Actions Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dizi-xnu-first-entry-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 6
+          path: |
+            dist/Mu-dizi-XNU-FIRST-ENTRY-EXPERIMENTAL.img
+            dist/SILICIUM_UEFI-dizi-FIRST-ENTRY.fd
+            dist/DIZI-XNU-FIRST-ENTRY.fat
+            dist/SHA256SUMS.txt
+            dist/NOT-BOOTABLE-XNU.txt
+            dist/BOOT-PATCHES.txt
+            dist/ADT-REFERENCE-RESULT.json
+            dist/PRELINK-CHECK.json
+
+      # GitHub may reject Release creation with HTTP 403 even when the job
+      # reports Contents: write; previous jobs with the same scope succeeded.
+      # Preserve the verified output independently of that API response.
+      - name: Publish successful public-source test build
+        id: publish
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="dizi-xnu-first-entry-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          gh release create "$tag" \
+            dist/Mu-dizi-XNU-FIRST-ENTRY-EXPERIMENTAL.img \
+            dist/SILICIUM_UEFI-dizi-FIRST-ENTRY.fd \
+            dist/DIZI-XNU-FIRST-ENTRY.fat \
+            dist/SHA256SUMS.txt \
+            dist/NOT-BOOTABLE-XNU.txt \
+            dist/BOOT-PATCHES.txt \
+            dist/ADT-REFERENCE-RESULT.json \
+            dist/PRELINK-CHECK.json \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --prerelease --title "Dizi first REAL XNU handoff (HIGH RISK, no OS) #$GITHUB_RUN_ID" \
+            --notes-file dist/NOT-BOOTABLE-XNU.txt
+
+      - name: Report publication result
+        if: always()
+        env:
+          PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
+        run: |
+          {
+            echo "## Dizi real first XNU entry boot-v4 (HIGH RISK, NO ROLLBACK)"
+            echo "Check **Actions → this workflow run → Artifacts** for a verified boot image."
+            echo "Artifact: dizi-xnu-first-entry-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT} (retained 7 days)."
+            if [ "$PUBLISH_OUTCOME" = "failure" ]; then
+              echo ""
+              echo "Release publication failed: check publish step. Artifact may still exist."
+            elif [ "$PUBLISH_OUTCOME" = "skipped" ]; then
+              echo ""
+              echo "Build failed before publishing: no boot image artifact from this run."
+            else
+              echo ""
+              echo "Release published. Actual XNU entry attempted ONLY if manually confirmed; iPadOS NOT functional."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

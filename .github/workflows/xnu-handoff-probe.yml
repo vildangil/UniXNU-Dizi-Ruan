@@ -71,12 +71,23 @@ jobs:
       - name: Install public cross-compilation dependencies
         run: |
           set -euo pipefail
-          echo "::group::Refreshing Ubuntu package lists (max 8 minutes)"
-          timeout 480s sudo apt-get -o Acquire::Retries=2 update
+          # Azure apt archive proved extremely slow (114 MB still downloading
+          # after 15 minutes, exit 124 on 2026-10-27). Prefer Ubuntu's public
+          # archive with a second mirror, instead of a fixed Azure endpoint.
+          mirror_file=/etc/apt/apt-mirrors.txt
+          if [ -f "$mirror_file" ]; then
+            printf '%s\n' \
+              'https://archive.ubuntu.com/ubuntu/' \
+              'https://mirrors.edge.kernel.org/ubuntu/' | sudo tee "$mirror_file"
+          fi
+          echo "::group::Refreshing Ubuntu package lists (max 10 minutes)"
+          timeout 600s sudo apt-get -o Acquire::Retries=1 \
+            -o Acquire::https::Timeout=45 -o Acquire::http::Timeout=45 update
           echo "::endgroup::"
-          echo "::group::Installing EDK2 cross-build tools (max 15 minutes)"
-          timeout 900s sudo env DEBIAN_FRONTEND=noninteractive apt-get \
-            -o DPkg::Lock::Timeout=180 -o Acquire::Retries=2 \
+          echo "::group::Installing EDK2 cross-build tools (max 28 minutes)"
+          timeout 1680s sudo env DEBIAN_FRONTEND=noninteractive apt-get \
+            -o DPkg::Lock::Timeout=180 -o Acquire::Retries=1 \
+            -o Acquire::https::Timeout=45 -o Acquire::http::Timeout=45 \
             install -y --no-install-recommends \
             clang-18 llvm-18 llvm-18-tools lld-18 nasm mono-devel \
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu uuid-dev \
@@ -309,14 +320,16 @@ jobs:
         run: |
           {
             echo "## Dizi DarwinBoot loader probe boot-v4 image"
-            echo "Download the files from **Actions → this workflow run → Artifacts**."
+            echo "Check **Actions → this workflow run → Artifacts** for a verified boot image."
             echo "Artifact: dizi-xnu-loader-probe-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT} (retained 7 days)."
-            if [ "$PUBLISH_OUTCOME" != "success" ]; then
+            if [ "$PUBLISH_OUTCOME" = "failure" ]; then
               echo ""
-              echo "⚠️ GitHub Releases returned an error despite the requested contents:write scope."
-              echo "The Actions artifact remains available for download; check the publish step for the exact response."
+              echo "Release publication failed: check publish step. Artifact may still exist."
+            elif [ "$PUBLISH_OUTCOME" = "skipped" ]; then
+              echo ""
+              echo "Build failed before publishing: no boot image artifact from this run."
             else
               echo ""
-              echo "Release publishing succeeded."
+              echo "Release publication succeeded. This is a loader probe, NOT bootable XNU."
             fi
           } >> "$GITHUB_STEP_SUMMARY"

@@ -1,8 +1,13 @@
 /dts-v1/;
+/include/ "sm7435.dtsi"
+
 / {
     model = "Xiaomi Redmi Pad Pro (dizi)";
     compatible = "xiaomi,dizi", "qcom,sm7435";
-    #address-cells = <2>;
-    #size-cells = <2>;
-    // No unverified RAM/IRQ/MMIO addresses: not yet usable to boot XNU.
+
+    // SMP topology, PSCI, architectural timer and GICv3 are provided by
+    // the version-pinned SM7435 SoC DTSI. Dizi-specific DDR reservations,
+    // graphics/storage resources and secure carveouts remain unverified.
+    // This DTS intentionally does not publish an unverified XNU RAM pool.
+    // No standalone XNU kernel handoff/ADT is bootable from this file yet.
 };

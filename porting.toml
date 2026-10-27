@@ -4,7 +4,7 @@ schema_version = 1
 name = "dizi"
 soc = "SM7435"
 os_profile = "unselected"
-summary = "Dizi EDK2/UniXNU menu and physical PMIC buttons verified; DarwinBoot now parses XNU Mach-O and reference ADT on hardware, then intentionally aborts before XNU execution. Memory ownership, prelink, iPadOS ABI, SMP and ruan remain unverified."
+summary = "Dizi EDK2/UniXNU + native PMIC buttons and DarwinBoot ADT parse verified on hardware. SM7435 XNU source kernel built (40569002417); pinned iPadOS17 kernelcache prelink candidate generated on Linux (40570765147), but runtime remains explicitly UNQUALIFIED and NOT bootable. The 256MiB UEFI window test and prelinked variant have not been device-tested. No XNU instruction executed, no SMP. Ruan remains unverified."
 
 [[area]]
 id = "configuration"
@@ -14,7 +14,7 @@ paths = ["board.toml","feeds.toml","configs/dizi_defconfig","README.md"]
 inputs = ["Obtain board-specific hardware observations and validated build sources."]
 configuration = ["No sheng/SM8550 configuration or driver is selected."]
 procedure = ["Review source pins and run the next safe on-device checkpoint."]
-findings = ["Board example=true remains; preliminary public SM7435 common SoC source pinned at 98d9b9bd, with CPU topology, PSCI/GICv3/19.2MHz timer and SMP source patch; no XNU hardware validation or selected OS/kernelcache identity."]
+findings = ["Board example=true remains; public SM7435 common SoC pinned at 98d9b9bd with 8 CPU topology and PSCI/GICv3. The experimental runner builds raw XNU (40569002417) including XnuPrelink sparse-index/security-init ABI. Original iPadOS17.7.11/21H461 Apple kernelcache SHA256 f18b4df865405f2a287b84977d7aca745e056d656d9fc9df1662970ce2969de7 verified against upstream profile, then successful host-only prelink run 40570765147 produced 51,941,376-byte ARM64 candidate; XnuPrelink explicitly reports runtime_qualified=false, loadable=false. No actual XNU execution."]
 completion = ["Record reproducible host and hardware tests before claiming implementation."]
 limits = ["XNU kernel entry and OS functionality are not confirmed on dizi or ruan."]
 next_action = ["Compile and inspect the pinned SM7435 device tree and XNU source patch; select a compatible OS/kernelcache and independently verify DDR reservations before DarwinBoot handoff or SMP runtime experiments."]

@@ -1,0 +1,203 @@
+name: DIZI XNU stage1 (manual, pinned source)
+# Manual only. No push, pull_request or cron event.
+on:
+  workflow_dispatch:
+  issue_comment:
+    types: [created]
+permissions:
+  contents: read
+concurrency:
+  group: dizi-xnu-stage1-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  STAGE_SOURCE: vildangil/dizi_IpadOS_maybe
+  STAGE_SHA: a05bec219e6313291fcebfe4de7b6aef9cbc831c
+  DXB_REPO: https://github.com/blacktop/darwin-xnu-build
+  DXB_SHA: 663906528d1cd5ea8fde7de6f16de73db9511549
+  IOS_SWEET_REPO: https://github.com/dipa-studio/ios-sweet
+  IOS_SWEET_SHA: 11da58bd050672960c0a83b5bef2176047eea479
+  KSN_SHA: c2dc30a1123ef2f066d0bd516e69408b73b585c8
+  KSN_REPO: https://github.com/KSN2redawew/Mu-Silicium.git
+  MACOS_VERSION: "13.5"
+  KERNEL_CONFIG: DEVELOPMENT
+  MACHINE_CONFIG: DIZI
+
+jobs:
+  # Fail fast before allocating macOS runner / downloading XNU and KDK.
+  preflight:
+    defaults:
+      run:
+        working-directory: stage
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.number == 1 &&
+       github.event.issue.pull_request != null &&
+       github.event.comment.user.login == 'vildangil' &&
+       github.event.comment.body == '/run-dizi-xnu')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: vildangil/dizi_IpadOS_maybe
+          ref: ${{ env.STAGE_SHA }}
+          path: stage
+          persist-credentials: false
+      - name: Verify DTB-derived hardware profile
+        run: python3 tools/dizi_xnu_port.py check
+      - name: Fetch pinned upstream patch and Apple Device Tree tooling
+        run: |
+          git init -q ios-sweet
+          git -C ios-sweet fetch -q --depth 1 "$IOS_SWEET_REPO" "$IOS_SWEET_SHA"
+          git -C ios-sweet checkout -q FETCH_HEAD
+          test "$(git -C ios-sweet rev-parse HEAD)" = "$IOS_SWEET_SHA"
+      - name: Generate and verify full DIZI patch set and ADT
+        run: python3 tools/validate_dizi_stage1.py ios-sweet preflight
+      - name: Compile native ABL stage0 shim (no EDK2)
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
+          python3 tools/build_dizi_xnu_shim.py ios-sweet/shim preflight/shim
+          test -s preflight/shim/dizi-xnu-stage0-Image
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dizi-stage1-static-preflight-NOT-BOOTABLE
+          path: |
+            stage/preflight/dizi.adt
+            stage/preflight/preflight.json
+            stage/preflight/DIZI_NOT_BOOTABLE.txt
+            stage/preflight/shim/dizi-xnu-stage0-Image
+          if-no-files-found: error
+          retention-days: 14
+
+  build-dizi:
+    defaults:
+      run:
+        working-directory: stage
+    needs: preflight
+    runs-on: macos-14
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: vildangil/dizi_IpadOS_maybe
+          ref: ${{ env.STAGE_SHA }}
+          path: stage
+          persist-credentials: false
+      # Cached immutable source checkout avoids re-downloading the patch repository
+      # on each macOS run. Kernel build / KDK are NOT cached: macOS runners are fresh.
+      - uses: actions/cache@v4
+        with:
+          path: stage/ios-sweet
+          key: ios-sweet-macos14-${{ env.IOS_SWEET_SHA }}-v1
+      - name: Fetch pinned source trees only if absent
+        run: |
+          if [ ! -f ios-sweet/tools/mkadt.py ]; then
+            git init -q ios-sweet
+            git -C ios-sweet fetch -q --depth 1 "$IOS_SWEET_REPO" "$IOS_SWEET_SHA"
+            git -C ios-sweet checkout -q FETCH_HEAD
+          fi
+          test "$(git -C ios-sweet rev-parse HEAD)" = "$IOS_SWEET_SHA"
+          git init -q dxb
+          git -C dxb fetch -q --depth 1 "$DXB_REPO" "$DXB_SHA"
+          git -C dxb checkout -q FETCH_HEAD
+      - name: Generate DIZI patch set
+        run: |
+          python3 tools/dizi_xnu_port.py patch ios-sweet/xnu/patches dxb/patches
+          sed -i '' 's/ARCHS="x86_64 arm64e" VALID_ARCHS="x86_64 arm64e"/ARCHS="x86_64 arm64e arm64" VALID_ARCHS="x86_64 arm64e arm64"/' dxb/build.sh
+          grep -q 'VALID_ARCHS="x86_64 arm64e arm64"' dxb/build.sh
+          grep -q 'MACHINE_FLAGS_ARM64_DIZI' dxb/patches/0004-sweet-machine-config.patch
+          for src in 0019-stage-libpthread.sh 0020-stage-bearssl.sh 0026-stage-hfs.sh; do
+            grep -q DIZI "dxb/patches/$src"
+          done
+      - name: Set up macOS toolchain, install missing packages only
+        shell: bash
+        run: |
+          missing=()
+          for pkg in jq gum bash cmake ninja; do
+            if ! brew list --versions "$pkg" >/dev/null 2>&1; then missing+=("$pkg"); fi
+          done
+          if (( ${#missing[@]} )); then brew install "${missing[@]}"; fi
+          if [ ! -x /usr/local/bin/xcodes ]; then
+            printf '#!/bin/sh\nexit 0\n' | sudo tee /usr/local/bin/xcodes >/dev/null
+            sudo chmod +x /usr/local/bin/xcodes
+          fi
+          XC=$(ls -d /Applications/Xcode_15.*.app | sort -V | head -1)
+          test -n "$XC"
+          echo "DEVELOPER_DIR=$XC/Contents/Developer" >> "$GITHUB_ENV"
+          sudo xcode-select -s "$XC"
+          xcodebuild -version
+          xcrun --find iig
+      - name: Compile XNU DIZI (full log retained on failure)
+        working-directory: stage/dxb
+        shell: bash
+        env:
+          MAKEFLAGS: -k
+        run: |
+          set -o pipefail
+          bash build.sh 2>&1 | tee ../xnu-build.log
+      - uses: actions/download-artifact@v4
+        with:
+          name: dizi-stage1-static-preflight-NOT-BOOTABLE
+          path: stage/preflight
+      - name: Fetch pinned KSN DIZI Android boot-v4 packaging tools
+        shell: bash
+        run: |
+          git init -q ksn
+          git -C ksn fetch -q --depth 1 "$KSN_REPO" "$KSN_SHA"
+          git -C ksn checkout -q FETCH_HEAD
+          test "$(git -C ksn rev-parse HEAD)" = "$KSN_SHA"
+          test -s ksn/Resources/DTBs/dizi.dtb
+          test -s ksn/Resources/Scripts/mkbootimg.py
+      - name: Generate experimental DIZI ADT and payload
+        if: success()
+        shell: bash
+        run: |
+          mkdir -p dist
+          python3 tools/dizi_xnu_port.py adt ios-sweet/tools dist
+          cp dxb/fakeroot/System/Library/Kernels/kernel.development.dizi dist/
+          python3 - <<'PY'
+          import struct
+          from pathlib import Path
+          b=Path("dist/kernel.development.dizi").read_bytes()
+          magic,cpu=struct.unpack_from("<II",b)
+          assert (magic,cpu)==(0xfeedfacf,0x0100000c),(hex(magic),hex(cpu))
+          print("DIZI Mach-O ARM64:",len(b))
+          PY
+          python3 ios-sweet/tools/mkpayload.py dist/kernel.development.dizi dist/dizi.adt dist/dizi-stage1.payload --cmdline 'debug=0xc serial=3 cpus=1 keepsyms=1 rd=md0'
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("dist/dizi-stage1.payload")
+          assert p.read_bytes()[:8]==b"SWEETXNU", "payload protocol marker (upstream legacy format)"
+          assert p.stat().st_size > 1000000
+          print("Experimental payload:",p.stat().st_size)
+          PY
+          python3 tools/pack_dizi_xnu_abl.py \
+            preflight/shim/dizi-xnu-stage0-Image \
+            dist/dizi-stage1.payload \
+            ksn/Resources/DTBs/dizi.dtb \
+            ksn/Resources/Scripts/mkbootimg.py \
+            dist/Mu-dizi-XNU-direct-ABL-EXPERIMENTAL.img \
+            --report dist/ABL-XNU-image-preflight.json
+          printf 'EXPERIMENTAL: direct ABL -> XNU handoff not verified on real tablet. Boot only temporarily if supported, NEVER flash. No iPadOS filesystem, drivers or guaranteed display.\n' > dist/DO_NOT_FLASH_OR_BOOT.txt
+          cd dist
+          shasum -a 256 kernel.development.dizi dizi.adt dizi-stage1.payload Mu-dizi-XNU-direct-ABL-EXPERIMENTAL.img > SHA256SUMS.txt
+      - name: Extract compile error summary on failure
+        if: failure()
+        shell: bash
+        run: |
+          mkdir -p dist
+          if [ -f xnu-build.log ]; then
+            grep -E 'fatal error:|error:|make: \*\*\*|Skipping patch' xnu-build.log | tail -n 300 > dist/BUILD_ERRORS.txt || true
+          fi
+          printf 'Experimental DIZI build failed; see GitHub job log and BUILD_ERRORS.txt.\n' > dist/BUILD_FAILED.txt
+      - name: Upload diagnostics and experimental files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dizi-xnu-stage1-EXPERIMENTAL-NOT-BOOTABLE
+          path: stage/dist/
+          if-no-files-found: warn
+          retention-days: 14

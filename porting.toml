@@ -4,7 +4,7 @@ schema_version = 1
 name = "dizi"
 soc = "SM7435"
 os_profile = "unselected"
-summary = "Dizi EDK2 and UniXNU GUI reached; XNU handoff, root and ruan variant unverified. No reviewed IPSW/SoC source."
+summary = "Dizi EDK2 and UniXNU GUI reached; native PMIC buttons confirmed. Preliminary SM7435 SoC source pinned; kernel handoff, RAM, iPadOS ABI and ruan remain unverified."
 
 [[area]]
 id = "configuration"
@@ -14,10 +14,10 @@ paths = ["board.toml","feeds.toml","configs/dizi_defconfig","README.md"]
 inputs = ["Obtain board-specific hardware observations and validated build sources."]
 configuration = ["No sheng/SM8550 configuration or driver is selected."]
 procedure = ["Review source pins and run the next safe on-device checkpoint."]
-findings = ["Board example=true is retained; generic upstream UniXNU component IDs, architecture fragment and patch series are selected, while the SM7435 SoC source and reviewed OS/kernelcache identity remain missing."]
+findings = ["Board example=true remains; preliminary public SM7435 common SoC source pinned at 98d9b9bd, with CPU topology, PSCI/GICv3/19.2MHz timer and SMP source patch; no XNU hardware validation or selected OS/kernelcache identity."]
 completion = ["Record reproducible host and hardware tests before claiming implementation."]
 limits = ["XNU kernel entry and OS functionality are not confirmed on dizi or ruan."]
-next_action = ["Validate SM7435 SoC source, select matching OS/kernelcache inputs and review component archives before enabling the upstream UniXNU kernel build."]
+next_action = ["Compile and inspect the pinned SM7435 device tree and XNU source patch; select a compatible OS/kernelcache and independently verify DDR reservations before DarwinBoot handoff or SMP runtime experiments."]
 evidence = []
 
 [[area]]
@@ -37,15 +37,15 @@ evidence = []
 [[area]]
 id = "cpu"
 status = "planned"
-components = []
-paths = []
+components = ["ArmCpu", "ArmDTPlatform"]
+paths = ["board.toml", "dts/dizi.dts", "feeds.toml"]
 inputs = ["Obtain board-specific hardware observations and validated build sources."]
-configuration = ["No sheng/SM8550 configuration or driver is selected."]
+configuration = ["Pinned SM7435 SoC fork with 8 Parrot CPU MPIDRs, PSCI=smc, GICv3 addresses and 0x20000 redistributor stride; no SM8550 power/GPU drivers selected."]
 procedure = ["Review source pins and run the next safe on-device checkpoint."]
-findings = ["No verified Dizi XNU subsystem implementation or device evidence."]
+findings = ["Source-level hardware mapping and eight-CPU boot patch staged; cpus=1 remains the bring-up default. No verified XNU secondary CPU startup."]
 completion = ["Record reproducible host and hardware tests before claiming implementation."]
 limits = ["XNU kernel entry and OS functionality are not confirmed on dizi or ruan."]
-next_action = ["Collect and validate device-specific resources."]
+next_action = ["Verify ADT physical CPU numbering, ArmCpu PSCI return values, redistributor ownership, IPI/timer and two-cluster scheduler after XNU kernel handoff."]
 evidence = []
 
 [[area]]

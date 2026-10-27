@@ -1,0 +1,46 @@
+# First XNU entry attempt. NOT a working iPadOS OS image.
+# USER CONFIRMATION IS MANDATORY before ExitBootServices: no way to return to
+# UniXNU after kernel handoff. Expected: green DarwinEnter stripe and
+# possible hang/black screen; observe, then manually hard-reboot to Android.
+# Never use fastboot flash. Only temporary fastboot boot.
+version = 1
+
+[boot]
+timeout = 60
+fallback_timeout = 60
+rotate = 0
+default = "return"
+connect_all = true
+
+[ui]
+title = "UniXNU / dizi XNU first entry"
+logo = true
+layout = "portrait"
+scale = 0
+console = "auto"
+
+[[entry]]
+id = "return"
+title = "Return to firmware (safe)"
+type = "action"
+action = "exit"
+
+[[entry]]
+id = "xnu-first-entry"
+title = "EXECUTE XNU (EXPERIMENTAL / NO RETURN)"
+type = "xnu"
+path = "Payloads/kernel.macho"
+args = "-v keepsyms=1 debug=0x14e cpus=1"
+confirm = "REAL XNU ENTRY! Exits UEFI, may HANG! POWER confirms."
+
+[[entry]]
+id = "restart"
+title = "Restart tablet"
+type = "action"
+action = "reset"
+
+[[entry]]
+id = "shutdown"
+title = "Power off tablet"
+type = "action"
+action = "shutdown"

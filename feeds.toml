@@ -1,2 +1,8 @@
-# SM7435 SoC common source is not yet validated or pinned.
-# Never select the unrelated sheng/SM8550 source in this device port.
+# Pin the SM7435 SoC port separately from the Dizi board.
+# The SoC profile includes only ArmCpu/ArmDTPlatform and preparatory SMP
+# mappings; the OS profile, boot memory map and XNU handoff remain unverified.
+[[source]]
+kind = "soc"
+name = "sm7435"
+git = "https://github.com/vildangil/UniXNU-sm7435-common.git"
+commit = "98d9b9bd35c530c2c9a4ea338fbabe5c341c005b"

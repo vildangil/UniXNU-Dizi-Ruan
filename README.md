@@ -96,6 +96,40 @@ The workflow pins the upstream UniXNU source and the `sm7435` SoC fork. Its CI-o
 
 If successful, the job publishes a **source-only unprelinked ARM64 Mach-O** under `xnu-dizi-sm7435-UNPRELINKED-<runid>` plus `BUILD-RESULT.json` with SHA-256 and file size. This cannot be booted by itself and is not an Android/Apple dualboot image. Errors produce redacted text logs in a separate artifact, including the first source/patch/compiler failure. The pinned SM7435 SMP patch is a source-level adaptation, not hardware verification.
 
+## Diagnostic Apple ADT parse experiment (eight CPU topology)
+
+The [manual ADT parser probe](.github/workflows/xnu-adt-parse-probe.yml)
+extends the successful DarwinBoot loader smoke test. A photo of the preceding
+loader probe showed `XNU loader probe ... returned: Not Found`, which is
+consistent with DarwinBoot requiring `Payloads/kernel.macho.adt` next to
+the raw `Payloads/kernel.macho`. The previous probe deliberately omitted it.
+
+The new workflow:
+- Clones the pinned upstream UniXNU DT-to-ADT converter and pinned
+  [SM7435 SoC profile](https://github.com/vildangil/UniXNU-sm7435-common).
+- Stages a **CI-only** memory node from a previously observed 3 GiB upper
+  FDT DRAM bank (0x8c0000000). The memory bank is real FDT evidence, but its
+  safe runtime ownership is **NOT verified**; it is never added to the device
+  tree used by the normal firmware build.
+- Generates an Apple ADT reference containing 8 CPU MPIDRs, 4E+4P clusters,
+  PSCI and the SM7435 GICv3 settings, then checks that ADT structurally.
+- Adds the `.adt` sidecar to the separate diagnostic FAT32 initrd.
+- **Patches DarwinBoot in the disposable CI checkout to abort intentionally**
+  before `ReadBootVideo`, `AllocateWindow`, `ExitBootServices`, or a kernel
+  branch. Success on device means it now reports `Aborted` after ADT
+  parsing rather than `Not Found`. It is NOT a successful XNU boot.
+
+Use `/run-dizi-adt-probe` as the repository owner on
+[control PR #1](https://github.com/vildangil/UniXNU-Dizi-Ruan/pull/1),
+or dispatch the workflow manually. No CI builds run after `push`.
+A successful build publishes a separately tagged `*-FAIL-CLOSED.img`
+intended only for temporary `fastboot boot`; never flash it.
+
+**Blockers to actual kernel entry** remain a prelinked and ABI-compatible XNU,
+a verified XNU/EFI-owned memory window, a reviewed on-device ADT/identity,
+appropriate trust/security inputs and the first XNU entry checkpoint.
+Do not remove the fail-closed patch until those are checked.
+
 ## Experimental boot-v4 loader probe
 
 The separate [XNU loader-probe workflow](.github/workflows/xnu-handoff-probe.yml)

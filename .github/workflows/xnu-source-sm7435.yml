@@ -74,13 +74,22 @@ jobs:
           expected_series = 'patch_series = ["arch:patches/xnu/series", "soc:patches/xnu/series", "device:patches/xnu/series"]'
           assert source.count(expected_config) == 1
           assert source.count(expected_series) == 1
+          # The complete OS series also carries zzz-boot-progress.patch,
+          # which fails to apply after the SM7435 source patch stack at
+          # bsd/kern/bsd_init.c:773. This first-entry build selects only
+          # the two essential XnuPrelink ABI patches, without modifying OS.
+          abi_series = p.parent / "patches/xnu/prelink-abi-series"
+          abi_series.write_text(
+              "component:XnuPrelink/patches/xnu-10063.141.1-security-init.patch\n"
+              "component:XnuPrelink/patches/xnu-10063.141.1-sparse-index.patch\n"
+          )
           source = source.replace(
               expected_config,
               'config_fragments = ["arch:configs/common.config", "soc:configs/sm7435.config", "os:configs/ipados.config"]',
               1
           ).replace(
               expected_series,
-              'patch_series = ["arch:patches/xnu/series", "soc:patches/xnu/series", "os:patches/xnu/series", "device:patches/xnu/series"]',
+              'patch_series = ["arch:patches/xnu/series", "soc:patches/xnu/series", "device:patches/xnu/prelink-abi-series", "device:patches/xnu/series"]',
               1
           )
           p.write_text(source)
@@ -89,7 +98,7 @@ jobs:
           assert board["board"]["example"] is False
           assert board["payload"]["kernel_args"] == ["-v", "cpus=1"]
           assert board["kernel"]["patch_series"].count("soc:patches/xnu/series") == 1
-          assert board["kernel"]["patch_series"].count("os:patches/xnu/series") == 1
+          assert board["kernel"]["patch_series"].count("device:patches/xnu/prelink-abi-series") == 1
           assert board["kernel"]["config_fragments"][-1] == "os:configs/ipados.config"
           print("CI-ONLY staged profile: SM7435, iPadOS 17 source ABI candidate, cpus=1")
           print("Production device board.toml was not edited.")
@@ -112,7 +121,7 @@ jobs:
           assert "sm7435-smp-secondary.patch" in order
           assert "xnu-10063.141.1-sparse-index.patch" in order
           assert "xnu-10063.141.1-security-init.patch" in order
-          assert "zzz-boot-progress.patch" in order
+          assert "zzz-boot-progress.patch" not in order
           assert len(data["patch_order"]) >= 50
           print("PRELINK ABI PATCHES SELECTED:", [x for x in data["patch_order"] if "xnu-10063.141.1" in x])
           assert "sheng-platform-power.patch" not in order

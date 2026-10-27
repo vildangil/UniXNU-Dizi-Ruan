@@ -140,7 +140,16 @@ def main():
                "--output", str(candidate)]
     for root in prelink["roots"]:
         command.extend(["--root", root])
-    for item in prelink.get("early_security_init", []):
+    security = prelink.get("early_security_init", [])
+    # Upstream profile.toml may encode this as one TOML string rather than
+    # a list. Iterating a string produced one command argument per character.
+    if isinstance(security, str):
+        security = [security] if security else []
+    if not isinstance(security, list) or any(
+        not isinstance(item, str) or item.count("=") != 1 for item in security
+    ):
+        raise ValueError("Unexpected early_security_init value in OS profile")
+    for item in security:
         command.extend(["--early-security-init", item])
     print(f"Prelink {len(prelink['roots'])} original Apple components to native XNU", flush=True)
     subprocess.run(command, check=True, cwd=upstream)

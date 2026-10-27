@@ -112,22 +112,6 @@ DiziPollEfiKey (OUT EFI_INPUT_KEY *Key, OUT CONST CHAR8 **Origin)
   return FALSE;
 }
 
-STATIC
-VOID
-DiziShowInputStatus (IN UNIXNU_UI *Ui, IN CONST CHAR8 *Origin,
-                     IN CONST EFI_INPUT_KEY *Key)
-{
-  CHAR16 Line[128];
-  UnicodeSPrint (Line, sizeof (Line),
-                 L"Input EFI:%u EX:%u  %a scan:%04x char:%04x",
-                 (UINT32)DiziCountInputHandles (&gEfiSimpleTextInProtocolGuid),
-                 (UINT32)DiziCountInputHandles (&gEfiSimpleTextInputExProtocolGuid),
-                 Origin,
-                 Key != NULL ? (UINT32)Key->ScanCode : 0,
-                 Key != NULL ? (UINT32)Key->UnicodeChar : 0);
-  UniXNUUiDrawStatus (Ui, 1, Line);
-}
-
 // The confirmation submenu must not block on console key events either.
 // Return EFI_TIMEOUT after 30 s rather than trapping the user.
 STATIC
@@ -194,7 +178,12 @@ def patch(root: Path, dry_run: bool = False) -> None:
     HasInput ? L"Up/Down: select    Enter: boot    1-9: boot entry    Esc: stop timer"
              : L"No input device: the default entry boots when the timer ends"
     );''',
-        '  DiziShowInputStatus (Ui, "NONE", NULL);',
+        '''  UniXNUUiDrawStatus (
+    Ui,
+    1,
+    HasInput ? L"Up/Down: select  Power: boot"
+             : L"No EFI input: PMIC keys can still work"
+    );''',
         "show on-screen input counters",
     )
     src = once(src,
@@ -223,7 +212,6 @@ def patch(root: Path, dry_run: bool = False) -> None:
 
       if (!UserActive) {''',
                '''    } else {
-      DiziShowInputStatus (Ui, DiziKeySource, &Key);
       if (!UserActive) {''',
                "unify timer and physical input")
     src = once(src,

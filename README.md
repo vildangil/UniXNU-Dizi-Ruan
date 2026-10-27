@@ -23,7 +23,7 @@ experiment, not the official upstream UniXNU build pipeline.
 | --- | --- |
 | `board.toml` | SM7435/dizi identity, component selection, firmware and kernel build profile |
 | `configs/dizi_defconfig` | DIZI-specific kernel options |
-| `feeds.toml` | Reviewed and pinned additional SoC/driver sources (none accepted yet) |
+| `feeds.toml` | Pinned preliminary SM7435 common source with ARM CPU/GICv3/PSCI (not XNU-validated) |
 | `dts/dizi.dts`, `data/` | Board tree and independently observed hardware facts |
 | `patches/xnu/series` | **Only DIZI-reviewed XNU board patches**; currently empty |
 | `package/unixnu.toml`, `package/` | Device boot menu and device-specific payload hooks |
@@ -54,6 +54,31 @@ the native build should use the upstream commands from an external
 These are **target commands for the completed device profile**, not
 commands that are currently expected to build a bootable DIZI kernel.
 The existing standalone EDK2 workflow is separate and unchanged.
+
+## SM7435 eight-CPU groundwork
+
+The board now pins [`vildangil/UniXNU-sm7435-common`](https://github.com/vildangil/UniXNU-sm7435-common) at
+`98d9b9bd35c530c2c9a4ea338fbabe5c341c005b`. The SoC repo provides a
+`sm7435.dtsi` for the eight Qualcomm Parrot CPU MPIDRs, PSCI SMC, GICv3
+distributor/redistributors, 19.2 MHz timer, plus a small source-level SMP
+patch derived from the SM8550 proof of concept.
+
+The board's `dts/dizi.dts` includes this SoC DTSI and `board.toml` selects
+`soc:configs/sm7435.config` and `soc:patches/xnu/series`.
+The fork's original SM8550 power and GPU drivers are **not active**.
+
+**This does not boot XNU or bring up seven secondary processors yet.**
+`example = true` and `kernel_args = ["-v", "cpus=1"]` remain unchanged.
+Dizi DRAM ownership, kernel/ADT handoff, the selected iPadOS ABI, and the
+`ArmCpu` secondary-CPU/interrupt path still require validation. In the
+current upstream driver, the SMP opt-in flag is still `sheng-smp=1`;
+changing boot flags now would not make this hardware-verified.
+
+Sources: [Qualcomm Parrot DTS](https://github.com/LineageOS/android_kernel_xiaomi_sm7435-devicetrees/blob/849a8a76b0959f7e7c12eb67081591248b2f8e7b/qcom/parrot.dtsi),
+[observed dizi FDT](data/dizi-fdt-observed.json),
+[upstream ArmCpu](https://github.com/UniXNU/ArmCpu/blob/main/ArmCpu.cpp).
+No new UEFI build is required for this source-level SoC profile change;
+the tested R4 PMIC buttons remain in the separate firmware workflow.
 
 ## Ownership
 

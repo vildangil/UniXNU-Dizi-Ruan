@@ -128,7 +128,7 @@ DiziShowInputStatus (IN UNIXNU_UI *Ui, IN CONST CHAR8 *Origin,
   UniXNUUiDrawStatus (Ui, 1, Line);
 }
 
-// The confirmation submenu must not block on ConIn->WaitForKey either.
+// The confirmation submenu must not block on console key events either.
 // Return EFI_TIMEOUT after 30 s rather than trapping the user.
 STATIC
 EFI_STATUS

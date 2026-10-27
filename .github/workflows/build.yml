@@ -16,6 +16,7 @@ permissions:
 env:
   MU_REPO: https://github.com/vildangil/Mu-Silicium.git
   MU_SHA: 39fbbc20885325044cfeaf8428efb7267e0bbe35
+  MU_R4_SHA: 71b8dedd0c00f85eb5bcf10a647f0d698d81b6ac
   UNIXNU_REPO: https://github.com/UniXNU/UniXNU.git
   UNIXNU_SHA: 759eb61b6b8d475de5b3d1b39e1de1f5294e8d9a
   CLANGPDB_AARCH64_PREFIX: aarch64-linux-gnu-
@@ -46,7 +47,7 @@ jobs:
       - name: Preflight public-only dependencies and firmware-only menu
         run: |
           set -euo pipefail
-          python3 -m py_compile ci/integrate_unixnu.py ci/patch_initrd_fat.py ci/patch_sec_entry_hob.py ci/patch_public_buttons.py
+          python3 -m py_compile ci/integrate_unixnu.py ci/patch_initrd_fat.py ci/patch_sec_entry_hob.py ci/patch_public_buttons.py ci/patch_native_pmic_r4.py
           python3 - <<'PY'
           import pathlib, tomllib
           w=pathlib.Path(".github/workflows/build.yml").read_text()
@@ -123,6 +124,18 @@ jobs:
           python3 ci/patch_initrd_fat.py mu
           python3 ci/patch_public_buttons.py mu --dry-run
           python3 ci/patch_public_buttons.py mu
+          echo '::group::Pin R4 PMIC files'
+          git -C mu fetch --depth 1 origin "$MU_R4_SHA"
+          test "$(git -C mu rev-parse FETCH_HEAD)" = "$MU_R4_SHA"
+          dizi_lib=mu/External/UniXNU/package/UniXNUPkg/Library/UniXNULib/Dizi
+          mkdir -p "$dizi_lib"
+          for src in DiziPmicKeys.c DiziPmicKeys.h DiziSpmiArbProbe.c DiziSpmiArbProbe.h DiziSpmiArbRead.c; do
+            git -C mu show "$MU_R4_SHA:Platforms/Xiaomi/DiziBootPkg/BootSelector/$src" > "$dizi_lib/$src"
+            test -s "$dizi_lib/$src"
+          done
+          echo '::endgroup::'
+          python3 ci/patch_native_pmic_r4.py mu --dry-run
+          python3 ci/patch_native_pmic_r4.py mu
           menu=mu/External/UniXNU/package/UniXNUPkg/Library/UniXNULib/Menu.c
           libinf=mu/External/UniXNU/package/UniXNUPkg/Library/UniXNULib/UniXNULib.inf
           grep -q 'DIZI_EFI_BUTTON_POLL_V2' "$menu"
@@ -132,6 +145,127 @@ jobs:
           grep -q 'SCAN_VOLUME_UP' "$menu"
           grep -q 'SCAN_VOLUME_DOWN' "$menu"
           grep -q 'gEfiSimpleTextInputExProtocolGuid' "$libinf"
+          grep -q 'DIZI_R4_PMIC_BRIDGE_V1' "$menu"
+          grep -q 'DiziPollR4PmicKey (&Key)' "$menu"
+          grep -q 'DiziR4DrawStatus (Ui)' "$menu"
+          grep -q 'Dizi/DiziPmicKeys.c' "$libinf"
+          grep -q 'Dizi/DiziSpmiArbRead.c' "$libinf"
+          grep -q '^  IoLib          if grep -q 'ConIn->WaitForKey' "$menu"; then
+            echo '::error::Dizi UniXNU unexpectedly waits on ConIn key event'
+            exit 1
+          fi
+          grep -q 'DIZI_FAT_AFTER_LZ4_V1' mu/External/UniXNU/package/UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.c
+          grep -q 'DIZI_FAT_AFTER_LZ4_V1' mu/External/UniXNU/package/UniXNUPkg/Library/UniXNULib/Config.c
+
+      - name: Make safe FAT32 menu (no XNU kernel provided)
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          truncate -s 64M dist/DIZI-UEFI-menu.fat
+          mkfs.fat -F 32 -n DIZIUEFI dist/DIZI-UEFI-menu.fat
+          mmd -i dist/DIZI-UEFI-menu.fat ::/EFI ::/EFI/UniXNU
+          mcopy -i dist/DIZI-UEFI-menu.fat ci/firmware-menu.toml ::/EFI/UniXNU/unixnu.toml
+          mtype -i dist/DIZI-UEFI-menu.fat ::/EFI/UniXNU/unixnu.toml | grep -q 'UEFI only'
+          cp dist/DIZI-UEFI-menu.fat mu/Resources/ramdisk
+          echo "UEFI ONLY. No XNU/ADT or Android dualboot. NEVER FLASH." > dist/NOT-FLASHABLE.txt
+          {
+            echo 'DIZI standalone UEFI-only test image'
+            echo 'SEC: DIZI_ENTRY_ARG_HOB_V1 (ABL x0 -> GUID HOB)'
+            echo 'Menu: DIZI_EFI_BUTTON_POLL_V2 (100ms timer, EFI TextIn + TextInEx + scan diagnostic)'
+            echo 'PMIC: DIZI_R4_PMIC_BRIDGE_V1 (Mu R4 commit 71b8dedd, SPMI observer READ command)'
+            echo 'Initrd: DIZI_FAT_AFTER_LZ4_V1 (bounded FAT32 lookup)'
+            echo 'Hardware validation: PENDING'
+            echo 'Not for flashing; use temporary fastboot boot only.'
+          } > dist/BOOT-PATCHES.txt
+
+      - name: Compile Mu-Silicium firmware with public UniXNU
+        run: |
+          set -euo pipefail
+          python3 -m venv mu/.venv
+          mu/.venv/bin/python -m pip install --disable-pip-version-check -r mu/pip-requirements.txt
+          source mu/.venv/bin/activate
+          (cd mu && python3 build_uefi.py -d dizi -r RELEASE -c) 2>&1 | tee dist/build.log
+
+      - name: Verify boot-v4 and collect reproducible binaries
+        run: |
+          set -euo pipefail
+          install -m 0644 mu/Mu-dizi.img dist/Mu-dizi-UNIXNU-PUBLIC-UEFI-NOT-FLASHABLE.img
+          install -m 0644 mu/Build/diziPkg/RELEASE_CLANGPDB/FV/SILICIUM_UEFI.fd dist/SILICIUM_UEFI-dizi-PUBLIC.fd
+          python3 - <<'PY'
+          import pathlib
+          import struct
+          boot=pathlib.Path("dist/Mu-dizi-UNIXNU-PUBLIC-UEFI-NOT-FLASHABLE.img").read_bytes()
+          fat=pathlib.Path("dist/DIZI-UEFI-menu.fat").read_bytes()
+          assert boot[:8]==b"ANDROID!"
+          assert struct.unpack_from("<I",boot,40)[0]==4
+          ksize=struct.unpack_from("<I",boot,8)[0]
+          rsize=struct.unpack_from("<I",boot,12)[0]
+          pos=4096+((ksize+4095)//4096)*4096
+          assert rsize==len(fat), (rsize,len(fat))
+          assert boot[pos:pos+rsize]==fat, "ramdisk differs from menu FAT"
+          assert b"FAT32   " in fat[:512]
+          print("Android boot-v4 image contains the checked standalone FAT32 menu")
+          PY
+          (cd dist && sha256sum Mu-dizi-UNIXNU-PUBLIC-UEFI-NOT-FLASHABLE.img SILICIUM_UEFI-dizi-PUBLIC.fd DIZI-UEFI-menu.fat > SHA256SUMS.txt)
+
+      # Artifacts need no repository contents:write permission. Upload first
+      # so a release API 403 cannot discard successfully built images.
+      - name: Upload verified binaries to Actions Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dizi-public-uefi-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 6
+          path: |
+            dist/Mu-dizi-UNIXNU-PUBLIC-UEFI-NOT-FLASHABLE.img
+            dist/SILICIUM_UEFI-dizi-PUBLIC.fd
+            dist/DIZI-UEFI-menu.fat
+            dist/SHA256SUMS.txt
+            dist/NOT-FLASHABLE.txt
+            dist/BOOT-PATCHES.txt
+
+      # GitHub may reject Release creation with HTTP 403 even when the job
+      # reports Contents: write; previous jobs with the same scope succeeded.
+      # Preserve the verified output independently of that API response.
+      - name: Publish successful public-source test build
+        id: publish
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="dizi-public-uefi-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          gh release create "$tag" \
+            dist/Mu-dizi-UNIXNU-PUBLIC-UEFI-NOT-FLASHABLE.img \
+            dist/SILICIUM_UEFI-dizi-PUBLIC.fd \
+            dist/DIZI-UEFI-menu.fat \
+            dist/SHA256SUMS.txt \
+            dist/NOT-FLASHABLE.txt \
+            dist/BOOT-PATCHES.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --prerelease --title "Dizi UEFI + upstream UniXNU (no XNU kernel) #$GITHUB_RUN_ID" \
+            --notes-file dist/NOT-FLASHABLE.txt
+
+      - name: Report publication result
+        if: always()
+        env:
+          PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
+        run: |
+          {
+            echo "## Dizi verified boot image"
+            echo "Download the files from **Actions → this workflow run → Artifacts**."
+            echo "Artifact: dizi-public-uefi-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT} (retained 7 days)."
+            if [ "$PUBLISH_OUTCOME" != "success" ]; then
+              echo ""
+              echo "⚠️ GitHub Releases returned an error despite the requested contents:write scope."
+              echo "The Actions artifact remains available for download; check the publish step for the exact response."
+            else
+              echo ""
+              echo "Release publishing succeeded."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+ "$libinf"
           if grep -q 'ConIn->WaitForKey' "$menu"; then
             echo '::error::Dizi UniXNU unexpectedly waits on ConIn key event'
             exit 1

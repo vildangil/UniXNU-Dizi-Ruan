@@ -4,7 +4,7 @@ schema_version = 1
 name = "dizi"
 soc = "SM7435"
 os_profile = "unselected"
-summary = "Dizi EDK2 and UniXNU GUI reached; native PMIC buttons confirmed. Preliminary SM7435 SoC source pinned; kernel handoff, RAM, iPadOS ABI and ruan remain unverified."
+summary = "Dizi EDK2/UniXNU menu and physical PMIC buttons verified; DarwinBoot now parses XNU Mach-O and reference ADT on hardware, then intentionally aborts before XNU execution. Memory ownership, prelink, iPadOS ABI, SMP and ruan remain unverified."
 
 [[area]]
 id = "configuration"
@@ -28,7 +28,7 @@ paths = [".github/workflows/build.yml"]
 inputs = ["Obtain board-specific hardware observations and validated build sources."]
 configuration = ["No sheng/SM8550 configuration or driver is selected."]
 procedure = ["Review source pins and run the next safe on-device checkpoint."]
-findings = ["Mu-Silicium EDK2 and the UniXNU menu boot via temporary fastboot boot. The device owner confirmed R4 PMIC/SPMI physical buttons work in UEFI; clean-UI build #15 was compiled and still needs device confirmation. DarwinBoot and XNU handoff remain unverified."]
+findings = ["Observed on dizi: temporary Android boot-v4 enters EDK2 and UniXNU GUI, PMIC keys operate the menu. Release dizi-xnu-adt-parse-probe-40562998521-1 displays Aborted when its XNU/ADT test is selected. DarwinBoot source confirms this is the injected guard after ParseKernel and AdtNode, before ReadBootVideo, AllocateWindow, ExitBootServices or DarwinEnter. No XNU kernel instruction executed."]
 completion = ["Record reproducible host and hardware tests before claiming implementation."]
 limits = ["XNU kernel entry and OS functionality are not confirmed on dizi or ruan."]
 next_action = ["Collect and validate device-specific resources."]
@@ -42,7 +42,7 @@ paths = ["board.toml", "dts/dizi.dts", "feeds.toml"]
 inputs = ["Obtain board-specific hardware observations and validated build sources."]
 configuration = ["Pinned SM7435 SoC fork with 8 Parrot CPU MPIDRs, PSCI=smc, GICv3 addresses and 0x20000 redistributor stride; no SM8550 power/GPU drivers selected."]
 procedure = ["Review source pins and run the next safe on-device checkpoint."]
-findings = ["Source-level hardware mapping and eight-CPU boot patch staged; cpus=1 remains the bring-up default. No verified XNU secondary CPU startup."]
+findings = ["Source-level SM7435 eight-CPU mapping staged. DarwinBoot successfully parsed on-device reference ADT containing eight CPU MPIDRs (released ADT parse probe #2). The kernel was deliberately never entered; secondary CPU startup, IRQs and SMP remain untested. cpus=1 stays default."]
 completion = ["Record reproducible host and hardware tests before claiming implementation."]
 limits = ["XNU kernel entry and OS functionality are not confirmed on dizi or ruan."]
 next_action = ["Verify ADT physical CPU numbering, ArmCpu PSCI return values, redistributor ownership, IPI/timer and two-cluster scheduler after XNU kernel handoff."]
@@ -168,7 +168,7 @@ paths = ["package/unixnu.toml",".github/workflows/build.yml"]
 inputs = ["Obtain board-specific hardware observations and validated build sources."]
 configuration = ["No sheng/SM8550 configuration or driver is selected."]
 procedure = ["Review source pins and run the next safe on-device checkpoint."]
-findings = ["Android boot-v4 contains tested FAT32; FDT initrd starts with legacy LZ4 magic 0x184C2102, FAT is not mounted by UEFI."]
+findings = ["Release dizi-xnu-adt-parse-probe-40562998521-1 stores kernel.macho and kernel.macho.adt in /EFI/UniXNU/Payloads relative to unixnu.toml; both were read and ADT parsed on dizi. Prior Not Found was resolved by fixing these config-relative FAT paths. The probe returns deliberate EFI_ABORTED and is not an XNU boot."]
 completion = ["Record reproducible host and hardware tests before claiming implementation."]
 limits = ["XNU kernel entry and OS functionality are not confirmed on dizi or ruan."]
 next_action = ["Expose the raw FAT32 to UEFI and load unixnu.toml."]

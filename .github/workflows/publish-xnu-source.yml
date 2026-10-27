@@ -1,0 +1,78 @@
+name: Publish successful XNU source Mach-O (manual)
+on:
+  workflow_dispatch:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.number == 1 &&
+       github.event.issue.pull_request != null &&
+       github.event.comment.user.login == 'vildangil' &&
+       github.event.comment.body == '/publish-dizi-xnu')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      XNU_SOURCE_RUN: "40552223877"
+    steps:
+      - name: Fetch successful compiled public XNU source artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh run download "$XNU_SOURCE_RUN" --repo "$GITHUB_REPOSITORY" \
+            --name "xnu-dizi-sm7435-UNPRELINKED-$XNU_SOURCE_RUN" --dir dist
+          test -s dist/kernel.development.dizi-UNPRELINKED.macho
+          python3 - <<'PY'
+          import hashlib,json, pathlib,struct
+          root=pathlib.Path('dist')
+          raw=(root/'kernel.development.dizi-UNPRELINKED.macho').read_bytes()
+          report=json.loads((root/'BUILD-RESULT.json').read_text())
+          assert report['soc']=='SM7435'
+          assert report['bootable'] is False and report['prelinked'] is False
+          assert len(raw)==19073880, len(raw)
+          assert hashlib.sha256(raw).hexdigest()=='bb0f258f3ccb08538b541f6d3165a23bfbf3c4a4ffbb3ab9d26f1e1efb916923'
+          assert report['sha256']==hashlib.sha256(raw).hexdigest()
+          assert struct.unpack_from('<4I',raw)[:2]==(0xfeedfacf,0x100000c)
+          print('Verified official UniXNU patched XNU Mach-O; no ADT or prelink')
+          PY
+          cat > dist/READ-FIRST-NOT-BOOTABLE.txt <<'EOF'
+          Dizi experimental XNU ARM64 Mach-O compiled from public source.
+          Source run 40552223877; 19073880 bytes, SHA256 bb0f258f3ccb08538b541f6d3165a23bfbf3c4a4ffbb3ab9d26f1e1efb916923.
+          NOT AN ANDROID BOOT.IMG. NOT PRELINKED. NO VALIDATED ADT/DARWINBOOT HANDOFF.
+          Do not fastboot boot or flash this Mach-O binary.
+          XNU loader-probe boot-v4 image is built separately in xnu-handoff-probe.yml.
+          EOF
+          (cd dist && sha256sum kernel.development.dizi-UNPRELINKED.macho BUILD-RESULT.json > SHA256SUMS.txt)
+
+      - name: Upload source kernel as Actions artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: xnu-dizi-source-published-${{ github.run_id }}
+          path: dist/
+          retention-days: 7
+
+      - name: Publish clearly labeled experimental Mach-O release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="dizi-xnu-source-40552223877"
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 && exit 0
+          gh release create "$tag" dist/* \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --prerelease --title "Dizi XNU SM7435 compiled source only — NO BOOT.IMG" \
+            --notes-file dist/READ-FIRST-NOT-BOOTABLE.txt
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "XNU source-only release. NO boot image. See separate loader-probe workflow for UEFI boot-v4." >> "$GITHUB_STEP_SUMMARY"

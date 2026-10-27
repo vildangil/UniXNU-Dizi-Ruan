@@ -169,6 +169,8 @@ packs it with the reference ADT under `EFI/UniXNU/Payloads`, and applies a
 immediately return `EFI_ABORTED`. It does not copy executable segments into
 RAM, does not call `ExitBootServices`, and **never enters XNU**.
 
+**Validated CI package (not yet tested on dizi):** [prelinked RAM-check Release #40574804304](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-prelinked-window-probe-40574804304-1) built successfully with `Mu-dizi-XNU-PRELINK-RAM-CHECK-NO-ENTRY.img` (68,800,512 bytes), checked boot-v4 ramdisk byte-for-byte, and included `PRELINK-CHECK.json` documenting the 51,941,376-byte Mach-O and that no kernel entry has occurred. This is the **first prelinked XNU boot-v4 UEFI-only probe**, not a first boot of XNU. The expected result after selecting the test entry is a temporary **`DIZI: UEFI RAM WINDOW OK / XNU NOT RUNNING`** diagnostic followed by `Aborted` and return to UniXNU, or an explicit `Out of Resources`/allocation failure if EFI cannot find a suitable window. Both outcomes require hardware validation.
+
 For the separate source-only (no Apple binary) memory probe, the image was
 successfully published in
 [UEFI RAM-check release #40570339452](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-window-probe-40570339452-1).

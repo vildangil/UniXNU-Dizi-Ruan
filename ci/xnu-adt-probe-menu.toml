@@ -1,0 +1,46 @@
+# Diagnostic-only loader/ADT probe for Dizi SM7435.
+# Both kernel and ADT live at /EFI/UniXNU/Payloads in FAT32.
+# Path here is relative to /EFI/UniXNU per UniXNU Config.c.
+# DarwinBoot is patched to abort BEFORE ExitBootServices and kernel entry.
+# A successful test returns EFI_ABORTED; it does NOT run XNU.
+version = 1
+
+[boot]
+timeout = 60
+fallback_timeout = 60
+rotate = 0
+default = "return"
+connect_all = true
+
+[ui]
+title = "UniXNU / dizi ADT parse probe"
+logo = true
+layout = "portrait"
+scale = 0
+console = "auto"
+
+[[entry]]
+id = "return"
+title = "Return to firmware (safe)"
+type = "action"
+action = "exit"
+
+[[entry]]
+id = "xnu-adt-parse"
+title = "XNU + ADT parser test (NOT bootable)"
+type = "xnu"
+path = "Payloads/kernel.macho"
+args = "-v keepsyms=1 debug=0x14e cpus=1"
+confirm = "Read kernel and ADT ONLY? XNU execution is blocked."
+
+[[entry]]
+id = "restart"
+title = "Restart tablet"
+type = "action"
+action = "reset"
+
+[[entry]]
+id = "shutdown"
+title = "Power off tablet"
+type = "action"
+action = "shutdown"

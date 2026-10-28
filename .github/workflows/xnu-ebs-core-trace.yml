@@ -337,7 +337,8 @@ jobs:
           its diagnostic core patch.
           ExitBootServices is irreversible; manually hard reboot after test.
           Use reversible fastboot boot ONLY; NEVER fastboot flash.
-          EOF          {
+          EOF
+          {
             echo 'DXE Core 12-stripe callback trace, no DarwinEnter/XNU; previous exception 0xFC368EAC'
             echo 'Input: DIZI_R4_PMIC_BRIDGE_V1 and DIZI_EFI_BUTTON_POLL_V2'
             echo "DarwinBoot commit: $DARWINBOOT_SHA"
@@ -348,6 +349,9 @@ jobs:
             echo 'Static DarwinBoot loader validation: PRELINK-CHECK.json'
             echo 'Dizi kernel/ADT stored at /EFI/UniXNU/Payloads (fixed path)'
           } > dist/BOOT-PATCHES.txt
+          test -s dist/BOOT-PATCHES.txt
+          test -s dist/NOT-BOOTABLE-XNU.txt
+          ! grep -q 'EOF          {' dist/NOT-BOOTABLE-XNU.txt
 
       - name: Compile Mu-Silicium firmware with public UniXNU
         run: |
@@ -440,6 +444,6 @@ jobs:
               echo "Build failed before publishing: no boot image artifact from this run."
             else
               echo ""
-              echo "Release published. Actual XNU entry attempted ONLY if manually confirmed; iPadOS NOT functional."
+              echo "Release published. DXE trace only; DarwinEnter disabled and XNU not executed."
             fi
           } >> "$GITHUB_STEP_SUMMARY"

@@ -153,6 +153,34 @@ Do not remove the fail-closed patch until those are checked.
 
 ## FIRST XNU entry on hardware: firmware synchronous exception (2026-10-27)
 
+#### Live EBS instruction mismatch confirmed on Dizi (2026-10-28)
+
+The **fixed B800 framebuffer** build
+[Actions #40637451443](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40637451443)
+was tested on a real Redmi Pad Pro. All 12 outlined dark-navy cells remain
+uncolored even though DarwinBoot confirms the live GOP B8000000 address.
+Crucially, the new on-screen instruction read proves:
+
+- `gBS->ExitBootServices` = **`0x00000000FC368E3C`**
+- actual 32-bit ARM64 opcode at that pointer = **`0xA9BD53F3`**
+- synchronous exception PC = **`0x00000000FC368EAC`** = EBS + `0x70`
+- compiled **same-test** DxeCore.dll `CoreExitBootServices` at
+  `RVA 0x1434` begins **`0xA9BC53F3`** (STP with 0x40 stack frame)
+
+The first-instruction **mismatch is real**. It does NOT alone prove a
+different image, because this STP encoding appears elsewhere in DXE code;
+compare at least 3 consecutive 32-bit words with the same CI PE before
+attributing the runtime handler to a specific compiled function. Since
+the stage marker was not observed even after the framebuffer correction,
+do not claim callbacks, the timer or XNU are responsible yet.
+
+A new isolated [manual-only four-word probe](.github/workflows/xnu-ebs-four-words.yml)
+reads and shows EBS machine words at offsets `0,4,8,0x70` before EBS is
+called, using direct framebuffer glyph stores. No flash, no EBS service
+bypass, no XNU entry, and **no changes to the working EDK2**.
+[Build #40639206923](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40639206923)
+is the new independent CI run.
+
 #### Hardware-confirmed DXE stage framebuffer mismatch (2026-10-28)
 
 On the latest dizi photo, DarwinBoot's actual debug output clearly reports

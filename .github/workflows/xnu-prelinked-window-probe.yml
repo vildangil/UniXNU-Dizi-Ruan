@@ -367,26 +367,14 @@ jobs:
       # GitHub may reject Release creation with HTTP 403 even when the job
       # reports Contents: write; previous jobs with the same scope succeeded.
       # Preserve the verified output independently of that API response.
-      - name: Publish successful public-source test build
+      - name: Publish one rolling boot.img; diagnostics remain in Actions Artifacts
         id: publish
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          tag="dizi-xnu-prelinked-window-probe-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          gh release create "$tag" \
-            dist/Mu-dizi-XNU-PRELINK-RAM-CHECK-NO-ENTRY.img \
-            dist/SILICIUM_UEFI-dizi-PRELINK-RAM-CHECK.fd \
-            dist/DIZI-XNU-PRELINK-RAM-CHECK.fat \
-            dist/SHA256SUMS.txt \
-            dist/NOT-BOOTABLE-XNU.txt \
-            dist/BOOT-PATCHES.txt \
-            dist/ADT-REFERENCE-RESULT.json \
-            dist/PRELINK-CHECK.json \
-            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --prerelease --title "Dizi prelinked XNU memory window (NO XNU execution) #$GITHUB_RUN_ID" \
-            --notes-file dist/NOT-BOOTABLE-XNU.txt
+          bash ci/publish_dizi_latest_test.sh dist/Mu-dizi-XNU-PRELINK-RAM-CHECK-NO-ENTRY.img
 
       - name: Report publication result
         if: always()

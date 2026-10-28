@@ -220,8 +220,16 @@ from the earlier fourth image, with exactly 80 bytes changed
 inside the kernel FAT32 file. For the separately CI-built fourth
 source image, the verified [manual-only fast run
 #40756904707](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40756904707)
-recomputes the final boot SHA after pinning the entire source image;
-do not conflate the different outer boot-image SHA-256 values.
+**passed 8/8 steps** and published the single updated boot.img in the
+[rolling release](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-latest-test).
+The resulting CI boot-v4 SHA-256 is
+`b2f22f83c9b55d5a89d60f7df42488486346754911153cc502256f686681371b`
+(68,800,512 bytes). The exact ZIP artifact was independently opened
+and verified: embedded Mach-O SHA-256
+`6758750c684e0569eea1c00be6726bb1409f6a3c0327a555de21b3b3d134f97c`
+matches the locally tested fifth-only patch; 80 bytes changed.
+The local standalone and CI-built outer boot hashes differ because
+their pinned fourth-image sources had different outer boot hashes.
 No push trigger, no extra prereleases, no `fastboot flash`.
 The fifth checkpoint is **not** hardware-tested yet.
 

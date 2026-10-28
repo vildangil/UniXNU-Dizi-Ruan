@@ -153,6 +153,34 @@ Do not remove the fail-closed patch until those are checked.
 
 ## FIRST XNU entry on hardware: firmware synchronous exception (2026-10-27)
 
+#### EBS runtime pointer hardware observation (2026-10-28)
+
+The **on-device** pointer diagnostic built by
+[Actions #40633998662](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40633998662)
+displayed **`gBS->ExitBootServices = 0x00000000FC369E3C`** in 16 framebuffer hex digits.
+The same photo shows **`Synchronous Exception at 0x00000000FC369EAC`** and
+the wide yellow EBS-entry marker, with no discernible thin core stripes.
+The observed address delta **`PC - EBS = +0x70`** is valuable evidence,
+but the module load base and exact source instruction are not yet proven.
+
+The compiled **same-run** `DxeCore.map` has
+`CoreExitBootServices = RVA 0x1434`, with `DiziCoreEbsMark` at
+`0x169c`. In the **build output** `+0x70` corresponds to RVA `0x14a4`,
+after the stage-2 marker call at `0x14a0` and before the timer shutdown
+indirect call at `0x14b8`. This correspondence is **conditional on the
+runtime pointer referencing the same instrumented PE image**, and does
+not establish the faulting instruction or EBS callback. A screen repaint,
+physical mapping or executable-image mismatch can hide old stage stripes.
+
+A new **NO-XNU manual-only** test places 12 colored stage cells **inside**
+the persistent top yellow bar and draws 12 navy calibration cells before
+EBS. Its standalone
+[workflow](.github/workflows/xnu-ebs-toptiles.yml) has no push trigger.
+[Build #40635399461](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40635399461)
+is the test input. Neither the working EDK2 nor any EBS callbacks are
+changed outside disposable CI checkout; DarwinEnter remains disabled.
+Only reversible `fastboot boot` is permitted, never flashing.
+
 #### Additional 12-stripe DXE Core trace (2026-10-28)
 
 A second manual [DXE Core trace workflow](.github/workflows/xnu-ebs-core-trace.yml)

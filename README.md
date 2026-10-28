@@ -216,7 +216,19 @@ This new Mach-O copy independently hashes to
 `37ecddf974a59a8c3a74527bdd09914a6c2f67f49d71af7b00c45bc5051d3ff2`.
 
 [Manual GitHub run #40736192545](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40736192545)
-builds only a disposable test boot, with KEP bypass,
+**passed all 29 steps**, including compiled BdsDxe NO-KEP audit,
+Android boot-v4 packaging and Mach-O FAT32 byte-for-byte verification.
+The experimental boot `Mu-dizi-XNU-MMU-THREE-NOSP-HIGH-RISK.img`
+(68,800,512 bytes) independently SHA256-checked:
+`05d64e67f2a78af69c5be66e43fb07ae8495d65a452083daad70fa8bc878a890`.
+The FAT32 at boot offset `0x19C000` was read back and matches the
+CI artifact; its 51,941,376-byte Mach-O **exactly matches** the
+independently patched third-only source bytes (SHA256
+`37ecddf974a59a8c3a74527bdd09914a6c2f67f49d71af7b00c45bc5051d3ff2`).
+The [single-asset rolling release](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-latest-test)
+has been updated with only `Mu-dizi-XNU-LATEST-TEST.img`; no extra
+timestamped release was created. **No on-device third-stage test yet.**
+This build uses only a disposable test boot, with KEP bypass,
 `cpus=1`, explicit POWER confirmation, no push trigger,
 no `fastboot flash`, no changes to working EDK2.
 Release publication uses the existing **single-asset rolling prerelease**.

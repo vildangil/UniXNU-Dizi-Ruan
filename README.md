@@ -153,6 +153,43 @@ Do not remove the fail-closed patch until those are checked.
 
 ## FIRST XNU entry on hardware: firmware synchronous exception (2026-10-27)
 
+#### First live XNU Mach-O instruction confirmed on dizi (2026-10-28)
+
+The device test of the independent [NO-KEP white-entry build
+#40643799207](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40643799207)
+**displayed the WHITE Y220..229 stripe**. The image's first ARM64
+Mach-O entry instruction branches to the SHA-pinned 40-byte payload
+at `0xFFFFFFF0073F04C8`; its direct physical GOP stores then execute.
+Because the marker is only in the copied Mach-O payload after
+`DarwinEnter` disables EL1 MMU and performs the entry branch,
+this is the first hardware confirmation of executing code from the
+experimental Mach-O image on Redmi Pad Pro.
+
+**This does not demonstrate** the native `start_first_cpu` instruction,
+XNU's own MMU re-enable, VM, interrupts, userland, or working iPadOS.
+The WHITE trampoline unconditionally branches to native
+`start_first_cpu` VA `0xFFFFFFF0073F205C` after drawing, but the
+target's execution has not yet been observed.
+
+For the next experiment, verified original native first instruction is
+`0xD510109F` (`msr OSLAR_EL1,xzr`), then
+`0xD5034FDF` (`msr DAIFSet,#0xf`) and
+`0xAA0003F4` (`mov x20,x0`). The independent pinned COPY patch
+[ci/patch_dizi_xnu_start_first_cpu.py](ci/patch_dizi_xnu_start_first_cpu.py)
+hooks only the first native instruction to a verified unused code cave
+at entry +0x80. It replays the first original word, paints
+**CYAN GOP rows Y240..248** and branches to the original next
+instruction. It leaves the WHITE entry marker and original
+source Mach-O intact. This adds a specific native-start checkpoint
+without skipping the existing native first instruction.
+
+[Manual-only next build #40644853194](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40644853194)
+uses [xnu-native-start-no-kep.yml](.github/workflows/xnu-native-start-no-kep.yml);
+there is no push trigger. Like the previous image, this is still a
+HIGH-RISK real kernel handoff with an unverified RAM map and ADT,
+explicit POWER confirmation, cpus=1 and temporary `fastboot boot` only.
+The physical result of this new CYAN probe is not yet known.
+
 #### First real DarwinEnter reached on dizi (2026-10-28)
 
 The **HIGH-RISK** image from [Actions #40642424939](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40642424939)

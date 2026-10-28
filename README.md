@@ -8,12 +8,13 @@ hook, entered ARM64 `DarwinEnter`, executed a diagnostic Mach-O entry,
 and reached the first original `start_first_cpu` instruction. The
 subsequent early-XNU `boot_args` and bootstrap page-table checkpoints
 were observed through the `_set_mmu_ttb` return, followed by the
-**first THREE stackless control-register markers**:
+**first FOUR stackless control-register markers**:
 PINK `0xFFFFFFF0073F22B4` (Y408), ORANGE-RED
-`0xFFFFFFF0073F22BC` (Y432, after `msr TTBR1_EL1`), and
-GOLD `0xFFFFFFF0073F22FC` (Y456, before `msr MAIR_EL1`).
-The next TURQUOISE Y480 still uses SP in this image and is not
-visibly confirmed. MMU-on execution is not established.
+`0xFFFFFFF0073F22BC` (Y432, after `msr TTBR1_EL1`),
+GOLD `0xFFFFFFF0073F22FC` (Y456, before `msr MAIR_EL1`),
+and TURQUOISE `0xFFFFFFF0073F2308` (Y480, just before
+the displaced TLBI instruction). The next LIGHT-BLUE Y504
+is NOT confirmed on hardware. MMU-on execution is not established.
 This is **not** confirmation of successful `msr SCTLR_EL1`, MMU-on
 execution, an initialized Darwin kernel, iPadOS, or userland.
 All such results are experimental temporary `fastboot boot` tests with
@@ -186,6 +187,43 @@ appropriate trust/security inputs and the first XNU entry checkpoint.
 Do not remove the fail-closed patch until those are checked.
 
 ## FIRST XNU entry on hardware: firmware synchronous exception (2026-10-27)
+
+#### Fourth stackless MMU marker Y480 confirmed on physical dizi (2026-10-28)
+
+Physical photograph of the pinned
+[fourth NO-SP test build #40742486622](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40742486622)
+shows the new **TURQUOISE Y480** stripe below the previously
+confirmed PINK Y408, ORANGE-RED Y432 and GOLD Y456 stripes.
+The fourth hook is at `0xFFFFFFF0073F2308`: the stripe is
+drawn **before** the displaced original `TLBI` instruction
+(`0xD508871F`) is replayed by the trampoline.
+Therefore Y480 proves arrival at the TLBI checkpoint, **not**
+the TLBI's completion or XNU MMU-on execution.
+
+The next fifth checkpoint, LIGHT-BLUE Y504 at
+`0xFFFFFFF0073F2330`, remains SP-based in that image.
+A SHA-pinned [fifth-only patch](ci/patch_dizi_fifth_mmu_stackless.py)
+replaces just the fifth 84-byte stub with stackless GOP writes,
+replays its displaced original `0x91000000` instruction and
+branches to `0xFFFFFFF0073F2334`. Original four successful
+probes, sixth stack-based probe, TTBR1/SCTLR/ISB, and EDK2 are
+unchanged. Pinned fourth Mach-O SHA256:
+`b1ec254a0038208cad8ce4284ff759a33b096436208505cafc3e084be4361fa3`.
+Expected patched fifth Mach-O SHA256:
+`6758750c684e0569eea1c00be6726bb1409f6a3c0327a555de21b3b3d134f97c`.
+
+Locally checked disposable Android boot-v4
+`Mu-dizi-XNU-MMU-FIVE-NOSP-HIGH-RISK.img`
+(68,800,512 bytes) SHA256:
+`01e593da02214e0bdda93ca01bdaeff0d982de6a55995e9efc05aaf5f1cceb01`
+from the earlier fourth image, with exactly 80 bytes changed
+inside the kernel FAT32 file. For the separately CI-built fourth
+source image, the verified [manual-only fast run
+#40756904707](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40756904707)
+recomputes the final boot SHA after pinning the entire source image;
+do not conflate the different outer boot-image SHA-256 values.
+No push trigger, no extra prereleases, no `fastboot flash`.
+The fifth checkpoint is **not** hardware-tested yet.
 
 #### Three stackless MMU markers confirmed; fourth TLBI checkpoint under test (2026-10-28)
 

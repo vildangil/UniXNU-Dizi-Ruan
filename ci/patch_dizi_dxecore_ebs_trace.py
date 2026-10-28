@@ -88,7 +88,6 @@ def apply(mu: Path, dry_run: bool):
         if function.count(anchor)!=1:
             raise ValueError(f"DXE EBS stage anchor changed/ambiguous: {anchor!r}")
         function=function.replace(anchor, insert+anchor,1)
-    function += "\n  DiziCoreEbsMark (11, 0xFF00FF66); // 11 LIME EBS completed, before return"
     # Prepend to the original final 'return Status;' without altering logic.
     fragment="\n  return Status;"
     if function.count(fragment)!=1:
@@ -96,14 +95,10 @@ def apply(mu: Path, dry_run: bool):
     function=function.replace(fragment,
         "\n  DiziCoreEbsMark (11, 0xFF00FF66); // 11 LIME EBS completed, before return"
         + fragment,1)
-    # The concatenated function must not contain an extra stage11 marker.
-    function=function.replace(
-        "  DiziCoreEbsMark (11, 0xFF00FF66); // 11 LIME EBS completed, before return\n  DiziCoreEbsMark (11, 0xFF00FF66); // 11 LIME EBS completed, before return",
-        "  DiziCoreEbsMark (11, 0xFF00FF66); // 11 LIME EBS completed, before return")
     if function.count("DiziCoreEbsMark (11,")!=1:
         raise ValueError("Expected exactly one EBS return trace marker")
     out=prefix+HELPER+ENTRY+function+ending+rest
-    if out.count("DiziCoreEbsMark (")!=12:
+    if function.count("DiziCoreEbsMark (")!=12:
         raise ValueError("Expected twelve unique EBS mark calls")
     if out.count("CoreNotifySignalList (&gEfiEventExitBootServicesGuid);")!=1:
         raise ValueError("EXIT_BOOT_SERVICES dispatch missing")

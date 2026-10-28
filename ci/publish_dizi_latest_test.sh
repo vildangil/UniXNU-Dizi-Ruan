@@ -16,6 +16,7 @@ if [[ "$(head -c 8 "$src")" != "ANDROID!" ]]; then
   exit 2
 fi
 tag="dizi-xnu-latest-test"
+source_run="${DIZI_SOURCE_RUN_ID:-$GITHUB_RUN_ID}"
 asset="dist/Mu-dizi-XNU-LATEST-TEST.img"
 cp -- "$src" "$asset"
 sha="$(sha256sum "$asset" | cut -d' ' -f1)"
@@ -29,7 +30,7 @@ cat > "$notes" <<EOF
 The experimental XNU handoff can hang, reboot, or damage user data.
 Back up device and maintain recovery access before testing.
 
-- Source build: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+- Source build: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${source_run}
 - Source boot image: $(basename "$src")
 - Single downloadable asset: $(basename "$asset")
 - SHA-256: ${sha}
@@ -41,12 +42,12 @@ if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
   # or a new prerelease on every run.
   gh release upload "$tag" "$asset" --repo "$GITHUB_REPOSITORY" --clobber
   gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --prerelease \
-    --title "Dizi UniXNU LATEST high-risk boot.img (run ${GITHUB_RUN_ID})" \
+    --title "Dizi UniXNU LATEST high-risk boot.img (run ${source_run})" \
     --notes-file "$notes"
 else
   gh release create "$tag" "$asset" --repo "$GITHUB_REPOSITORY" \
     --target "$GITHUB_SHA" --prerelease \
-    --title "Dizi UniXNU LATEST high-risk boot.img (run ${GITHUB_RUN_ID})" \
+    --title "Dizi UniXNU LATEST high-risk boot.img (run ${source_run})" \
     --notes-file "$notes"
 fi
 echo "Rolling test release (one IMG only): https://github.com/${GITHUB_REPOSITORY}/releases/tag/${tag}"

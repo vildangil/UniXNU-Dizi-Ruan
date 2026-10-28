@@ -8,10 +8,12 @@ hook, entered ARM64 `DarwinEnter`, executed a diagnostic Mach-O entry,
 and reached the first original `start_first_cpu` instruction. The
 subsequent early-XNU `boot_args` and bootstrap page-table checkpoints
 were observed through the `_set_mmu_ttb` return, followed by the
-**first stackless PINK control-register marker** at
-`0xFFFFFFF0073F22B4` (Y408). The next Y432 marker is not visible
-on the latest photo; neither TTBR1 completion nor further EL1 register
-configuration is yet established by this build.
+**first two stackless control-register markers**, PINK
+`0xFFFFFFF0073F22B4` (Y408) and ORANGE-RED
+`0xFFFFFFF0073F22BC` (Y432). The latter demonstrates the code
+continued past the original `msr TTBR1_EL1` instruction.
+The next GOLD Y456 stack-based marker is not visible in the latest
+photo; MMU-on execution is not established.
 This is **not** confirmation of successful `msr SCTLR_EL1`, MMU-on
 execution, an initialized Darwin kernel, iPadOS, or userland.
 All such results are experimental temporary `fastboot boot` tests with
@@ -184,6 +186,41 @@ appropriate trust/security inputs and the first XNU entry checkpoint.
 Do not remove the fail-closed patch until those are checked.
 
 ## FIRST XNU entry on hardware: firmware synchronous exception (2026-10-27)
+
+#### Two stackless MMU markers confirmed, next gold stage under test (2026-10-28)
+
+The physical dizi photo from the separately built
+[first-TWO-NOSP #40727839823](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40727839823)
+shows **both** first PINK Y408 and second ORANGE-RED Y432
+but **not** GOLD Y456 or the remaining register-stage stripes.
+This is the controlled difference versus hardware
+[first-NOSP #40700727875](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40700727875),
+where only PINK Y408 was visible and the second probe still accessed SP.
+The Y432 marker runs at original hook `0xFFFFFFF0073F22BC`,
+**after** the unchanged `msr TTBR1_EL1` at
+`0xFFFFFFF0073F22B8`. Thus the instruction was passed;
+this does not verify a fully functional translation regime.
+
+The third Y456 checkpoint at `0xFFFFFFF0073F22FC` still uses a
+stack-saving trampoline in the first-TWO-NOSP image.
+A local test against the **actual FAT32 Mach-O** confirmed SHA-256
+`d88862b4d30fd444ad46ab7d876c2f716b1e745a3875fce885e34b1b823430d1`.
+The next [third-only stackless patch](ci/patch_dizi_third_mmu_stackless.py)
+replaces just the 84-byte third stub at `0xFFFFFFF0073F0730`
+and replays `0xAA010000` before returning to
+`0xFFFFFFF0073F2300`. The GOLD frame Y456, then, is an
+independent checkpoint before `MAIR_EL1` — **not** proof of MMU
+enable. Previous first two stages, later three stack-based probes,
+original `TTBR1_EL1`, `SCTLR_EL1` and `ISB` are preserved.
+This new Mach-O copy independently hashes to
+`37ecddf974a59a8c3a74527bdd09914a6c2f67f49d71af7b00c45bc5051d3ff2`.
+
+[Manual GitHub run #40736192545](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40736192545)
+builds only a disposable test boot, with KEP bypass,
+`cpus=1`, explicit POWER confirmation, no push trigger,
+no `fastboot flash`, no changes to working EDK2.
+Release publication uses the existing **single-asset rolling prerelease**.
+The third stage has **not** yet been hardware-confirmed.
 
 #### Only first stackless MMU marker visible on physical dizi (2026-10-28)
 

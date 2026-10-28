@@ -153,6 +153,41 @@ Do not remove the fail-closed patch until those are checked.
 
 ## FIRST XNU entry on hardware: firmware synchronous exception (2026-10-27)
 
+#### Five early bootstrap markers all visible on physical dizi (2026-10-28)
+
+The user tested verified HIGH-RISK
+[boot #40647473480](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40647473480).
+Photograph shows the original MAGENTA/GREEN/WHITE/CYAN markers plus
+**ALL five new colored nine-row bands**: RED Y288, YELLOW Y312,
+GREEN Y336, BLUE Y360, PURPLE Y384. The independent exact
+`XNU-BOOTSTRAP-STAGES.json` lists the final purple hook at
+`0xFFFFFFF0073F22AC`, first instruction after the real
+`bl _set_mmu_ttb` at `0xFFFFFFF0073F22A8`. Thus at least
+the returned control-flow edge from `_set_mmu_ttb` was reached.
+The screenshot does **NOT** clearly show the expected ORANGE Y260
+pre-`SCTLR_EL1` band; its execution is not yet verified.
+
+The disassembled code between the purple hook and
+`msr SCTLR_EL1,x0` at `0xFFFFFFF0073F2350` performs
+`msr TTBR1_EL1`, `msr MAIR_EL1`, `isb`, `tlbi`,
+`ic iallu`, `msr VBAR_EL1`, and SCTLR-value synthesis.
+**Do not claim that XNU has enabled its own MMU.**
+Earlier five physical-GOP stage stubs clobber x9-x11 and NZCV;
+until instrumented independently, this disturbance is a potential
+contributor to the later hang and is NOT ruled out.
+
+A new independent
+[manual-only six-stage workflow](.github/workflows/xnu-mmu-reg-stages.yml)
+[Actions #40649020254](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40649020254)
+patches a separately SHA-pinned COPY of the five-band Mach-O with six
+stack-preserving checkpoint stubs. They save/restore x9-x12 and NZCV,
+replay the exact replaced instruction and return to the original +4;
+`SCTLR_EL1` and subsequent `isb` remain unchanged. It adds
+six colored bands Y408, Y432, Y456, Y480, Y504, Y528 around
+TTBR1/MAIR/TLBI/VBAR, without touching the previous verified EDK2.
+This has NOT yet been tested on hardware. NO XNU success, no other CPU
+bring-up, manual confirmation and fastboot boot-only remain in force.
+
 #### No orange indicator in first pre-MMU hardware test (2026-10-28)
 
 The physical test of [pre-MMU run #40646191965](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40646191965)

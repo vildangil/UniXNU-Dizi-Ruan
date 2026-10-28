@@ -171,7 +171,14 @@ disposable CI checkout**, with the original callbacks, memory-map semantics,
 normal EDK2 and DarwinEnter-disabled NO-XNU policy untouched.
 The separate [manual-only test workflow](.github/workflows/xnu-ebs-fb-fixed.yml)
 [run #40637451443](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40637451443)
-also displays the first 32-bit instruction at the live EBS function pointer
+**passed 21 steps** and published a [verified separate NO-XNU boot-v4 release](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-ebs-fb-fixed-40637451443-1)
+with `Mu-dizi-XNU-EBS-FB-FIXED-NO-XNU.img` (68,800,512 bytes), SHA-256
+`5f2752faaac66a8b94b530659b797176a9b28d0cec4848019ba5fa3cb2493f55`.
+The released `DxeCore.disassembly.txt` verifies the corrected marker
+instruction `movk w9, #0xb801, lsl #16` (the original was `#0xb001`).
+This still requires an **on-device test**, and no XNU instruction has
+been verified.
+The same test also displays the first 32-bit instruction at the live EBS function pointer
 at Y=276 for runtime-image fingerprinting. The previously compiled instrumented
 `DxeCore.dll` begins `CoreExitBootServices` with ARM64 instruction
 `0xA9BC53F3`. A mismatch on hardware indicates the runtime function is

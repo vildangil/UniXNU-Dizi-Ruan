@@ -373,26 +373,14 @@ jobs:
       # GitHub may reject Release creation with HTTP 403 even when the job
       # reports Contents: write; previous jobs with the same scope succeeded.
       # Preserve the verified output independently of that API response.
-      - name: Publish successful public-source test build
+      - name: Publish one rolling boot.img; diagnostics remain in Actions Artifacts
         id: publish
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          tag="dizi-xnu-first-entry-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          gh release create "$tag" \
-            dist/Mu-dizi-XNU-FIRST-ENTRY-EXPERIMENTAL.img \
-            dist/SILICIUM_UEFI-dizi-FIRST-ENTRY.fd \
-            dist/DIZI-XNU-FIRST-ENTRY.fat \
-            dist/SHA256SUMS.txt \
-            dist/NOT-BOOTABLE-XNU.txt \
-            dist/BOOT-PATCHES.txt \
-            dist/ADT-REFERENCE-RESULT.json \
-            dist/PRELINK-CHECK.json \
-            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --prerelease --title "Dizi first REAL XNU handoff (HIGH RISK, no OS) #$GITHUB_RUN_ID" \
-            --notes-file dist/NOT-BOOTABLE-XNU.txt
+          bash ci/publish_dizi_latest_test.sh dist/Mu-dizi-XNU-FIRST-ENTRY-EXPERIMENTAL.img
 
       - name: Report publication result
         if: always()

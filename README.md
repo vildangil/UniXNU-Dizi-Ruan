@@ -157,9 +157,12 @@ Do not remove the fail-closed patch until those are checked.
 
 The **on-device** pointer diagnostic built by
 [Actions #40633998662](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40633998662)
-displayed **`gBS->ExitBootServices = 0x00000000FC369E3C`** in 16 framebuffer hex digits.
-The same photo shows **`Synchronous Exception at 0x00000000FC369EAC`** and
+displayed **`gBS->ExitBootServices = 0x00000000FC368E3C`** in 16 framebuffer hex digits.
+The same photo shows **`Synchronous Exception at 0x00000000FC368EAC`** and
 the wide yellow EBS-entry marker, with no discernible thin core stripes.
+The candidate load base from this pointer and the compiled RVA is
+`0xFC367A08` (not 4-KiB aligned): do not claim the runtime EBS implementation
+is the one in the packaged instrumented DxeCore image. 
 The observed address delta **`PC - EBS = +0x70`** is valuable evidence,
 but the module load base and exact source instruction are not yet proven.
 
@@ -180,7 +183,14 @@ EBS. Its standalone
 **completed successfully** (21 steps); the verified 68,800,512-byte boot-v4
 is in [the NO-XNU top-tiles prerelease](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-ebs-toptiles-40635399461-1).
 Boot image SHA-256: `da87e8e237ab5b3896dd516c5009cf3c6dfcec48a3deb5f59b650b2bbb555c66`.
-This image has **not yet been hardware tested**. Neither the working EDK2 nor any EBS callbacks are
+The top-tiles image **was tested on dizi on 2026-10-28**: all 12 navy outlined
+calibration cells are clearly visible inside the wide yellow band, but **none**
+changed to the expected DXE stage colors; the same EBS pointer and exception PC
+were observed. This proves baseline rendering works at these coordinates but
+does not prove the patched CoreExitBootServices function executed. The runtime
+EBS image has **not** been identified by comparing its first instruction bytes
+against the compiled DxeCore.efi. A dedicated opcode fingerprint test is needed.
+Neither the working EDK2 nor any EBS callbacks are
 changed outside disposable CI checkout; DarwinEnter remains disabled.
 Only reversible `fastboot boot` is permitted, never flashing.
 

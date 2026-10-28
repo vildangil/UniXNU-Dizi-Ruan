@@ -26,7 +26,7 @@ trap 'rm -f "$notes"' EXIT
 cat > "$notes" <<EOF
 ## Dizi / UniXNU latest experimental test (HIGH RISK)
 
-**Temporary `fastboot boot` ONLY. NEVER `fastboot flash`.**
+**Temporary fastboot boot ONLY. NEVER fastboot flash.**
 The experimental XNU handoff can hang, reboot, or damage user data.
 Back up device and maintain recovery access before testing.
 

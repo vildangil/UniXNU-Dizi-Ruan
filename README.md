@@ -153,6 +153,52 @@ Do not remove the fail-closed patch until those are checked.
 
 ## FIRST XNU entry on hardware: firmware synchronous exception (2026-10-27)
 
+#### Root cause isolated: Project-Silicium Windows KEP EBS hook (2026-10-28)
+
+From the actual [four-word hardware photo / Actions #40639206923](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40639206923):
+
+| Runtime evidence | Value |
+|---|---|
+| `gBS->ExitBootServices` | `0xFC366E3C` |
+| sync exception `ELR`/PC | `0xFC366EAC` |
+| opcode at +0 | `A9BD53F3` |
+| opcode at +4 | `F9000BF5` |
+| opcode at +8 | `A901FBFD` |
+| opcode at +0x70 | `B900012A` = `str w10,[x9]` |
+| retained DXE Core marker cells | all uncolored |
+
+The **SAME build** `SILICIUM_UEFI-dizi-EBS-FOUR-WORDS.fd`
+contains an inner FVMAIN in an LZMA-guided-compressed section.
+After decompression, the **only matching FOUR-word pattern** across that
+~6 MiB FV is in `BdsDxe.efi` (FFS
+`6d33944a-ec75-4855-a54d-809c75241f6c`, BdsDxe UI string).
+The image's PE32+ ARM64 `.text` at RVA **`0x3E3C`** matches the
+function entry, with faulting store at **RVA `0x3EAC`**. This yields
+a perfectly page-aligned live BdsDxe base **`0xFC363000`**.
+The previous assumption that this PC was in `DxeCore` was incorrect.
+
+The source of the function was identified in the pinned
+`Mu-Silicium@39fbbc20885325044cfeaf8428efb7267e0bbe35`:
+`Silicon/Silicium/SiliciumPkg/Library/KernelErrataPatcherLib/`.
+Its `ReadyToBootHandler` substitutes `gBS->ExitBootServices` with
+`KepExitBootServicesHook`. That calls `PatchTransferToKernel`,
+which executes an unsafe-for-this-loader ARM64 branch patch via
+`ARM64_INSTRUCTION(mTargetInstructionAddr) = ...` at the recorded PC.
+The exact translation/permission exception subtype still requires ESR/FAR;
+do not claim memory protection or target validation conclusively.
+
+A **separate CI-only NO-XNU test** prevents the Windows
+`KernelErrataPatcherLibConstructor` from registering this hook,
+without touching the working Mu-Silicium source checkout or bypassing
+EDK2's normal `CoreExitBootServices` callbacks. Its pinned-source
+patch is [ci/patch_dizi_disable_kep_for_ebs.py](ci/patch_dizi_disable_kep_for_ebs.py),
+plus [compiled BdsDxe check](ci/check_dizi_kep_bds_image.py).
+Manual-only [workflow](.github/workflows/xnu-ebs-no-kep.yml)
+[Actions #40641321399](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40641321399)
+does not enable `push`, Windows patching, XNU kernel entry or
+`fastboot flash`. Only the new temporary `fastboot boot` test can
+confirm that the EBS exception is eliminated.
+
 #### Live EBS instruction mismatch confirmed on Dizi (2026-10-28)
 
 The **fixed B800 framebuffer** build

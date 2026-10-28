@@ -205,7 +205,16 @@ diagnostic register clobber and execution-path issues remain possible.
 A new [SEVEN checkpoint stackless comparison script](ci/patch_dizi_xnu_mmu_stackless_compare.py)
 and [manual-only workflow](.github/workflows/xnu-mmu-stackless.yml)
 [Actions #40700771901](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40700771901)
-apply to the SAME pinned 5-band Mach-O SHA and put the first new
+**passed 26/26 steps**. A separate
+[NO-KEP HIGH-RISK release](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-mmu-stackless-40700771901-1)
+contains the byte-verified Android boot-v4
+`Mu-dizi-XNU-MMU-STACKLESS-HIGH-RISK.img` (68,800,512 bytes),
+SHA256 `e89e4c9c9b9a70ad4b170cad8899efad57fc219ab7b556b114d10084b3663021`.
+FAT32 ramdisk matches boot-v4 byte-for-byte; embedded Mach-O copy
+SHA256 `b47586b661f759172e4e3e065cda404b19185e959bb1cdf625c1e21383f71e39`
+was independently checked against `XNU-MMU-STACKLESS-COMPARE.json`.
+The seven branch targets are re-read and all point to their recorded stubs.
+**Not hardware tested yet.** They apply to the SAME pinned 5-band Mach-O SHA and put the first new
 checkpoint at `0xFFFFFFF0073F22B0`, directly after the observed purple
 return at `0xFFFFFFF0073F22AC`. These stubs do not read/write SP,
 but **they deliberately clobber x9-x11 and NZCV**, just like the

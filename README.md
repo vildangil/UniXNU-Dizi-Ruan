@@ -153,6 +153,39 @@ Do not remove the fail-closed patch until those are checked.
 
 ## FIRST XNU entry on hardware: firmware synchronous exception (2026-10-27)
 
+#### First verified EXIT_BOOT_SERVICES success on physical dizi (2026-10-28)
+
+**Hardware confirmed** with the manually built
+[NO-KEP run #40641321399](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40641321399),
+booting `Mu-dizi-XNU-EBS-NO-KEP-NO-XNU.img` temporarily:
+
+- the device shows a full **MAGENTA** Y0..79 strip after option 2
+- `ci/patch_darwinboot_ebs_stage_probe.py` paints that full strip only
+  in `if (!EFI_ERROR(Status))`, *after* the real `ExitBootServices` returned
+- there is **no** prior `Synchronous Exception` text
+- runtime `gBS->ExitBootServices` is **`0x00000000FEFCF434`**
+- first 32-bit instruction **`0xA9BC53F3`** and next words
+  `A9015BF5 F90013F7 B00000D6` at relative offsets
+  `0,+4,+8,+0x70` exactly match the **same CI** `DxeCore.disassembly.txt`
+  (`CoreExitBootServices` RVAs `0x1434,0x1438,0x143C,0x14A4`)
+- runtime DXE Core base candidate is `0xFEFCF434 - 0x1434 = 0xFEFCE000`,
+  correctly 4-KiB-aligned
+
+**This is the first confirmed successful UEFI EBS boundary on dizi.**
+The 12 top cells were overwritten by the final MAGENTA rectangle (and
+therefore cannot be interpreted as missing DXE Core stage execution).
+This NO-XNU build HALTS after EBS and **does not execute XNU**.
+
+The next _separate_ [opt-in high-risk real-entry workflow](.github/workflows/xnu-first-entry-no-kep.yml)
+[Actions #40642424939](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40642424939)
+retains NO-KEP while using the existing explicit-confirmation first-entry
+menu and original `DarwinEnter`. Post-EBS magenta Y172..195 and pre-kernel
+DarwinEnter green top stripe will help localize the next hang. The green bar
+is still **not proof of XNU instruction execution**; no seven extra CPUs
+are started. The kernel's ownership of its RAM window, memory map and ADT
+remains unverified: test is high risk, RAM-only, **fastboot boot only**.
+No working firmware, partition, or historical repository was modified.
+
 #### Root cause isolated: Project-Silicium Windows KEP EBS hook (2026-10-28)
 
 From the actual [four-word hardware photo / Actions #40639206923](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40639206923):

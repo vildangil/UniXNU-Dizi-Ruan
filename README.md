@@ -153,6 +153,31 @@ Do not remove the fail-closed patch until those are checked.
 
 ## FIRST XNU entry on hardware: firmware synchronous exception (2026-10-27)
 
+#### Hardware-confirmed DXE stage framebuffer mismatch (2026-10-28)
+
+On the latest dizi photo, DarwinBoot's actual debug output clearly reports
+`video base=0xB8000000 row=6400 width=1600 height=2560 depth=32`.
+Earlier `ci/patch_dizi_dxecore_ebs_trace.py` incorrectly writes **DXE Core**
+colored stage pixels to a hardcoded **`0xB0000000`**, a 128-MiB mismatch.
+The 12 outlined navy calibration cells created by **DarwinBoot** DO appear
+on-screen, but no DXE Core cell changes color. This means the old visual
+evidence **cannot** distinguish failing DXE callbacks from pixels written
+to the wrong framebuffer address. Do not infer an EBS callback crash
+merely from missing color markers.
+
+The new additive [diagnostic patch](ci/patch_dizi_dxecore_fb_base.py)
+corrects the runtime DXE visual marker base to **`0xB8000000` only in the
+disposable CI checkout**, with the original callbacks, memory-map semantics,
+normal EDK2 and DarwinEnter-disabled NO-XNU policy untouched.
+The separate [manual-only test workflow](.github/workflows/xnu-ebs-fb-fixed.yml)
+[run #40637451443](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40637451443)
+also displays the first 32-bit instruction at the live EBS function pointer
+at Y=276 for runtime-image fingerprinting. The previously compiled instrumented
+`DxeCore.dll` begins `CoreExitBootServices` with ARM64 instruction
+`0xA9BC53F3`. A mismatch on hardware indicates the runtime function is
+not the identical compiled function prologue. This build has no hardware
+verification yet; the exception root cause is still open.
+
 #### EBS runtime pointer hardware observation (2026-10-28)
 
 The **on-device** pointer diagnostic built by

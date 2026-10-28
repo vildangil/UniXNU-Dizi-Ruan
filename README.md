@@ -8,12 +8,12 @@ hook, entered ARM64 `DarwinEnter`, executed a diagnostic Mach-O entry,
 and reached the first original `start_first_cpu` instruction. The
 subsequent early-XNU `boot_args` and bootstrap page-table checkpoints
 were observed through the `_set_mmu_ttb` return, followed by the
-**first two stackless control-register markers**, PINK
-`0xFFFFFFF0073F22B4` (Y408) and ORANGE-RED
-`0xFFFFFFF0073F22BC` (Y432). The latter demonstrates the code
-continued past the original `msr TTBR1_EL1` instruction.
-The next GOLD Y456 stack-based marker is not visible in the latest
-photo; MMU-on execution is not established.
+**first THREE stackless control-register markers**:
+PINK `0xFFFFFFF0073F22B4` (Y408), ORANGE-RED
+`0xFFFFFFF0073F22BC` (Y432, after `msr TTBR1_EL1`), and
+GOLD `0xFFFFFFF0073F22FC` (Y456, before `msr MAIR_EL1`).
+The next TURQUOISE Y480 still uses SP in this image and is not
+visibly confirmed. MMU-on execution is not established.
 This is **not** confirmation of successful `msr SCTLR_EL1`, MMU-on
 execution, an initialized Darwin kernel, iPadOS, or userland.
 All such results are experimental temporary `fastboot boot` tests with
@@ -186,6 +186,39 @@ appropriate trust/security inputs and the first XNU entry checkpoint.
 Do not remove the fail-closed patch until those are checked.
 
 ## FIRST XNU entry on hardware: firmware synchronous exception (2026-10-27)
+
+#### Three stackless MMU markers confirmed; fourth TLBI checkpoint under test (2026-10-28)
+
+The physical photo of
+[manual run #40736192545](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40736192545)
+shows the previously confirmed PINK Y408 and ORANGE-RED Y432
+**plus the new GOLD Y456 band** below them. This is the third
+consecutive A/B result where replacing only the next marker's SP-based
+trampoline allows that marker to paint the framebuffer. It confirms
+entry at the third hook `0xFFFFFFF0073F22FC` before the
+`MAIR_EL1` setup, not MMU-on execution. No TURQUOISE Y480 or
+following new register-stage bands are distinguishable.
+
+The next controlled experiment uses
+[ci/patch_dizi_fourth_mmu_stackless.py](ci/patch_dizi_fourth_mmu_stackless.py)
+and [manual workflow xnu-mmu-four-nosp.yml](.github/workflows/xnu-mmu-four-nosp.yml),
+[run #40740789681](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40740789681).
+Only the fourth 84-byte probe at entry+0x2FC becomes SP-free and
+uses the original pinned GOP drawing opcodes to paint TURQUOISE
+Y480..488. The displaced `0xD508871F` TLBI instruction is replayed
+at the end of the fourth trampoline, then execution resumes at
+`0xFFFFFFF0073F230C`. If TURQUOISE appears, it shows the CPU
+reached the original TLBI site after MAIR/ISB — *not* that the
+TLBI or XNU MMU enable succeeded. Original TTBR1, SCTLR and ISB
+remain unchanged. The first three SP-free markers, the last two
+SP-based probes, pinned UEFI, NO-KEP and `cpus=1` are unchanged.
+
+New source Mach-O SHA-256 must be
+`37ecddf974a59a8c3a74527bdd09914a6c2f67f49d71af7b00c45bc5051d3ff2`;
+independently calculated patched Mach-O SHA-256 must be
+`b1ec254a0038208cad8ce4284ff759a33b096436208505cafc3e084be4361fa3`.
+Manual actions only, one rolling prerelease with a single boot.img,
+and temporary fastboot boot only. **Not yet hardware tested**.
 
 #### Two stackless MMU markers confirmed, next gold stage under test (2026-10-28)
 

@@ -232,24 +232,13 @@ jobs:
       # GitHub may reject Release creation with HTTP 403 even when the job
       # reports Contents: write; previous jobs with the same scope succeeded.
       # Preserve the verified output independently of that API response.
-      - name: Publish successful public-source test build
+      # This is a non-kernel baseline, not the current XNU test image.
+      # Keep the verified image in Actions artifacts only. Do not create
+      # a separate multi-image GitHub Release on every manual invocation.
+      - name: Preserve baseline image in Actions artifact; skip extra release
         id: publish
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          set -euo pipefail
-          tag="dizi-public-uefi-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          gh release create "$tag" \
-            dist/Mu-dizi-UNIXNU-PUBLIC-UEFI-NOT-FLASHABLE.img \
-            dist/SILICIUM_UEFI-dizi-PUBLIC.fd \
-            dist/DIZI-UEFI-menu.fat \
-            dist/SHA256SUMS.txt \
-            dist/NOT-FLASHABLE.txt \
-            dist/BOOT-PATCHES.txt \
-            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --prerelease --title "Dizi UEFI + upstream UniXNU (no XNU kernel) #$GITHUB_RUN_ID" \
-            --notes-file dist/NOT-FLASHABLE.txt
+          echo "Baseline verification complete; only Actions Artifacts published"
 
       - name: Report publication result
         if: always()

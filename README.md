@@ -208,7 +208,16 @@ side effects of the first no-SP probe. No ESR/FAR/ELR collected.
 A new tightly controlled [second-only no-SP patch](ci/patch_dizi_second_mmu_stackless.py)
 and [owner/manual-only workflow](.github/workflows/xnu-mmu-two-nosp.yml)
 [Actions #40727839823](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40727839823)
-keep the first pink marker byte-identical and replace **only** the
+**passed all 28 CI steps**. Independently verified Android boot-v4
+`Mu-dizi-XNU-MMU-TWO-NOSP-HIGH-RISK.img` (68,800,512 bytes)
+SHA-256 `d0905d2913b4880d69ec99af014b9a2549e3f42e0ed44bbb43d377244bf1fd69`.
+Its embedded FAT32 and Mach-O byte-for-byte match the archived inputs;
+Mach-O SHA-256 is `d88862b4d30fd444ad46ab7d876c2f716b1e745a3875fce885e34b1b823430d1`.
+The **single-asset rolling prerelease**
+[Latest test image](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-latest-test)
+was updated, replacing the previous test image, with no extra prerelease.
+This new image has NOT yet been tested on real hardware.
+The A/B test keeps the first pink marker byte-identical and replace **only** the
 second Y432 marker with no-SP direct GOP writes; all four later
 stack-based probes and original TTBR1/SCTLR/ISB remain untouched.
 A local reproducibility test on the exact source Mach-O verified

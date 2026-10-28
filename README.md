@@ -183,8 +183,16 @@ instruction. It leaves the WHITE entry marker and original
 source Mach-O intact. This adds a specific native-start checkpoint
 without skipping the existing native first instruction.
 
-[Manual-only next build #40644853194](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40644853194)
-uses [xnu-native-start-no-kep.yml](.github/workflows/xnu-native-start-no-kep.yml);
+[Manual-only build #40644853194](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40644853194)
+**passed 23/23 CI steps** and published a separate
+[HIGH-RISK CYAN native-start image](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-native-start-no-kep-40644853194-1).
+The exact boot-v4 `Mu-dizi-XNU-NATIVE-START-NO-KEP-HIGH-RISK.img`
+is 68,800,512 bytes, SHA256
+`d1adc626d7d617771300e5003bee2d8b0163baee7d518b1c7e336714eec50abb`.
+Its FAT32 contains the patched 51,941,376-byte Mach-O at offset
+`0x101200`, SHA256 `1d200a2e544f0bb766081f9a2682df24fd39cf30873278ec2d78b2725eb8251d`,
+matching the independently produced 44-byte trampoline test.
+**This new image has not been hardware tested.** It uses [xnu-native-start-no-kep.yml](.github/workflows/xnu-native-start-no-kep.yml);
 there is no push trigger. Like the previous image, this is still a
 HIGH-RISK real kernel handoff with an unverified RAM map and ADT,
 explicit POWER confirmation, cpus=1 and temporary `fastboot boot` only.

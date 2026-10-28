@@ -1,4 +1,4 @@
-name: Dizi DXE Core ExitBootServices callback trace (manual)
+name: Dizi EBS runtime pointer plus DXE Core symbols (manual)
 
 # No private repositories, GitHub-hosted runners, or prebuilt XNU.
 # Explicit manual dispatch OR a trusted owner comment on control PR #1.
@@ -41,7 +41,7 @@ jobs:
        github.event.issue.number == 1 &&
        github.event.issue.pull_request != null &&
        github.event.comment.user.login == 'vildangil' &&
-       github.event.comment.body == '/run-dizi-ebs-core-trace')
+       github.event.comment.body == '/run-dizi-ebs-core-pointer')
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     defaults:
@@ -55,7 +55,7 @@ jobs:
       - name: Preflight pinned public inputs and safe XNU loader probe
         run: |
           set -euo pipefail
-          python3 -m py_compile ci/integrate_unixnu.py ci/patch_initrd_fat.py ci/patch_sec_entry_hob.py ci/patch_public_buttons.py ci/patch_native_pmic_r4.py ci/patch_darwinboot_dizi.py ci/patch_darwinboot_ebs_stage_probe.py ci/patch_dizi_dxecore_ebs_trace.py ci/build_dizi_reference_adt.py ci/validate_prelinked_darwinboot.py
+          python3 -m py_compile ci/integrate_unixnu.py ci/patch_initrd_fat.py ci/patch_sec_entry_hob.py ci/patch_public_buttons.py ci/patch_native_pmic_r4.py ci/patch_darwinboot_dizi.py ci/patch_darwinboot_ebs_stage_probe.py ci/patch_dizi_dxecore_ebs_trace.py ci/patch_dizi_ebs_pointer_glyphs.py ci/capture_dizi_dxecore_symbols.py ci/build_dizi_reference_adt.py ci/validate_prelinked_darwinboot.py
           python3 - <<'PY'
           import pathlib, tomllib
           w=pathlib.Path(".github/workflows/build.yml").read_text()
@@ -224,8 +224,13 @@ jobs:
           set -euo pipefail
           python3 ci/patch_darwinboot_ebs_stage_probe.py mu --dry-run
           python3 ci/patch_darwinboot_ebs_stage_probe.py mu
+          python3 ci/patch_dizi_ebs_pointer_glyphs.py mu --dry-run
+          python3 ci/patch_dizi_ebs_pointer_glyphs.py mu
           driver=mu/External/DarwinBoot/DarwinBootPkg/Driver/DarwinBoot.c
           grep -q 'DIZI_EBS_BOUNDARY_MARKERS_V1' "$driver"
+          grep -q 'DIZI_EBS_POINTER_GLYPHS_V1' "$driver"
+          grep -q 'DiziEbsPointerGlyphs (Video, (UINT64)(UINTN)gBS->ExitBootServices)' "$driver"
+          echo 'EBS pointer will be drawn as 16 hex digits at Y=244'
           grep -q 'DiziStageMarker (Video, 0xFF0077FF)' "$driver"
           grep -q 'DiziStageMarker (Video, 0xFF00FFFF)' "$driver"
           grep -q 'DiziStageMarker (Video, 0xFFFFFF00)' "$driver"
@@ -288,27 +293,27 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          truncate -s 64M dist/DIZI-XNU-EBS-CORE-TRACE.fat
-          mkfs.fat -F 32 -n DIZIPROBE dist/DIZI-XNU-EBS-CORE-TRACE.fat
-          mmd -i dist/DIZI-XNU-EBS-CORE-TRACE.fat ::/EFI ::/EFI/UniXNU ::/EFI/UniXNU/Payloads
-          mcopy -i dist/DIZI-XNU-EBS-CORE-TRACE.fat ci/xnu-ebs-core-menu.toml ::/EFI/UniXNU/unixnu.toml
+          truncate -s 64M dist/DIZI-XNU-EBS-CORE-POINTER.fat
+          mkfs.fat -F 32 -n DIZIPROBE dist/DIZI-XNU-EBS-CORE-POINTER.fat
+          mmd -i dist/DIZI-XNU-EBS-CORE-POINTER.fat ::/EFI ::/EFI/UniXNU ::/EFI/UniXNU/Payloads
+          mcopy -i dist/DIZI-XNU-EBS-CORE-POINTER.fat ci/xnu-ebs-core-menu.toml ::/EFI/UniXNU/unixnu.toml
           echo "FAT: writing verified 51.9 MiB prelinked Mach-O"
-          mcopy -i dist/DIZI-XNU-EBS-CORE-TRACE.fat xnu-prelinked/kernel.prelinked.dizi-CANDIDATE.macho ::/EFI/UniXNU/Payloads/kernel.macho
+          mcopy -i dist/DIZI-XNU-EBS-CORE-POINTER.fat xnu-prelinked/kernel.prelinked.dizi-CANDIDATE.macho ::/EFI/UniXNU/Payloads/kernel.macho
           echo "FAT: Mach-O write finished"
-          mcopy -i dist/DIZI-XNU-EBS-CORE-TRACE.fat adt-result/kernel.macho.adt ::/EFI/UniXNU/Payloads/kernel.macho.adt
-          mtype -i dist/DIZI-XNU-EBS-CORE-TRACE.fat ::/EFI/UniXNU/unixnu.toml | grep -q 'DXE Core EBS stages'
+          mcopy -i dist/DIZI-XNU-EBS-CORE-POINTER.fat adt-result/kernel.macho.adt ::/EFI/UniXNU/Payloads/kernel.macho.adt
+          mtype -i dist/DIZI-XNU-EBS-CORE-POINTER.fat ::/EFI/UniXNU/unixnu.toml | grep -q 'DXE Core EBS stages'
           echo "FAT: menu and prelinked kernel copied; verifying menu labels"
-          mtype -i dist/DIZI-XNU-EBS-CORE-TRACE.fat ::/EFI/UniXNU/unixnu.toml | grep -q 'Screen may HANG'
+          mtype -i dist/DIZI-XNU-EBS-CORE-POINTER.fat ::/EFI/UniXNU/unixnu.toml | grep -q 'Screen may HANG'
           echo "FAT: menu label verified; checking Mach-O and ADT readback"
           # Verify that the *normalized* relative entry path has a file.
           # A FAT-root /Payloads/ path will produce EFI_NOT_FOUND.
-          mdir -i dist/DIZI-XNU-EBS-CORE-TRACE.fat ::/EFI/UniXNU/Payloads
-          mcopy -i dist/DIZI-XNU-EBS-CORE-TRACE.fat -o ::/EFI/UniXNU/Payloads/kernel.macho "$RUNNER_TEMP/source-from-fat.macho"
+          mdir -i dist/DIZI-XNU-EBS-CORE-POINTER.fat ::/EFI/UniXNU/Payloads
+          mcopy -i dist/DIZI-XNU-EBS-CORE-POINTER.fat -o ::/EFI/UniXNU/Payloads/kernel.macho "$RUNNER_TEMP/source-from-fat.macho"
           cmp -s xnu-prelinked/kernel.prelinked.dizi-CANDIDATE.macho "$RUNNER_TEMP/source-from-fat.macho"
-          mcopy -i dist/DIZI-XNU-EBS-CORE-TRACE.fat -o ::/EFI/UniXNU/Payloads/kernel.macho.adt "$RUNNER_TEMP/adt-from-fat.adt"
+          mcopy -i dist/DIZI-XNU-EBS-CORE-POINTER.fat -o ::/EFI/UniXNU/Payloads/kernel.macho.adt "$RUNNER_TEMP/adt-from-fat.adt"
           cmp -s adt-result/kernel.macho.adt "$RUNNER_TEMP/adt-from-fat.adt"
           cp adt-result/ADT-REFERENCE-RESULT.json dist/ADT-REFERENCE-RESULT.json
-          cp dist/DIZI-XNU-EBS-CORE-TRACE.fat mu/Resources/ramdisk
+          cp dist/DIZI-XNU-EBS-CORE-POINTER.fat mu/Resources/ramdisk
           cat > dist/NOT-BOOTABLE-XNU.txt <<'EOF'
           DIZI DXE CORE EXIT BOOT SERVICES CALLBACK TRACE.
           PREVIOUS HARDWARE RESULT: DarwinBoot reached yellow stripe, then
@@ -361,16 +366,24 @@ jobs:
           source mu/.venv/bin/activate
           (cd mu && python3 build_uefi.py -d dizi -r RELEASE -c) 2>&1 | tee dist/build.log
 
+      - name: Capture compiled DXE Core PE, LLD map and disassembly
+        run: |
+          set -euo pipefail
+          python3 ci/capture_dizi_dxecore_symbols.py mu dist
+          test -s dist/DXECORE-RESULT.json
+          test -s dist/dxe-core-symbols/DxeCore.efi
+          test -s dist/dxe-core-symbols/DxeCore.dll
+
       - name: Verify boot-v4 and collect reproducible binaries
         run: |
           set -euo pipefail
-          install -m 0644 mu/Mu-dizi.img dist/Mu-dizi-XNU-EBS-CORE-TRACE-NO-XNU.img
-          install -m 0644 mu/Build/diziPkg/RELEASE_CLANGPDB/FV/SILICIUM_UEFI.fd dist/SILICIUM_UEFI-dizi-EBS-CORE-TRACE.fd
+          install -m 0644 mu/Mu-dizi.img dist/Mu-dizi-XNU-EBS-CORE-POINTER-NO-XNU.img
+          install -m 0644 mu/Build/diziPkg/RELEASE_CLANGPDB/FV/SILICIUM_UEFI.fd dist/SILICIUM_UEFI-dizi-EBS-CORE-POINTER.fd
           python3 - <<'PY'
           import pathlib
           import struct
-          boot=pathlib.Path("dist/Mu-dizi-XNU-EBS-CORE-TRACE-NO-XNU.img").read_bytes()
-          fat=pathlib.Path("dist/DIZI-XNU-EBS-CORE-TRACE.fat").read_bytes()
+          boot=pathlib.Path("dist/Mu-dizi-XNU-EBS-CORE-POINTER-NO-XNU.img").read_bytes()
+          fat=pathlib.Path("dist/DIZI-XNU-EBS-CORE-POINTER.fat").read_bytes()
           assert boot[:8]==b"ANDROID!"
           assert struct.unpack_from("<I",boot,40)[0]==4
           ksize=struct.unpack_from("<I",boot,8)[0]
@@ -382,26 +395,28 @@ jobs:
           assert b"Payloads/kernel.macho" not in boot[:4096], "No file paths expected in header"
           print("Android boot-v4 verified: DXE Core EBS callback trace only, NO XNU handoff")
           PY
-          (cd dist && sha256sum Mu-dizi-XNU-EBS-CORE-TRACE-NO-XNU.img SILICIUM_UEFI-dizi-EBS-CORE-TRACE.fd DIZI-XNU-EBS-CORE-TRACE.fat ADT-REFERENCE-RESULT.json PRELINK-CHECK.json > SHA256SUMS.txt)
+          (cd dist && sha256sum Mu-dizi-XNU-EBS-CORE-POINTER-NO-XNU.img SILICIUM_UEFI-dizi-EBS-CORE-POINTER.fd DIZI-XNU-EBS-CORE-POINTER.fat ADT-REFERENCE-RESULT.json PRELINK-CHECK.json DXECORE-RESULT.json dxe-core-symbols/DxeCore.efi dxe-core-symbols/DxeCore.dll > SHA256SUMS.txt)
 
       # Artifacts need no repository contents:write permission. Upload first
       # so a release API 403 cannot discard successfully built images.
       - name: Upload verified binaries to Actions Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: dizi-xnu-ebs-core-trace-${{ github.run_id }}-${{ github.run_attempt }}
+          name: dizi-xnu-ebs-core-pointer-${{ github.run_id }}-${{ github.run_attempt }}
           if-no-files-found: error
           retention-days: 7
           compression-level: 6
           path: |
-            dist/Mu-dizi-XNU-EBS-CORE-TRACE-NO-XNU.img
-            dist/SILICIUM_UEFI-dizi-EBS-CORE-TRACE.fd
-            dist/DIZI-XNU-EBS-CORE-TRACE.fat
+            dist/Mu-dizi-XNU-EBS-CORE-POINTER-NO-XNU.img
+            dist/SILICIUM_UEFI-dizi-EBS-CORE-POINTER.fd
+            dist/DIZI-XNU-EBS-CORE-POINTER.fat
             dist/SHA256SUMS.txt
             dist/NOT-BOOTABLE-XNU.txt
             dist/BOOT-PATCHES.txt
             dist/ADT-REFERENCE-RESULT.json
             dist/PRELINK-CHECK.json
+            dist/DXECORE-RESULT.json
+            dist/dxe-core-symbols/
 
       # GitHub may reject Release creation with HTTP 403 even when the job
       # reports Contents: write; previous jobs with the same scope succeeded.
@@ -413,16 +428,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          tag="dizi-xnu-ebs-core-trace-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          tag="dizi-xnu-ebs-core-pointer-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           gh release create "$tag" \
-            dist/Mu-dizi-XNU-EBS-CORE-TRACE-NO-XNU.img \
-            dist/SILICIUM_UEFI-dizi-EBS-CORE-TRACE.fd \
-            dist/DIZI-XNU-EBS-CORE-TRACE.fat \
+            dist/Mu-dizi-XNU-EBS-CORE-POINTER-NO-XNU.img \
+            dist/SILICIUM_UEFI-dizi-EBS-CORE-POINTER.fd \
+            dist/DIZI-XNU-EBS-CORE-POINTER.fat \
             dist/SHA256SUMS.txt \
             dist/NOT-BOOTABLE-XNU.txt \
             dist/BOOT-PATCHES.txt \
             dist/ADT-REFERENCE-RESULT.json \
             dist/PRELINK-CHECK.json \
+            dist/DXECORE-RESULT.json \
+            dist/dxe-core-symbols/* \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --prerelease --title "Dizi DXE Core EBS event callback trace (NO XNU) #$GITHUB_RUN_ID" \
             --notes-file dist/NOT-BOOTABLE-XNU.txt
@@ -435,7 +452,7 @@ jobs:
           {
             echo "## Dizi DXE Core EBS callback trace (NO XNU ENTRY, no rollback)"
             echo "Check **Actions → this workflow run → Artifacts** for a verified boot image."
-            echo "Artifact: dizi-xnu-ebs-core-trace-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT} (retained 7 days)."
+            echo "Artifact: dizi-xnu-ebs-core-pointer-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT} (retained 7 days)."
             if [ "$PUBLISH_OUTCOME" = "failure" ]; then
               echo ""
               echo "Release publication failed: check publish step. Artifact may still exist."

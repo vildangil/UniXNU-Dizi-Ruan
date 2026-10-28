@@ -217,6 +217,24 @@ New source Mach-O SHA-256 must be
 `37ecddf974a59a8c3a74527bdd09914a6c2f67f49d71af7b00c45bc5051d3ff2`;
 independently calculated patched Mach-O SHA-256 must be
 `b1ec254a0038208cad8ce4284ff759a33b096436208505cafc3e084be4361fa3`.
+
+Initial [CI #40740789681](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40740789681)
+reached the fourth-stage patch, then failed in report generation due a
+`MARK` vs `MARKER` Python `NameError`. This was fixed in
+[commit f0e1e9c](https://github.com/vildangil/UniXNU-Dizi-Ruan/commit/f0e1e9cc7360b715fcfb29d4f2e5e888d1d50fa8).
+[Manual rerun #40742486622](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40742486622)
+was requested after the fix; no successful CI publication should be
+assumed before its result is verified.
+
+Independently, the prior tested boot-v4 #40736192545 was patched
+locally by changing exactly **78 bytes** within the FAT32 kernel file,
+with all surrounding firmware and boot bytes unchanged. The resulting
+68,800,512-byte `Mu-dizi-XNU-MMU-FOUR-NOSP-HIGH-RISK.img` SHA-256 is
+`16e05fc877d7adc04c17fea1372ba2e9ed218f47a7f485875290879619e50c72`;
+its extracted Mach-O matches the expected patched hash above.
+This file is available as a separately verified chat artifact; it is
+not proof that a CI build succeeded or that the hardware reached Y480.
+
 Manual actions only, one rolling prerelease with a single boot.img,
 and temporary fastboot boot only. **Not yet hardware tested**.
 

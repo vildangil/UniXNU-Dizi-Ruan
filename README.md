@@ -179,7 +179,16 @@ contributor to the later hang and is NOT ruled out.
 A new independent
 [manual-only six-stage workflow](.github/workflows/xnu-mmu-reg-stages.yml)
 [Actions #40649020254](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40649020254)
-patches a separately SHA-pinned COPY of the five-band Mach-O with six
+**passed all 26 CI steps**, and published the separate
+[HIGH-RISK six-stage release](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-mmu-reg-stages-40649020254-1).
+Boot image `Mu-dizi-XNU-MMU-REG-STAGES-HIGH-RISK.img`
+(68,800,512 bytes) has independently verified SHA256
+`0ee0b86c6a44138d5f14ec74c59f7de10924ba9571b2487d8fadc38a993a9ca1`;
+FAT32 matches the boot-v4 ramdisk byte-for-byte and its instrumented
+51,941,376-byte Mach-O SHA256
+`cc4da0da3850c23d1498c343c836387f4d68342e9f0ed8da4ae4b079c8a693e7`
+matches `XNU-MMU-REGISTER-STAGES.json`. **Not yet hardware tested.**
+It patches a separately SHA-pinned COPY of the five-band Mach-O with six
 stack-preserving checkpoint stubs. They save/restore x9-x12 and NZCV,
 replay the exact replaced instruction and return to the original +4;
 `SCTLR_EL1` and subsequent `isb` remain unchanged. It adds

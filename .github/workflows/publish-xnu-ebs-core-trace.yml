@@ -100,29 +100,10 @@ jobs:
           test -s dist/BOOT-PATCHES.txt
           ! grep -q 'EOF          {' dist/NOT-BOOTABLE-XNU.txt
 
-      - name: Publish original verified bytes as GitHub prerelease
+      # Legacy EBS diagnostic publisher: only one boot.img in rolling latest.
+      - name: Publish one rolling boot.img, no FD/FAT binary release assets
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          tag="dizi-xnu-ebs-core-trace-$TRACE_RUN-1"
-          files=(
-            dist/Mu-dizi-XNU-EBS-CORE-TRACE-NO-XNU.img
-            dist/SILICIUM_UEFI-dizi-EBS-CORE-TRACE.fd
-            dist/DIZI-XNU-EBS-CORE-TRACE.fat
-            dist/SHA256SUMS.txt
-            dist/NOT-BOOTABLE-XNU.txt
-            dist/BOOT-PATCHES.txt
-            dist/ADT-REFERENCE-RESULT.json
-            dist/PRELINK-CHECK.json
-          )
-          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$tag" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
-          else
-            gh release create "$tag" "${files[@]}" \
-              --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-              --prerelease --title "Dizi DXE Core EBS 12-stage fault localization (NO XNU)" \
-              --notes-file dist/NOT-BOOTABLE-XNU.txt
-          fi
-          gh release view "$tag" --repo "$GITHUB_REPOSITORY" \
-            --json url --jq '.url' >> "$GITHUB_STEP_SUMMARY"
+          bash ci/publish_dizi_latest_test.sh dist/Mu-dizi-XNU-EBS-CORE-TRACE-NO-XNU.img

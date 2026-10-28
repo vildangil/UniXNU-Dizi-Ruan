@@ -172,7 +172,16 @@ subsequent hang from the image alone.
 A new independent **manual-only HIGH-RISK**
 [opcode-proof workflow](.github/workflows/xnu-first-opcode-no-kep.yml)
 [Actions #40643799207](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40643799207)
-patches a SHA-pinned **COPY** of the original prelinked Mach-O:
+**passed 22/22 CI steps** and published the independent
+[HIGH-RISK NO-KEP first-opcode release](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-first-opcode-no-kep-40643799207-1).
+Exact boot-v4 artifact `Mu-dizi-XNU-FIRST-OPCODE-NO-KEP-HIGH-RISK.img`
+(68,800,512 bytes) SHA-256 `931bef2e1640577352113734f72bf6969a94002308dc1e389e8e340064c29d42`
+was rechecked outside GitHub Actions. The FAT32 copy of
+`/EFI/UniXNU/Payloads/kernel.macho` independently hashes to
+`867b82d1445ebf6c505dbad92345efa60a34a01cad37dde3b375f103691160eb`
+and its Mach-O entry/trampoline bytes were read back successfully.
+**This image has NOT been tested on physical hardware.**
+It patches a SHA-pinned **COPY** of the original prelinked Mach-O:
 entry VA `0xFFFFFFF0073F0488`, original opcode `0x140006F5`
 branching to `0xFFFFFFF0073F205C`. The byte-verified zero padding at
 entry + `0x40` receives a short 40-byte stackless ARM64 trampoline.

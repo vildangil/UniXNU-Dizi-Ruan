@@ -172,7 +172,15 @@ successful XNU-owned EL1 MMU enable.
 
 The next independent [manual-only pre-MMU workflow](.github/workflows/xnu-pre-mmu-no-kep.yml)
 [Actions #40646191965](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40646191965)
-uses a third SHA-pinned COPY and the [orange checkpoint](ci/patch_dizi_xnu_pre_mmu.py).
+**passed 24/24 GitHub Actions steps** and published the
+[pre-MMU orange HIGH-RISK release](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-pre-mmu-no-kep-40646191965-1).
+The verified `Mu-dizi-XNU-PRE-MMU-NO-KEP-HIGH-RISK.img` is 68,800,512
+bytes, SHA256 `97a5ce129247f45c5be0aec7aae478e009c76a7bdbb55660988b6b4931e6e26a`.
+The pinned copied Mach-O SHA256 is
+`de29ffc668de50ddef7fe4ac2f49b992eb3531512e750ee81143e1ab46fd7d9e`.
+CI and local artifact checks confirm the original `SCTLR_EL1` and `ISB`
+instructions are unmodified, and the new trampoline is 84 bytes.
+This image **has not been hardware tested yet**. It uses a third SHA-pinned COPY and the [orange checkpoint](ci/patch_dizi_xnu_pre_mmu.py).
 At `0xFFFFFFF0073F234C` the original `movk x0,#0x593d` is
 replayed in a checked empty cave. ORANGE Y260..268 is painted and
 execution returns to the **unmodified** `msr SCTLR_EL1,x0`

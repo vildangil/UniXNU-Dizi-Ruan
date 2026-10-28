@@ -543,34 +543,16 @@ jobs:
       # GitHub may reject Release creation with HTTP 403 even when the job
       # reports Contents: write; previous jobs with the same scope succeeded.
       # Preserve the verified output independently of that API response.
-      - name: Publish successful public-source test build
+      # One rolling prerelease with a single boot.img; all debug files remain
+      # in the verified Actions artifact, avoiding 3 firmware images per release.
+      - name: Publish one rolling high-risk boot.img (no release proliferation)
         id: publish
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          tag="dizi-xnu-bootstrap-stages-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          gh release create "$tag" \
-            dist/Mu-dizi-XNU-BOOTSTRAP-STAGES-HIGH-RISK.img \
-            dist/SILICIUM_UEFI-dizi-BOOTSTRAP-STAGES.fd \
-            dist/DIZI-XNU-BOOTSTRAP-STAGES.fat \
-            dist/SHA256SUMS.txt \
-            dist/NOT-BOOTABLE-XNU.txt \
-            dist/BOOT-PATCHES.txt \
-            dist/ADT-REFERENCE-RESULT.json \
-            dist/PRELINK-CHECK.json \
-            dist/XNU-ENTRY-MARKER.json \
-            dist/XNU-NATIVE-FIRST-CPU.json \
-            dist/XNU-PRE-MMU-ORANGE.json \
-            dist/XNU-BOOTSTRAP-STAGES.json \
-            dist/KEP-BYPASS-CHECK.json \
-            dist/bds-kep/* \
-            dist/DXECORE-RESULT.json \
-            dist/dxe-core-symbols/* \
-            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --prerelease --title "Dizi XNU early boot_args + page tables 5 stage NO-KEP (HIGH RISK) #$GITHUB_RUN_ID" \
-            --notes-file dist/NOT-BOOTABLE-XNU.txt
+          bash ci/publish_dizi_latest_test.sh dist/Mu-dizi-XNU-BOOTSTRAP-STAGES-HIGH-RISK.img
 
       - name: Report publication result
         if: always()

@@ -179,7 +179,16 @@ reads and shows EBS machine words at offsets `0,4,8,0x70` before EBS is
 called, using direct framebuffer glyph stores. No flash, no EBS service
 bypass, no XNU entry, and **no changes to the working EDK2**.
 [Build #40639206923](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40639206923)
-is the new independent CI run.
+**passed all 21 CI steps**; the standalone verified Android boot-v4
+`Mu-dizi-XNU-EBS-FOUR-WORDS-NO-XNU.img` is in
+[release dizi-xnu-ebs-four-words-40639206923-1](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-ebs-four-words-40639206923-1).
+SHA-256 `b787b38d8b1475a909b31062f79ca6dc7a8625831381820061c1f293b706ab97`.
+This build has **not yet been tested on device**. Y244=EBS pointer,
+Y276=first opcode, Y308=FOUR adjacent 8-hex groups ordered
+`[EBS+0, EBS+4, EBS+8, EBS+0x70]`. Use
+[ci/match_dizi_ebs_fingerprint.py](ci/match_dizi_ebs_fingerprint.py)
+with the same run's `DxeCore.disassembly.txt` and `DxeCore.map` after
+reading the new photograph; do not call a single STP prologue an exact match.
 
 #### Hardware-confirmed DXE stage framebuffer mismatch (2026-10-28)
 

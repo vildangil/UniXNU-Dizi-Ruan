@@ -153,6 +153,37 @@ Do not remove the fail-closed patch until those are checked.
 
 ## FIRST XNU entry on hardware: firmware synchronous exception (2026-10-27)
 
+#### Six register stages not visible on hardware; first-stage SP differential (2026-10-28)
+
+The physical photo of
+[run #40649020254](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40649020254)
+shows the old FIVE colored XNU bootstrap bands including PURPLE
+`AFTER_SET_MMU_TTB` Y384, but **NONE** of the six new bands at
+Y408,432,456,480,504,528. The last supported original-code point is
+`0xFFFFFFF0073F22AC` (replayed `mov x30,x19` in purple stub).
+The next instruction at `+0x4` is `add x0,x25,#0x1000`; the next hook
+at `+0x8` (`0xFFFFFFF0073F22B4`) branches to the first new probe.
+
+**Key test confounder:** the five successful prior marker trampolines do
+not reference SP; all six new ones start with `sub sp,sp,#48` and
+`stp x9,x10,[sp]` **before any framebuffer writes**. That makes
+the missing new stripes potentially caused by an invalid/unmapped early
+XNU stack rather than by failure of TTBR1 setup itself. This remains
+a hypothesis, not a proven stack fault (no ESR/FAR/ELR captured).
+
+A differential [SHA-pinned copy patch](ci/patch_dizi_first_mmu_stackless.py)
+removes SP references **only from the first new pink marker at Y408**,
+replays the exact original `and x0,x0,#0xffffffffffff`, then branches
+to `0xFFFFFFF0073F22B8`. The next five probes, and original TTBR1,
+SCTLR and ISB MSRs remain untouched. The replacement follows the
+earlier successful stackless diagnostic convention of clobbering
+x9/x10/x11 and NZCV; it is not a general-purpose kernel fix.
+Local disassembly checked all instructions and exact 84-byte replacement.
+[Manual-only CI #40700727875](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40700727875)
+uses [xnu-mmu-first-nosp.yml](.github/workflows/xnu-mmu-first-nosp.yml).
+No production EDK2 edit, no push, no flash, cpus=1 only.
+**Not yet tested on hardware**.
+
 #### Five early bootstrap markers all visible on physical dizi (2026-10-28)
 
 The user tested verified HIGH-RISK

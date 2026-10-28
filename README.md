@@ -173,7 +173,17 @@ alone proves none of those stages completed.
 New pinned-copy [five-stage diagnostic](ci/patch_dizi_xnu_bootstrap_stages.py)
 and [manual-only workflow](.github/workflows/xnu-bootstrap-stages.yml)
 [Actions #40647473480](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40647473480)
-corrects the ORANGE ARGB bits and adds physical-GOP stackless
+**passed all 25 CI steps**, and published a separate
+[HIGH-RISK five-band release](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-bootstrap-stages-40647473480-1).
+Boot-v4 `Mu-dizi-XNU-BOOTSTRAP-STAGES-HIGH-RISK.img`
+(68,800,512 bytes) independently SHA256 verified
+`5b49b20f48675e2ead18e2da276795ab46922ee13a2b25a84e2be0270657ea01`.
+FAT32 readback confirms the patched 51,941,376-byte Mach-O at
+`0x101200` hashes to
+`94947ff724ec85b005e7b6241e625867dadf5c10b053a1b2ae5f4f75e8b4a1d3`
+and matches `XNU-BOOTSTRAP-STAGES.json`. **This image has not yet
+been tested on real hardware.**
+It corrects the ORANGE ARGB bits and adds physical-GOP stackless
 checkpoints that replay their original displaced instructions:
 RED Y288 before first `boot_args` load, YELLOW Y312 after boot args
 reads, GREEN Y336 after initial page table zero loop, BLUE Y360

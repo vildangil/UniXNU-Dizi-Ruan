@@ -195,9 +195,17 @@ patch is [ci/patch_dizi_disable_kep_for_ebs.py](ci/patch_dizi_disable_kep_for_eb
 plus [compiled BdsDxe check](ci/check_dizi_kep_bds_image.py).
 Manual-only [workflow](.github/workflows/xnu-ebs-no-kep.yml)
 [Actions #40641321399](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40641321399)
-does not enable `push`, Windows patching, XNU kernel entry or
-`fastboot flash`. Only the new temporary `fastboot boot` test can
-confirm that the EBS exception is eliminated.
+**passed 23/23 steps**, and [the NO-KEP NO-XNU test release](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-ebs-no-kep-40641321399-1)
+contains the separately built 68,800,512-byte
+`Mu-dizi-XNU-EBS-NO-KEP-NO-XNU.img`, SHA256
+`148f46dbccb71cc2606bfa293aa573f9514b1064dc721df8423bddd1ed292eff`.
+The same run archived `bds-kep/BdsDxe.efi` and
+`KEP-BYPASS-CHECK.json`, confirming `old_kep_four_word_fingerprint_absent=true`
+and `old_kep_four_word_fingerprint_offsets=[]` in the compiled PE.
+It does not enable `push`, Windows patching, XNU kernel entry or
+`fastboot flash`. Only a new **on-device** temporary `fastboot boot` can
+confirm that the EBS exception is eliminated; passing CI does not
+prove this yet.
 
 #### Live EBS instruction mismatch confirmed on Dizi (2026-10-28)
 

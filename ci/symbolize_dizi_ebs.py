@@ -3,10 +3,10 @@
 
 Usage:
   python3 ci/symbolize_dizi_ebs.py --map DxeCore.map --efi DxeCore.efi \
-      --ebs-pointer 0xFC361434 --pc 0xFC368EAC
+      --ebs-pointer 0xFC369E3C --pc 0xFC369EAC
 
-The pointer value above is EXAMPLE ONLY. Read the actual sixteen hex digits
-from the screen of the EBS POINTER NO-XNU test boot. A raw exception PC cannot
+The pointer above is measured from the 2026-10-28 EBS pointer test photo.
+New boots can use a different runtime value; read all sixteen digits. A raw exception PC cannot
 be treated as an RVA; load-base relocation changes between boots.
 """
 from __future__ import annotations
@@ -54,13 +54,25 @@ def main():
     ebs_rva = ebss.pop()
     base = args.ebs_pointer - ebs_rva
     img_size = size_of_image(args.efi)
-    if base < 0 or base & 0xfff:
-        raise SystemExit("Measured EBS pointer does not yield a page-aligned "
-                         "DxeCore base: wrong image or intercepted function")
+    if base < 0:
+        raise SystemExit("EBS pointer is below mapped CoreExitBootServices RVA")
+    # DXE Core may execute XIP or through FV/TE offsets. A non-page-aligned
+    # inferred base is NOT proof of a wrong image; do not reject the photo.
+    # A map-aligned RVA match alone also does NOT prove the runtime image.
+    aligned = (base & 0xfff) == 0
     output = {
         "runtime_ebs_pointer": hex(args.ebs_pointer),
         "ebs_rva": hex(ebs_rva),
         "derived_dxecore_runtime_base": hex(base),
+        "image_base_page_aligned": aligned,
+        "image_base_confirmed": False,
+        "alignment_note": (
+            "4K-aligned candidate; still verify loaded module identity"
+            if aligned else
+            "Unaligned derived image base: could be FV/XIP/TE layout, a "
+            "different loaded copy, or a thunk. Mapping below is only a "
+            "hypothesis until actual runtime code bytes are checked."
+        ),
         "pe_size_of_image": hex(img_size),
         "pc_results": [],
     }
@@ -68,7 +80,10 @@ def main():
         rva = pc - base
         inside = 0 <= rva < img_size
         item = {"pc": hex(pc), "inside_dxecore_image": inside,
-                "rva": hex(rva) if inside else None}
+                "rva": hex(rva) if inside else None,
+                "delta_from_ebs_entry": (
+                    "+" if pc >= args.ebs_pointer else "-"
+                ) + hex(abs(pc - args.ebs_pointer))}
         if inside:
             preceding = [s for s in symbols if s[0] <= rva]
             following = [s for s in symbols if s[0] > rva]

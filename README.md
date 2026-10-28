@@ -153,6 +153,34 @@ Do not remove the fail-closed patch until those are checked.
 
 ## FIRST XNU entry on hardware: firmware synchronous exception (2026-10-27)
 
+#### Additional 12-stripe DXE Core trace (2026-10-28)
+
+A second manual [DXE Core trace workflow](.github/workflows/xnu-ebs-core-trace.yml)
+instruments the **pinned Mu Basecore** `CoreExitBootServices` with 12
+cumulative small bands, rather than replacing the normal firmware.
+It preserves all EFI event callbacks and, using the same prelinked XNU/ADT
+inputs, **disables DarwinEnter** so no XNU instruction is executed.
+The test is grounded in the on-device yellow-stage exception following
+`ExitBootServices` in the prior probe. Source progress bands cover
+BeforeExitBootServices callbacks, timer shutdown, CoreTerminateMemoryMap,
+ExitBootServices callbacks, the memory-protection callback, interrupt
+shutdown, and successful EBS return.
+
+[**Verified 12-stripe image release #40630906639**](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-ebs-core-trace-40630906639-1)
+contains `Mu-dizi-XNU-EBS-CORE-TRACE-NO-XNU.img` (68,800,512 bytes),
+a byte-verified boot-v4 with the original checked FAT32 ramdisk.
+Initial build compiled successfully, and the image was SHA-256 checked.
+The publication metadata had a heredoc line-break error, corrected in
+the workflow; the **original verified bytes** were then uploaded to
+Releases through [publication run #40631585293](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40631585293)
+without recompiling the firmware.
+
+Only reversible `fastboot boot` is permitted. The probe may halt after
+EBS; hard reboot manually. A photograph showing the **last retained
+thin stripe and exception PC** is required before diagnosing or changing
+individual firmware ExitBootServices callbacks. The eight-core
+`sm7435-common` runtime remains untested.
+
 ### Follow-up: Yellow-only EBS boundary and DXE Core substage test
 
 The owner ran [EBS boundary probe release #40579965947](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-ebs-boundary-40579965947-1) on hardware.

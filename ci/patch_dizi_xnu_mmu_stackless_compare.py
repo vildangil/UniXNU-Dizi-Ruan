@@ -61,7 +61,7 @@ def marker(word,y,color):
  obj=shutil.which("llvm-objcopy-18") or shutil.which("llvm-objcopy")
  if not clang or not obj:raise RuntimeError("LLVM tools missing")
  pa=GOP+y*STRIDE
- if not GOP<=pa and pa+9*STRIDE<=GOP+2560*STRIDE:raise ValueError("GOP bounds")
+ if not (GOP <= pa and pa+9*STRIDE <= GOP+2560*STRIDE):raise ValueError("GOP bounds")
  asm=f"""
 .section .text.probe,"ax",%progbits
 .global stackless_marker
@@ -103,7 +103,7 @@ def main(inp,out,report):
   b=marker(original,y,color)
   if len(b)!=44 or struct.unpack_from("<II",b,36)!=(original,0xd503201f):
    raise ValueError("Unexpected marker assembly layout")
-  if not GOP<=GOP+y*STRIDE and GOP+(y+9)*STRIDE<=GOP+2560*STRIDE:
+  if not (0 <= y and y+9 <= 2560):
    raise ValueError("Invalid framebuffer coordinates")
   pos=offset(data,ptr)
   if any(data[pos:pos+len(b)]):raise ValueError("Occupied cave "+hex(ptr))

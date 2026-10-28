@@ -153,6 +153,36 @@ Do not remove the fail-closed patch until those are checked.
 
 ## FIRST XNU entry on hardware: firmware synchronous exception (2026-10-27)
 
+#### First native start_first_cpu opcode confirmed on physical dizi (2026-10-28)
+
+Physical dizi test of [HIGH-RISK CYAN NO-KEP build
+#40644853194](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40644853194):
+the user reports that the new **CYAN Y240..248 stripe is visible**,
+after the previously confirmed WHITE Mach-O entry stripe.
+
+The CYAN trampoline is entered only through the native
+`start_first_cpu` VA `0xFFFFFFF0073F205C` (first instruction
+`msr OSLAR_EL1, xzr`), and its first instruction REPLAYS that original
+MSR before the volatile framebuffer writes. This confirms the path
+reached the first native XNU startup instruction on real hardware.
+The diagnostic subsequently branches to `start_first_cpu+4`;
+however, completion of the remaining native initialization has
+**not** been observed. No proof yet of page-table construction or
+successful XNU-owned EL1 MMU enable.
+
+The next independent [manual-only pre-MMU workflow](.github/workflows/xnu-pre-mmu-no-kep.yml)
+[Actions #40646191965](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40646191965)
+uses a third SHA-pinned COPY and the [orange checkpoint](ci/patch_dizi_xnu_pre_mmu.py).
+At `0xFFFFFFF0073F234C` the original `movk x0,#0x593d` is
+replayed in a checked empty cave. ORANGE Y260..268 is painted and
+execution returns to the **unmodified** `msr SCTLR_EL1,x0`
+at `0xFFFFFFF0073F2350`, followed by the unmodified `isb`.
+Orange will mean the native kernel reached the **point immediately before
+enabling its own MMU**; it will NOT prove the MMU-enable MSR completed.
+Existing NO-KEP, explicit POWER confirmation, cpus=1, manual CI
+and fastboot boot-only safety constraints remain unchanged.
+No driver changes or working EDK2 changes.
+
 #### First live XNU Mach-O instruction confirmed on dizi (2026-10-28)
 
 The device test of the independent [NO-KEP white-entry build

@@ -1,0 +1,51 @@
+name: Dizi promote verified NO-SP boot to single rolling release (owner manual)
+
+on:
+  workflow_dispatch:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  promote:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.number == 1 &&
+       github.event.issue.pull_request != null &&
+       github.event.comment.user.login == 'vildangil' &&
+       github.event.comment.body == '/promote-dizi-nosp-control')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Download exact hardware-tested NO-SP boot image and verify SHA256
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh release download dizi-xnu-mmu-first-nosp-40700727875-1 \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'Mu-dizi-XNU-MMU-FIRST-NOSP-HIGH-RISK.img' \
+            --dir dist
+          echo 'ceb970d09e05aeff9e09293528d6193a87bf760c96a6e222766df6e73e249620  dist/Mu-dizi-XNU-MMU-FIRST-NOSP-HIGH-RISK.img' | sha256sum --check
+      - name: Create or update ONE-IMAGE rolling experimental prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DIZI_SOURCE_RUN_ID: '40700727875'
+        run: |
+          set -euo pipefail
+          bash ci/publish_dizi_latest_test.sh dist/Mu-dizi-XNU-MMU-FIRST-NOSP-HIGH-RISK.img
+          count="$(gh release view dizi-xnu-latest-test --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length')"
+          if [[ "$count" != "1" ]]; then
+            echo "Exactly one boot.img must be published. Found $count assets." >&2
+            exit 1
+          fi
+          gh release view dizi-xnu-latest-test --repo "$GITHUB_REPOSITORY" --json url,assets \
+            --jq '{url: .url, asset: .assets[0].name}'

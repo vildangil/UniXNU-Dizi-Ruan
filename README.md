@@ -178,7 +178,15 @@ This NO-XNU build HALTS after EBS and **does not execute XNU**.
 
 The next _separate_ [opt-in high-risk real-entry workflow](.github/workflows/xnu-first-entry-no-kep.yml)
 [Actions #40642424939](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40642424939)
-retains NO-KEP while using the existing explicit-confirmation first-entry
+**completed successfully (21/21 steps)** and published a [separate
+HIGH-RISK first-entry release](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-first-entry-no-kep-40642424939-1).
+Exact boot-v4 `Mu-dizi-XNU-FIRST-ENTRY-NO-KEP-HIGH-RISK.img`
+(68,800,512 bytes) SHA-256 `57ae6c3511e05a1e2ce98a16d1c71874ab7c1c939bb7bbdf4b54c7f2c1a98836`
+was verified against GitHub Actions artifact checksum. The compiled
+`BdsDxe.efi` passes the exact old KEP fault fingerprint absence test.
+**No hardware XNU entry has been observed with this image yet.**
+
+It retains NO-KEP while using the existing explicit-confirmation first-entry
 menu and original `DarwinEnter`. Post-EBS magenta Y172..195 and pre-kernel
 DarwinEnter green top stripe will help localize the next hang. The green bar
 is still **not proof of XNU instruction execution**; no seven extra CPUs

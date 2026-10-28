@@ -177,7 +177,10 @@ the persistent top yellow bar and draws 12 navy calibration cells before
 EBS. Its standalone
 [workflow](.github/workflows/xnu-ebs-toptiles.yml) has no push trigger.
 [Build #40635399461](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40635399461)
-is the test input. Neither the working EDK2 nor any EBS callbacks are
+**completed successfully** (21 steps); the verified 68,800,512-byte boot-v4
+is in [the NO-XNU top-tiles prerelease](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-ebs-toptiles-40635399461-1).
+Boot image SHA-256: `da87e8e237ab5b3896dd516c5009cf3c6dfcec48a3deb5f59b650b2bbb555c66`.
+This image has **not yet been hardware tested**. Neither the working EDK2 nor any EBS callbacks are
 changed outside disposable CI checkout; DarwinEnter remains disabled.
 Only reversible `fastboot boot` is permitted, never flashing.
 

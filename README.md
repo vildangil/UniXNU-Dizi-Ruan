@@ -180,7 +180,13 @@ earlier successful stackless diagnostic convention of clobbering
 x9/x10/x11 and NZCV; it is not a general-purpose kernel fix.
 Local disassembly checked all instructions and exact 84-byte replacement.
 [Manual-only CI #40700727875](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40700727875)
-uses [xnu-mmu-first-nosp.yml](.github/workflows/xnu-mmu-first-nosp.yml).
+**passed 27/27 steps** and published a [separate NO-SP HIGH-RISK release](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-mmu-first-nosp-40700727875-1).
+Verified exact boot-v4 `Mu-dizi-XNU-MMU-FIRST-NOSP-HIGH-RISK.img` (68,800,512 bytes)
+SHA256 `ceb970d09e05aeff9e09293528d6193a87bf760c96a6e222766df6e73e249620`.
+FAT32 kernel SHA256 `5d5666cdb13c64665cb393676806d02a38972660e89cb02547059032c6b40fba`
+matches `XNU-FIRST-MMU-NOSP.json`; the first stub is stackless and the
+other five probes are unchanged. No hardware test yet.
+It uses [xnu-mmu-first-nosp.yml](.github/workflows/xnu-mmu-first-nosp.yml).
 No production EDK2 edit, no push, no flash, cpus=1 only.
 **Not yet tested on hardware**.
 

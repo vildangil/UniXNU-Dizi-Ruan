@@ -1,0 +1,488 @@
+name: Dizi corrected EBS framebuffer + opcode (NO XNU, manual)
+
+# No private repositories, GitHub-hosted runners, or prebuilt XNU.
+# Explicit manual dispatch OR a trusted owner comment on control PR #1.
+# NEVER triggers on push, pull_request, or synchronize.
+on:
+  workflow_dispatch:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  actions: read
+
+# Do not add a workflow-level concurrency gate: stalled workflow runs
+# with zero created jobs can block all further manual dispatches.
+env:
+  MU_REPO: https://github.com/vildangil/Mu-Silicium.git
+  MU_SHA: 39fbbc20885325044cfeaf8428efb7267e0bbe35
+  MU_R4_SHA: 71b8dedd0c00f85eb5bcf10a647f0d698d81b6ac
+  DARWINBOOT_REPO: https://github.com/UniXNU/DarwinBoot.git
+  DARWINBOOT_SHA: 3325e352d7df68a9f9ad74832ed94a6acbbd7390
+  XNU_PRELINK_RUN: "40570765147"
+  ADT_UNIXNU_REPO: https://github.com/UniXNU/UniXNU.git
+  ADT_UNIXNU_SHA: 0fc0fc1f9ddd0fbd4787738afef38667df5e0a95
+  SM7435_REPO: https://github.com/vildangil/UniXNU-sm7435-common.git
+  SM7435_SHA: 98d9b9bd35c530c2c9a4ea338fbabe5c341c005b
+  UNIXNU_REPO: https://github.com/UniXNU/UniXNU.git
+  UNIXNU_SHA: 759eb61b6b8d475de5b3d1b39e1de1f5294e8d9a
+  CLANGPDB_AARCH64_PREFIX: aarch64-linux-gnu-
+  PYTHONUNBUFFERED: "1"
+  CI_BUILD: "false"
+
+jobs:
+  uefi:
+    # Only the repository owner's exact command on control PR #1 is accepted.
+    # Other GitHub comments create at most a skipped run, never a build.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.number == 1 &&
+       github.event.issue.pull_request != null &&
+       github.event.comment.user.login == 'vildangil' &&
+       github.event.comment.body == '/run-dizi-ebs-fb-fixed')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Preflight pinned public inputs and safe XNU loader probe
+        run: |
+          set -euo pipefail
+          python3 -m py_compile ci/integrate_unixnu.py ci/patch_initrd_fat.py ci/patch_sec_entry_hob.py ci/patch_public_buttons.py ci/patch_native_pmic_r4.py ci/patch_darwinboot_dizi.py ci/patch_darwinboot_ebs_stage_probe.py ci/patch_dizi_dxecore_ebs_trace.py ci/patch_dizi_ebs_pointer_glyphs.py ci/patch_dizi_dxecore_ebs_toptiles.py ci/patch_dizi_dxecore_fb_base.py ci/patch_darwinboot_ebs_toptiles_baseline.py ci/patch_dizi_ebs_opcode_probe.py ci/capture_dizi_dxecore_symbols.py ci/build_dizi_reference_adt.py ci/validate_prelinked_darwinboot.py
+          python3 - <<'PY'
+          import pathlib, tomllib
+          w=pathlib.Path(".github/workflows/build.yml").read_text()
+          assert ("dizi_" + "IpadOS_maybe") not in w
+          assert "github.com/vildangil/Mu-Silicium.git" in w
+          assert "github.com/UniXNU/UniXNU.git" in w
+          data=tomllib.loads(pathlib.Path("ci/xnu-ebs-core-menu.toml").read_text())
+          assert data["version"] == 1
+          assert data["boot"]["default"] == "return"
+          assert [e.get("type") for e in data["entry"]].count("xnu") == 1
+          assert "DXE Core EBS stages" in data["entry"][1]["title"]
+          assert data["entry"][1].get("confirm"), "Experiment must ask before testing"
+          assert "POWER confirms" in data["entry"][1]["confirm"]
+          assert data["entry"][1]["type"] == "xnu"
+          assert data["entry"][1]["path"] == "Payloads/kernel.macho"
+          # Config.c MakePath(UNIXNU_CONFIG_DIR, path): the relative
+          # path must be *inside* EFI/UniXNU, not the FAT volume root.
+          assert data["entry"][1]["path"].startswith("Payloads/")
+          print("Resolved: /EFI/UniXNU/" + data["entry"][1]["path"])
+          print("PINNED DXE CORE callback EBS trace: XNU entry disabled; EBS irreversible")
+          print("CONFIG RELATIVE FAT PATH: EFI/UniXNU/" + data["entry"][1]["path"])
+          PY
+
+      - name: Install public cross-compilation dependencies
+        run: |
+          set -euo pipefail
+          # Azure apt archive proved extremely slow (114 MB still downloading
+          # after 15 minutes, exit 124 on 2026-10-27). Prefer Ubuntu's public
+          # archive with a second mirror, instead of a fixed Azure endpoint.
+          mirror_file=/etc/apt/apt-mirrors.txt
+          if [ -f "$mirror_file" ]; then
+            printf '%s\n' \
+              'https://archive.ubuntu.com/ubuntu/' \
+              'https://mirrors.edge.kernel.org/ubuntu/' | sudo tee "$mirror_file"
+          fi
+          echo "::group::Refreshing Ubuntu package lists (max 10 minutes)"
+          timeout 600s sudo apt-get -o Acquire::Retries=1 \
+            -o Acquire::https::Timeout=45 -o Acquire::http::Timeout=45 update
+          echo "::endgroup::"
+          echo "::group::Installing EDK2 cross-build tools (max 28 minutes)"
+          timeout 1680s sudo env DEBIAN_FRONTEND=noninteractive apt-get \
+            -o DPkg::Lock::Timeout=180 -o Acquire::Retries=1 \
+            -o Acquire::https::Timeout=45 -o Acquire::http::Timeout=45 \
+            install -y --no-install-recommends \
+              device-tree-compiler \
+            clang-18 llvm-18 llvm-18-tools lld-18 nasm mono-devel \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu uuid-dev \
+            python3-venv python3-pip make pkg-config curl git \
+            dosfstools mtools
+          echo "::endgroup::"
+          echo "Host cross-build packages installed"
+          mkdir -p "$RUNNER_TEMP/llvm-tools"
+          for binary in llvm-lib lld-link llvm-objcopy; do
+            if command -v "$binary" >/dev/null; then continue; fi
+            candidate=""
+            for p in "/usr/lib/llvm-18/bin/$binary" "/usr/bin/${binary}-18"; do
+              if [ -x "$p" ]; then candidate="$p"; break; fi
+            done
+            test -n "$candidate" || { echo "::error::$binary not found"; exit 1; }
+            ln -s "$candidate" "$RUNNER_TEMP/llvm-tools/$binary"
+          done
+          echo "$RUNNER_TEMP/llvm-tools" >> "$GITHUB_PATH"
+
+      - name: Fetch pinned PUBLIC Mu-Silicium
+        run: |
+          set -euo pipefail
+          git init -q mu
+          git -C mu remote add origin "$MU_REPO"
+          git -C mu fetch --depth 1 origin "$MU_SHA"
+          git -C mu checkout -q FETCH_HEAD
+          test "$(git -C mu rev-parse HEAD)" = "$MU_SHA"
+          git -C mu submodule update --init --recursive --depth 1 --jobs 4
+
+      - name: Restore SEC entry argument and publish UniXNU GUID HOB
+        run: |
+          set -euo pipefail
+          python3 ci/patch_sec_entry_hob.py mu --dry-run
+          python3 ci/patch_sec_entry_hob.py mu
+          grep -q 'DIZI_ENTRY_ARG_HOB_V1' mu/Silicon/Silicium/SiliciumPkg/Sec/AArch64/ModuleEntryPoint.S
+          grep -q 'DIZI_ENTRY_ARG_HOB_V1' mu/Silicon/Silicium/SiliciumPkg/Sec/Sec.c
+          grep -q 'BuildGuidDataHob (&mDiziEntryArgHobGuid' mu/Silicon/Silicium/SiliciumPkg/Sec/Sec.c
+          echo 'SEC x0-to-HOB handoff patched in firmware source'
+
+      - name: Instrument pinned Mu_Basecore DXE Core ExitBootServices
+        run: |
+          set -euo pipefail
+          test "$(git -C mu/Mu_Basecore rev-parse HEAD)" = "bb557081f80f4883ed832e34ab36bdca6ede1e10"
+          test -s mu/Mu_Basecore/MdeModulePkg/Core/Dxe/DxeMain/DxeMain.c
+          python3 ci/patch_dizi_dxecore_ebs_trace.py mu --dry-run
+          python3 ci/patch_dizi_dxecore_ebs_trace.py mu
+          python3 ci/patch_dizi_dxecore_ebs_toptiles.py mu --dry-run
+          python3 ci/patch_dizi_dxecore_ebs_toptiles.py mu
+          python3 ci/patch_dizi_dxecore_fb_base.py mu --dry-run
+          python3 ci/patch_dizi_dxecore_fb_base.py mu
+          core=mu/Mu_Basecore/MdeModulePkg/Core/Dxe/DxeMain/DxeMain.c
+          grep -q 'DIZI_DXE_CORE_EBS_TRACE_V1' "$core"
+          grep -q 'DIZI_DXE_CORE_EBS_TOPTILES_V1' "$core"
+          grep -q 'DIZI_DXE_CORE_EBS_FB_BASE_B800_V1' "$core"
+          grep -q 'Fb = (volatile UINT32 \*)(UINTN)0xB8000000ULL;' "$core"
+          grep -q 'DiziCoreEbsMark (0,' "$core"
+          grep -q 'DiziCoreEbsMark (5,' "$core"
+          grep -q 'DiziCoreEbsMark (11,' "$core"
+          test "$(grep -c 'DiziCoreEbsMark ([0-9]' "$core")" = 12
+          echo "12 cumulative core EBS stripes instrumented, no event callbacks skipped"
+
+      - name: Fetch pinned PUBLIC UniXNU
+        run: |
+          set -euo pipefail
+          install -d mu/External/UniXNU
+          git -C mu/External/UniXNU init -q
+          git -C mu/External/UniXNU remote add origin "$UNIXNU_REPO"
+          git -C mu/External/UniXNU fetch --depth 1 origin "$UNIXNU_SHA"
+          git -C mu/External/UniXNU checkout -q FETCH_HEAD
+          test "$(git -C mu/External/UniXNU rev-parse HEAD)" = "$UNIXNU_SHA"
+          python3 ci/integrate_unixnu.py mu --dry-run
+          python3 ci/integrate_unixnu.py mu
+          python3 ci/patch_initrd_fat.py mu --dry-run
+          python3 ci/patch_initrd_fat.py mu
+          python3 ci/patch_public_buttons.py mu --dry-run
+          python3 ci/patch_public_buttons.py mu
+          echo '::group::Fetch pinned native R4 PMIC source'
+          git -C mu fetch --depth 1 origin "$MU_R4_SHA"
+          test "$(git -C mu rev-parse FETCH_HEAD)" = "$MU_R4_SHA"
+          dizi_lib=mu/External/UniXNU/package/UniXNUPkg/Library/UniXNULib/Dizi
+          mkdir -p "$dizi_lib"
+          for src in DiziPmicKeys.c DiziPmicKeys.h DiziSpmiArbProbe.c DiziSpmiArbProbe.h DiziSpmiArbRead.c; do
+            git -C mu show "$MU_R4_SHA:Platforms/Xiaomi/DiziBootPkg/BootSelector/$src" > "$dizi_lib/$src"
+            test -s "$dizi_lib/$src"
+          done
+          echo '::endgroup::'
+          python3 ci/patch_native_pmic_r4.py mu --dry-run
+          python3 ci/patch_native_pmic_r4.py mu
+          menu=mu/External/UniXNU/package/UniXNUPkg/Library/UniXNULib/Menu.c
+          libinf=mu/External/UniXNU/package/UniXNUPkg/Library/UniXNULib/UniXNULib.inf
+          grep -q 'DIZI_EFI_BUTTON_POLL_V2' "$menu"
+          grep -q 'DiziPollEfiKey (&Key, &DiziKeySource)' "$menu"
+          grep -q 'gEfiSimpleTextInputExProtocolGuid' "$menu"
+          grep -q 'DiziWaitEfiKey (&Key)' "$menu"
+          grep -q 'SCAN_VOLUME_UP' "$menu"
+          grep -q 'SCAN_VOLUME_DOWN' "$menu"
+          grep -q 'gEfiSimpleTextInputExProtocolGuid' "$libinf"
+          grep -q 'DIZI_R4_PMIC_BRIDGE_V1' "$menu"
+          grep -q 'DiziPollR4PmicKey (&Key)' "$menu"
+          if grep -q 'DiziR4DrawStatus\|DiziShowInputStatus' "$menu"; then
+            echo '::error::PMIC or EFI input diagnostics must not appear in normal menu'
+            exit 1
+          fi
+          grep -q 'Dizi/DiziPmicKeys.c' "$libinf"
+          grep -q 'Dizi/DiziSpmiArbRead.c' "$libinf"
+          grep -q '^  IoLib$' "$libinf"
+          if grep -q 'ConIn->WaitForKey' "$menu"; then
+            echo '::error::Dizi UniXNU unexpectedly waits on ConIn key event'
+            exit 1
+          fi
+          grep -q 'DIZI_FAT_AFTER_LZ4_V1' mu/External/UniXNU/package/UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.c
+          grep -q 'DIZI_FAT_AFTER_LZ4_V1' mu/External/UniXNU/package/UniXNUPkg/Library/UniXNULib/Config.c
+
+      - name: Fetch pinned PUBLIC DarwinBoot and add its UEFI loader protocol
+        run: |
+          set -euo pipefail
+          git init -q mu/External/DarwinBoot
+          git -C mu/External/DarwinBoot remote add origin "$DARWINBOOT_REPO"
+          git -C mu/External/DarwinBoot fetch --depth 1 origin "$DARWINBOOT_SHA"
+          git -C mu/External/DarwinBoot checkout -q FETCH_HEAD
+          test "$(git -C mu/External/DarwinBoot rev-parse HEAD)" = "$DARWINBOOT_SHA"
+          python3 ci/patch_darwinboot_dizi.py mu --dry-run
+          python3 ci/patch_darwinboot_dizi.py mu
+          grep -q 'DIZI_DARWINBOOT_PROBE_V1' mu/Platforms/Xiaomi/diziPkg/dizi.dsc
+          grep -q 'DarwinBootPkg/Driver/DarwinBoot.inf' mu/Platforms/Xiaomi/diziPkg/dizi.fdf
+
+      - name: Mark UEFI EBS stages and disable XNU branch
+        run: |
+          set -euo pipefail
+          python3 ci/patch_darwinboot_ebs_stage_probe.py mu --dry-run
+          python3 ci/patch_darwinboot_ebs_stage_probe.py mu
+          python3 ci/patch_dizi_ebs_pointer_glyphs.py mu --dry-run
+          python3 ci/patch_dizi_ebs_pointer_glyphs.py mu
+          python3 ci/patch_darwinboot_ebs_toptiles_baseline.py mu --dry-run
+          python3 ci/patch_darwinboot_ebs_toptiles_baseline.py mu
+          python3 ci/patch_dizi_ebs_opcode_probe.py mu --dry-run
+          python3 ci/patch_dizi_ebs_opcode_probe.py mu
+          driver=mu/External/DarwinBoot/DarwinBootPkg/Driver/DarwinBoot.c
+          grep -q 'DIZI_EBS_BOUNDARY_MARKERS_V1' "$driver"
+          grep -q 'DIZI_EBS_POINTER_GLYPHS_V1' "$driver"
+          grep -q 'DIZI_EBS_TOPTILES_BASELINE_V1' "$driver"
+          grep -q 'DIZI_EBS_LIVE_OPCODE_V1' "$driver"
+          grep -q 'DiziEbsOpcodeGlyphs (Video,' "$driver"
+          grep -q 'DiziEbsPointerGlyphs (Video, (UINT64)(UINTN)gBS->ExitBootServices)' "$driver"
+          echo 'EBS pointer will be drawn as 16 hex digits at Y=244'
+          echo 'Opcode row at Y276 is the first executable ARM64 instruction from runtime EBS pointer; compiled DxeCore expected 0xA9BC53F3'
+          echo 'Only 32-bit read of current EFI function code; NO XNU entry'
+          grep -q 'DiziStageMarker (Video, 0xFF0077FF)' "$driver"
+          grep -q 'DiziStageMarker (Video, 0xFF00FFFF)' "$driver"
+          grep -q 'DiziStageMarker (Video, 0xFFFFFF00)' "$driver"
+          grep -q 'DiziStageMarker (Video, 0xFFFF00FF)' "$driver"
+          grep -q 'gBS->ExitBootServices (mImage, Key)' "$driver"
+          if grep -q 'DarwinEnter (ArgsAddress,' "$driver"; then
+            echo '::error::EBS boundary probe must NOT execute XNU'
+            exit 1
+          fi
+
+      - name: Fetch and verify pinned prelinked SM7435 plus iPadOS17 Mach-O
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p xnu-prelinked dist
+          gh run download "$XNU_PRELINK_RUN" --repo "$GITHUB_REPOSITORY" \
+            --name "dizi-xnu-ipados17-PRELINK-CANDIDATE-LINUX-$XNU_PRELINK_RUN" \
+            --dir xnu-prelinked
+          python3 ci/validate_prelinked_darwinboot.py \
+            --kernel xnu-prelinked/kernel.prelinked.dizi-CANDIDATE.macho \
+            --report xnu-prelinked/PRELINK-RESULT.json \
+            --source-run "$XNU_PRELINK_RUN" \
+            --output dist/PRELINK-CHECK.json
+          python3 - <<'PY'
+          import json, pathlib
+          p=json.loads(pathlib.Path("dist/PRELINK-CHECK.json").read_text())
+          assert p["loader_shape_accepted"] and not p["is_bootable"]
+          assert not p["kernel_entry_executed"] and not p["memory_allocated_on_device"]
+          print("Source + iPadOS17 prelinked candidate verified; XNU execution remains blocked")
+          PY
+
+      - name: Generate preliminary Apple ADT reference for eight Dizi CPUs
+        run: |
+          set -euo pipefail
+          git init -q adt-tools
+          git -C adt-tools remote add origin "$ADT_UNIXNU_REPO"
+          git -C adt-tools fetch --depth 1 origin "$ADT_UNIXNU_SHA"
+          git -C adt-tools checkout -q FETCH_HEAD
+          test "$(git -C adt-tools rev-parse HEAD)" = "$ADT_UNIXNU_SHA"
+          git init -q sm7435-src
+          git -C sm7435-src remote add origin "$SM7435_REPO"
+          git -C sm7435-src fetch --depth 1 origin "$SM7435_SHA"
+          git -C sm7435-src checkout -q FETCH_HEAD
+          test "$(git -C sm7435-src rev-parse HEAD)" = "$SM7435_SHA"
+          python3 ci/build_dizi_reference_adt.py \
+            --device "$PWD" --soc "$PWD/sm7435-src" \
+            --unixnu "$PWD/adt-tools" --output "$PWD/adt-result"
+          python3 - <<'PY'
+          import json, pathlib
+          p=pathlib.Path('adt-result/ADT-REFERENCE-RESULT.json')
+          d=json.loads(p.read_text())
+          assert d['cpus']==8 and d['memory_ownership_verified'] is False
+          assert d['kernel_entry_authorized'] is False
+          assert 500 < d['adt_bytes'] < 100_000
+          print('8 CPU ADT generated, XNU execution explicitly BLOCKED')
+          PY
+
+      - name: Package kernel at UniXNU config-relative path (FAT32)
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          truncate -s 64M dist/DIZI-XNU-EBS-FB-FIXED.fat
+          mkfs.fat -F 32 -n DIZIPROBE dist/DIZI-XNU-EBS-FB-FIXED.fat
+          mmd -i dist/DIZI-XNU-EBS-FB-FIXED.fat ::/EFI ::/EFI/UniXNU ::/EFI/UniXNU/Payloads
+          mcopy -i dist/DIZI-XNU-EBS-FB-FIXED.fat ci/xnu-ebs-core-menu.toml ::/EFI/UniXNU/unixnu.toml
+          echo "FAT: writing verified 51.9 MiB prelinked Mach-O"
+          mcopy -i dist/DIZI-XNU-EBS-FB-FIXED.fat xnu-prelinked/kernel.prelinked.dizi-CANDIDATE.macho ::/EFI/UniXNU/Payloads/kernel.macho
+          echo "FAT: Mach-O write finished"
+          mcopy -i dist/DIZI-XNU-EBS-FB-FIXED.fat adt-result/kernel.macho.adt ::/EFI/UniXNU/Payloads/kernel.macho.adt
+          mtype -i dist/DIZI-XNU-EBS-FB-FIXED.fat ::/EFI/UniXNU/unixnu.toml | grep -q 'DXE Core EBS stages'
+          echo "FAT: menu and prelinked kernel copied; verifying menu labels"
+          mtype -i dist/DIZI-XNU-EBS-FB-FIXED.fat ::/EFI/UniXNU/unixnu.toml | grep -q 'Screen may HANG'
+          echo "FAT: menu label verified; checking Mach-O and ADT readback"
+          # Verify that the *normalized* relative entry path has a file.
+          # A FAT-root /Payloads/ path will produce EFI_NOT_FOUND.
+          mdir -i dist/DIZI-XNU-EBS-FB-FIXED.fat ::/EFI/UniXNU/Payloads
+          mcopy -i dist/DIZI-XNU-EBS-FB-FIXED.fat -o ::/EFI/UniXNU/Payloads/kernel.macho "$RUNNER_TEMP/source-from-fat.macho"
+          cmp -s xnu-prelinked/kernel.prelinked.dizi-CANDIDATE.macho "$RUNNER_TEMP/source-from-fat.macho"
+          mcopy -i dist/DIZI-XNU-EBS-FB-FIXED.fat -o ::/EFI/UniXNU/Payloads/kernel.macho.adt "$RUNNER_TEMP/adt-from-fat.adt"
+          cmp -s adt-result/kernel.macho.adt "$RUNNER_TEMP/adt-from-fat.adt"
+          cp adt-result/ADT-REFERENCE-RESULT.json dist/ADT-REFERENCE-RESULT.json
+          cp dist/DIZI-XNU-EBS-FB-FIXED.fat mu/Resources/ramdisk
+          cat > dist/NOT-BOOTABLE-XNU.txt <<'EOF'
+          DIZI DXE CORE EBS POINTER + CALLBACK TRACE (NO XNU).
+          PREVIOUS HARDWARE RESULT: DarwinBoot reached yellow stripe, then
+          EFI Synchronous Exception at 0x00000000FC368EAC. No XNU yet.
+          This variant leaves DarwinEnter DISABLED; after ExitBootServices
+          success it deliberately HALTS, never executing XNU.
+          Wide top YELLOW stripe = DarwinBoot entered ExitBootServices.
+          Twelve colored TOP-BAR CELLS inside the yellow stripe are painted
+          directly from pinned Mu_Basecore DXE Core. From top to bottom:
+            0 ORANGE     before BeforeExitBootServices callbacks
+            1 CYAN       after BeforeExitBootServices callbacks
+            2 PALE CYAN  before timer SetTimerPeriod(0)
+            3 GREEN      before CoreTerminateMemoryMap
+            4 DARK GREEN after CoreTerminateMemoryMap success
+            5 BLUE       before ExitBootServices callbacks
+            6 PURPLE     after ExitBootServices callbacks
+            7 MAGENTA    before MemoryProtectionExitBootServicesCallback
+            8 WHITE      after memory protection callback
+            9 RED        before CPU DisableInterrupt
+           10 YELLOW     after CPU DisableInterrupt
+           11 LIME       before CoreExitBootServices returns SUCCESS
+          Photograph full upper screen with exception PC, all narrow stripes,
+          and the 16 white-on-navy hex digits at Y=244. These digits encode
+          the runtime gBS->ExitBootServices pointer (high bits included).
+          If no colored top-bar cells appear, DO NOT infer failure before DXE Core:
+          framebuffer visibility, image selection and early faults remain open.
+          Live DarwinBoot GOP on hardware: base 0xB8000000, row=6400, width=1600, height=2560.
+          The previous DXE marker used WRONG base 0xB0000000. CI corrects it to B800.
+          Baseline tiles and DXE Core now share the same real GOP surface.
+          The baseline shows 12 outlined NAVY cells; passed DXE stages fill them.
+          No EFI services, memory allocation or callbacks are bypassed by
+          its diagnostic core patch.
+          ExitBootServices is irreversible; manually hard reboot after test.
+          Use reversible fastboot boot ONLY; NEVER fastboot flash.
+          EOF
+          {
+            echo 'DXE Core 12-stripe trace plus EBS pointer pixels at Y244, no DarwinEnter/XNU'
+            echo 'Input: DIZI_R4_PMIC_BRIDGE_V1 and DIZI_EFI_BUTTON_POLL_V2'
+            echo "DarwinBoot commit: $DARWINBOOT_SHA"
+            echo "XNU prelinked candidate run: $XNU_PRELINK_RUN"
+            echo 'SHA-verified prelinked SM7435 XNU with pinned iPadOS 17.7.11 components, runtime UNQUALIFIED'
+            echo 'ExitBootServices active; DXE Core marked at 12 stages; callbacks intact; DarwinEnter removed'
+            echo 'Wide yellow EBS entry, 12 stripes, 16 hex EBS pointer digits at Y244; see NOT-BOOTABLE-XNU.txt'
+            echo 'Static DarwinBoot loader validation: PRELINK-CHECK.json'
+            echo 'Dizi kernel/ADT stored at /EFI/UniXNU/Payloads (fixed path)'
+          } > dist/BOOT-PATCHES.txt
+          test -s dist/BOOT-PATCHES.txt
+          test -s dist/NOT-BOOTABLE-XNU.txt
+          ! grep -q 'EOF          {' dist/NOT-BOOTABLE-XNU.txt
+
+      - name: Compile Mu-Silicium firmware with public UniXNU
+        run: |
+          set -euo pipefail
+          python3 -m venv mu/.venv
+          mu/.venv/bin/python -m pip install --disable-pip-version-check -r mu/pip-requirements.txt
+          source mu/.venv/bin/activate
+          (cd mu && python3 build_uefi.py -d dizi -r RELEASE -c) 2>&1 | tee dist/build.log
+
+      - name: Capture compiled DXE Core PE, LLD map and disassembly
+        run: |
+          set -euo pipefail
+          python3 ci/capture_dizi_dxecore_symbols.py mu dist
+          test -s dist/DXECORE-RESULT.json
+          test -s dist/dxe-core-symbols/DxeCore.efi
+          test -s dist/dxe-core-symbols/DxeCore.dll
+
+      - name: Verify boot-v4 and collect reproducible binaries
+        run: |
+          set -euo pipefail
+          install -m 0644 mu/Mu-dizi.img dist/Mu-dizi-XNU-EBS-FB-FIXED-NO-XNU.img
+          install -m 0644 mu/Build/diziPkg/RELEASE_CLANGPDB/FV/SILICIUM_UEFI.fd dist/SILICIUM_UEFI-dizi-EBS-FB-FIXED.fd
+          python3 - <<'PY'
+          import pathlib
+          import struct
+          boot=pathlib.Path("dist/Mu-dizi-XNU-EBS-FB-FIXED-NO-XNU.img").read_bytes()
+          fat=pathlib.Path("dist/DIZI-XNU-EBS-FB-FIXED.fat").read_bytes()
+          assert boot[:8]==b"ANDROID!"
+          assert struct.unpack_from("<I",boot,40)[0]==4
+          ksize=struct.unpack_from("<I",boot,8)[0]
+          rsize=struct.unpack_from("<I",boot,12)[0]
+          pos=4096+((ksize+4095)//4096)*4096
+          assert rsize==len(fat), (rsize,len(fat))
+          assert boot[pos:pos+rsize]==fat, "ramdisk differs from menu FAT"
+          assert b"FAT32   " in fat[:512]
+          assert b"Payloads/kernel.macho" not in boot[:4096], "No file paths expected in header"
+          print("Android boot-v4 verified: DXE Core EBS callback trace only, NO XNU handoff")
+          PY
+          (cd dist && sha256sum Mu-dizi-XNU-EBS-FB-FIXED-NO-XNU.img SILICIUM_UEFI-dizi-EBS-FB-FIXED.fd DIZI-XNU-EBS-FB-FIXED.fat ADT-REFERENCE-RESULT.json PRELINK-CHECK.json DXECORE-RESULT.json dxe-core-symbols/DxeCore.efi dxe-core-symbols/DxeCore.dll > SHA256SUMS.txt)
+
+      # Artifacts need no repository contents:write permission. Upload first
+      # so a release API 403 cannot discard successfully built images.
+      - name: Upload verified binaries to Actions Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dizi-xnu-ebs-fb-fixed-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 6
+          path: |
+            dist/Mu-dizi-XNU-EBS-FB-FIXED-NO-XNU.img
+            dist/SILICIUM_UEFI-dizi-EBS-FB-FIXED.fd
+            dist/DIZI-XNU-EBS-FB-FIXED.fat
+            dist/SHA256SUMS.txt
+            dist/NOT-BOOTABLE-XNU.txt
+            dist/BOOT-PATCHES.txt
+            dist/ADT-REFERENCE-RESULT.json
+            dist/PRELINK-CHECK.json
+            dist/DXECORE-RESULT.json
+            dist/dxe-core-symbols/
+
+      # GitHub may reject Release creation with HTTP 403 even when the job
+      # reports Contents: write; previous jobs with the same scope succeeded.
+      # Preserve the verified output independently of that API response.
+      - name: Publish successful public-source test build
+        id: publish
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="dizi-xnu-ebs-fb-fixed-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          gh release create "$tag" \
+            dist/Mu-dizi-XNU-EBS-FB-FIXED-NO-XNU.img \
+            dist/SILICIUM_UEFI-dizi-EBS-FB-FIXED.fd \
+            dist/DIZI-XNU-EBS-FB-FIXED.fat \
+            dist/SHA256SUMS.txt \
+            dist/NOT-BOOTABLE-XNU.txt \
+            dist/BOOT-PATCHES.txt \
+            dist/ADT-REFERENCE-RESULT.json \
+            dist/PRELINK-CHECK.json \
+            dist/DXECORE-RESULT.json \
+            dist/dxe-core-symbols/* \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --prerelease --title "Dizi corrected B800 GOP DXE stages + opcode (NO XNU) #$GITHUB_RUN_ID" \
+            --notes-file dist/NOT-BOOTABLE-XNU.txt
+
+      - name: Report publication result
+        if: always()
+        env:
+          PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
+        run: |
+          {
+            echo "## Dizi DXE top-bar 12 tiles plus EBS runtime pointer (NO XNU ENTRY)"
+            echo "Check **Actions → this workflow run → Artifacts** for a verified boot image."
+            echo "Artifact: dizi-xnu-ebs-fb-fixed-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT} (retained 7 days)."
+            if [ "$PUBLISH_OUTCOME" = "failure" ]; then
+              echo ""
+              echo "Release publication failed: check publish step. Artifact may still exist."
+            elif [ "$PUBLISH_OUTCOME" = "skipped" ]; then
+              echo ""
+              echo "Build failed before publishing: no boot image artifact from this run."
+            else
+              echo ""
+              echo "Release published. DXE trace only; DarwinEnter disabled and XNU not executed."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -153,6 +153,36 @@ Do not remove the fail-closed patch until those are checked.
 
 ## FIRST XNU entry on hardware: firmware synchronous exception (2026-10-27)
 
+#### No orange indicator in first pre-MMU hardware test (2026-10-28)
+
+The physical test of [pre-MMU run #40646191965](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40646191965)
+did **NOT** show the expected orange checkpoint. Prior CYAN in
+`start_first_cpu` had been hardware-confirmed separately; no new
+hardware result demonstrates progress toward `msr SCTLR_EL1,x0`.
+
+Independent inspection of the actual FAT32 Mach-O exposed a display
+diagnostic error: the old "orange" stub at `__start+0xC0` writes
+ARGB **`0xFF00A5FF`**, not the intended orange **`0xFFFFA500`**.
+Consequently, "no orange color" is not proof that execution failed
+before `0xFFFFFFF0073F234C`; the old stub could have shown purple.
+The code is also downstream of boot_args dereferences, bootstrap
+stack initialization, 64-KiB page table zeroing, page table descriptor
+construction and a call to `_set_mmu_ttb`. The first native entry
+alone proves none of those stages completed.
+
+New pinned-copy [five-stage diagnostic](ci/patch_dizi_xnu_bootstrap_stages.py)
+and [manual-only workflow](.github/workflows/xnu-bootstrap-stages.yml)
+[Actions #40647473480](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40647473480)
+corrects the ORANGE ARGB bits and adds physical-GOP stackless
+checkpoints that replay their original displaced instructions:
+RED Y288 before first `boot_args` load, YELLOW Y312 after boot args
+reads, GREEN Y336 after initial page table zero loop, BLUE Y360
+at `common_start` entry following mapping setup, and PURPLE Y384
+after `_set_mmu_ttb` returns. There is no proof yet which of these
+will execute on real hardware. Source Mach-O remains unchanged; no
+production EDK2 source, sm7435 drivers, push triggers or partitions
+are modified. This remains HIGH-RISK temporary fastboot boot only.
+
 #### First native start_first_cpu opcode confirmed on physical dizi (2026-10-28)
 
 Physical dizi test of [HIGH-RISK CYAN NO-KEP build

@@ -184,6 +184,38 @@ uses [xnu-mmu-first-nosp.yml](.github/workflows/xnu-mmu-first-nosp.yml).
 No production EDK2 edit, no push, no flash, cpus=1 only.
 **Not yet tested on hardware**.
 
+#### Six SP-saving MMU register checkpoints all absent on hardware (2026-10-28)
+
+The user booted the separate [six MMU register checkpoints build
+#40649020254](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40649020254)
+and supplied a photograph. The previously verified five RED/YELLOW/
+GREEN/BLUE/PURPLE bands through return from `_set_mmu_ttb` are visible,
+but none of the SIX new Y408..536 checkpoints can be distinguished.
+The instrumented copy was checked against the CI JSON and instructions;
+this is **not** evidence of MMU-enable completion, nor conclusive proof
+of a fault in any particular system-register instruction.
+
+A meaningful difference is that all SIX new stubs start with
+`sub sp,sp,#48; stp x9,x10,[sp]`, whereas the previous five
+hardware-proven stage stubs make direct physical GOP writes without
+accessing the current SP. The current SP's ability to support those
+new stores has NOT been demonstrated. Other differences including
+diagnostic register clobber and execution-path issues remain possible.
+
+A new [SEVEN checkpoint stackless comparison script](ci/patch_dizi_xnu_mmu_stackless_compare.py)
+and [manual-only workflow](.github/workflows/xnu-mmu-stackless.yml)
+[Actions #40700771901](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40700771901)
+apply to the SAME pinned 5-band Mach-O SHA and put the first new
+checkpoint at `0xFFFFFFF0073F22B0`, directly after the observed purple
+return at `0xFFFFFFF0073F22AC`. These stubs do not read/write SP,
+but **they deliberately clobber x9-x11 and NZCV**, just like the
+previous hardware-proven marks, and must not be considered production
+instrumentation. All original TTBR1/MAIR/VBAR/SCTLR and ISB instruction
+bytes remain at their original addresses. There is no hardware result
+for this new comparison yet, no new CPU activation, no production
+firmware changes, and the explicit temporary fastboot boot-only
+constraints remain unchanged.
+
 #### Five early bootstrap markers all visible on physical dizi (2026-10-28)
 
 The user tested verified HIGH-RISK

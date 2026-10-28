@@ -315,7 +315,7 @@ jobs:
           cp adt-result/ADT-REFERENCE-RESULT.json dist/ADT-REFERENCE-RESULT.json
           cp dist/DIZI-XNU-EBS-CORE-POINTER.fat mu/Resources/ramdisk
           cat > dist/NOT-BOOTABLE-XNU.txt <<'EOF'
-          DIZI DXE CORE EXIT BOOT SERVICES CALLBACK TRACE.
+          DIZI DXE CORE EBS POINTER + CALLBACK TRACE (NO XNU).
           PREVIOUS HARDWARE RESULT: DarwinBoot reached yellow stripe, then
           EFI Synchronous Exception at 0x00000000FC368EAC. No XNU yet.
           This variant leaves DarwinEnter DISABLED; after ExitBootServices
@@ -335,8 +335,11 @@ jobs:
             9 RED        before CPU DisableInterrupt
            10 YELLOW     after CPU DisableInterrupt
            11 LIME       before CoreExitBootServices returns SUCCESS
-          Photograph full upper screen showing the last completed stripe
-          and exception PC. If no narrow stripes, crash is before DXE Core.
+          Photograph full upper screen with exception PC, all narrow stripes,
+          and the 16 white-on-navy hex digits at Y=244. These digits encode
+          the runtime gBS->ExitBootServices pointer (high bits included).
+          If no narrow stripes appear, DO NOT infer failure before DXE Core:
+          framebuffer visibility, image selection and early faults remain open.
           The probe uses known GOP framebuffer 0xB0000000/1600px/6400 stride.
           No EFI services, memory allocation or callbacks are bypassed by
           its diagnostic core patch.
@@ -344,13 +347,13 @@ jobs:
           Use reversible fastboot boot ONLY; NEVER fastboot flash.
           EOF
           {
-            echo 'DXE Core 12-stripe callback trace, no DarwinEnter/XNU; previous exception 0xFC368EAC'
+            echo 'DXE Core 12-stripe trace plus EBS pointer pixels at Y244, no DarwinEnter/XNU'
             echo 'Input: DIZI_R4_PMIC_BRIDGE_V1 and DIZI_EFI_BUTTON_POLL_V2'
             echo "DarwinBoot commit: $DARWINBOOT_SHA"
             echo "XNU prelinked candidate run: $XNU_PRELINK_RUN"
             echo 'SHA-verified prelinked SM7435 XNU with pinned iPadOS 17.7.11 components, runtime UNQUALIFIED'
             echo 'ExitBootServices active; DXE Core marked at 12 stages; callbacks intact; DarwinEnter removed'
-            echo 'Wide yellow entry to EBS; twelve retained narrow bars inside DXE Core, see NOT-BOOTABLE-XNU.txt'
+            echo 'Wide yellow EBS entry, 12 stripes, 16 hex EBS pointer digits at Y244; see NOT-BOOTABLE-XNU.txt'
             echo 'Static DarwinBoot loader validation: PRELINK-CHECK.json'
             echo 'Dizi kernel/ADT stored at /EFI/UniXNU/Payloads (fixed path)'
           } > dist/BOOT-PATCHES.txt

@@ -111,7 +111,7 @@ def patch(inp: Path, out: Path, report: Path) -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_bytes(data)
     info = {
-        "marker": MARK, "source_sha256": sha,
+        "marker": MARKER, "source_sha256": sha,
         "patched_sha256": hashlib.sha256(data).hexdigest(),
         "bytes": len(data), "modified_region_bytes": 84,
         "changed_byte_count": len(differences),

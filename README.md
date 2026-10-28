@@ -6,9 +6,12 @@ Experimental [UniXNU](https://github.com/UniXNU/UniXNU) port for Xiaomi Redmi Pa
 real firmware `CoreExitBootServices` after removing the Windows-only KEP
 hook, entered ARM64 `DarwinEnter`, executed a diagnostic Mach-O entry,
 and reached the first original `start_first_cpu` instruction. The
-subsequent early-XNU `boot_args`, bootstrap page-table and MMU-control
-register checkpoints have been observed through
-`0xFFFFFFF0073F2340` (after the `VBAR_EL1` checkpoint).
+subsequent early-XNU `boot_args` and bootstrap page-table checkpoints
+were observed through the `_set_mmu_ttb` return, followed by the
+**first stackless PINK control-register marker** at
+`0xFFFFFFF0073F22B4` (Y408). The next Y432 marker is not visible
+on the latest photo; neither TTBR1 completion nor further EL1 register
+configuration is yet established by this build.
 This is **not** confirmation of successful `msr SCTLR_EL1`, MMU-on
 execution, an initialized Darwin kernel, iPadOS, or userland.
 All such results are experimental temporary `fastboot boot` tests with
@@ -182,30 +185,38 @@ Do not remove the fail-closed patch until those are checked.
 
 ## FIRST XNU entry on hardware: firmware synchronous exception (2026-10-27)
 
-#### Six register stages visible with first stackless probe (2026-10-28)
+#### Only first stackless MMU marker visible on physical dizi (2026-10-28)
 
-Physical dizi photo from the
-[NO-SP run #40700727875](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40700727875)
-shows the prior MAGENTA, GREEN, WHITE, CYAN, five early bootstrap
-stripes **and all six new register-stage stripes** in order. The new
-PINK Y408, ORANGE-RED Y432, GOLD Y456, TURQUOISE Y480, LIGHT BLUE
-Y504 and LIGHT GREEN Y528 can be distinguished.
+Corrected review of the new [photo from NO-SP build
+#40700727875](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40700727875):
+after rotating the image and comparing stripe Y offsets, the old
+MAGENTA/GREEN/WHITE/CYAN and five early bootstrap stripes are visible,
+and **PINK Y408 appears**, but **ORANGE-RED Y432 and the other four new
+stripes Y456..528 are NOT visible**. An earlier statement in this
+README incorrectly claimed all six were visible; this is corrected.
 
-The differential against [the earlier six-stack-probe
-run #40649020254](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40649020254)
-is that **only the first 84-byte probe no longer touches SP**.
-The remaining five probes, including their stack saves/restores,
-are otherwise identical. Their successful visual output shows
-the CPU reached the final hook at `0xFFFFFFF0073F2340`.
-This makes a general claim that "the XNU stack is unusable"
-unwarranted. The old first probe's stack access, alignment, register
-state or instrumentation side effect remain potential causes.
+The Y408 marker is the **only one of six** modified to avoid SP
+access in this particular A/B build. It is reached from the branch at
+`0xFFFFFFF0073F22B4` before replaying the original AND and returning
+to the original `msr TTBR1_EL1` at `0xFFFFFFF0073F22B8`.
+The next `0xFFFFFFF0073F22BC` hook still enters an SP-based
+trampoline whose first instructions touch `[sp]` before drawing.
+The photo therefore cannot distinguish a failure during TTBR1 write
+from a stack-access fault inside that second probe or the clobbering
+side effects of the first no-SP probe. No ESR/FAR/ELR collected.
 
-No post-`msr SCTLR_EL1,x0` marker or native kernel console has
-been demonstrated. The next experiment should minimize probe
-side effects and test the MMU boundary without relying on an
-unverified virtual mapping of the physical GOP framebuffer.
-The source firmware, drivers, boot mode and `cpus=1` remain unchanged.
+A new tightly controlled [second-only no-SP patch](ci/patch_dizi_second_mmu_stackless.py)
+and [owner/manual-only workflow](.github/workflows/xnu-mmu-two-nosp.yml)
+[Actions #40727839823](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40727839823)
+keep the first pink marker byte-identical and replace **only** the
+second Y432 marker with no-SP direct GOP writes; all four later
+stack-based probes and original TTBR1/SCTLR/ISB remain untouched.
+A local reproducibility test on the exact source Mach-O verified
+patched SHA256 `d88862b4d30fd444ad46ab7d876c2f716b1e745a3875fce885e34b1b823430d1`.
+The new image has **not yet been tested on hardware**.
+Stackless diagnostics still clobber x9-x11 and NZCV, so no native
+XNU boot success may be inferred from color alone.
+
 
 #### Six register stages not visible on hardware; first-stage SP differential (2026-10-28)
 

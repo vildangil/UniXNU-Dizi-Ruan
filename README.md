@@ -153,6 +153,37 @@ Do not remove the fail-closed patch until those are checked.
 
 ## FIRST XNU entry on hardware: firmware synchronous exception (2026-10-27)
 
+#### First real DarwinEnter reached on dizi (2026-10-28)
+
+The **HIGH-RISK** image from [Actions #40642424939](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40642424939)
+was tested on physical dizi. Photograph shows **MAGENTA Y172..195**
+(the direct framebuffer mark immediately AFTER EFI_SUCCESS EBS)
+and a very wide **GREEN top Y0..159** painted by
+`UniXNU/DarwinBoot@3325e352/DarwinBootPkg/Driver/Entry.S` inside
+`DarwinEnter` **BEFORE cache/MMU disable and `br x1`**. The system
+then displays a static image; no kernel-origin diagnostic or verified
+Mach-O instruction execution is observed.
+
+This proves entry into the DarwinEnter ARM64 assembly and that the previous
+KEP EBS fault is not blocking this handoff. It **does not prove** that
+MMU disable, `br x1` or XNU startup succeeded. Do not infer cause of a
+subsequent hang from the image alone.
+
+A new independent **manual-only HIGH-RISK**
+[opcode-proof workflow](.github/workflows/xnu-first-opcode-no-kep.yml)
+[Actions #40643799207](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40643799207)
+patches a SHA-pinned **COPY** of the original prelinked Mach-O:
+entry VA `0xFFFFFFF0073F0488`, original opcode `0x140006F5`
+branching to `0xFFFFFFF0073F205C`. The byte-verified zero padding at
+entry + `0x40` receives a short 40-byte stackless ARM64 trampoline.
+The original branch is retained at the end. Its direct GOP physical-memory
+stores paint a **WHITE Y220..229** stripe only if execution enters the
+instrumented Mach-O after the MMU-off branch. WHITE proves patched entry
+code ran, **not** that original XNU code reached an initialized state.
+No automatic start, no 7 extra cores, no push trigger; temporary
+`fastboot boot` only, no flashing. Working UEFI and sm7435-common untouched.
+Original kernel SHA `49eed545945df805b6f004eaecc496575072184c6335efea1f5b11ea50feda42`.
+
 #### First verified EXIT_BOOT_SERVICES success on physical dizi (2026-10-28)
 
 **Hardware confirmed** with the manually built

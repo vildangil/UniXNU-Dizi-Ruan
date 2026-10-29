@@ -8,13 +8,14 @@ on:
         description: 'Diagnostic branch from pinned fifth-NOSP base'
         type: choice
         required: true
-        default: postmmu-b
+        default: text-b
         options:
           - sixth-a
           - sixth-b
           - orange-a
           - orange-b
           - postmmu-b
+          - text-b
       publish_release:
         description: 'Replace the single dizi-xnu-latest-test release asset'
         type: boolean
@@ -77,18 +78,30 @@ jobs:
           VARIANT: ${{ inputs.variant }}
         run: |
           set -euo pipefail
-          python3 -m py_compile ci/build_dizi_mmu_variant.py ci/patch_dizi_post_mmu_b.py
-          if [ "$VARIANT" = "postmmu-b" ]; then
-            # Reconstruct the exact proven orange-b baseline, then patch ONLY
-            # two post-SCTLR tracing locations. EDK2 stays byte-identical.
+          python3 -m py_compile ci/build_dizi_mmu_variant.py ci/patch_dizi_post_mmu_b.py ci/patch_dizi_text_console_b.py
+          if [ "$VARIANT" = "postmmu-b" ] || [ "$VARIANT" = "text-b" ]; then
+            # Both variants start at the SHA-pinned orange-b from the immutable
+            # fifth-NOSP release. Reconstruct the exact prior post-SCTLR image.
             python3 ci/build_dizi_mmu_variant.py \
               --input source/Mu-dizi-XNU-FIVE-NOSP-BASE.img \
               --variant orange-b --output-dir intermediate
             python3 ci/patch_dizi_post_mmu_b.py \
               --input intermediate/Mu-dizi-XNU-ORANGE-NOSP-B-NZCV-HIGH-RISK.img \
-              --output dist/Mu-dizi-XNU-POST-SCTLR-B-HIGH-RISK.img \
-              --report dist/MMU-AB-AUDIT.json
-            (cd dist && sha256sum Mu-dizi-XNU-POST-SCTLR-B-HIGH-RISK.img > SHA256SUMS.txt)
+              --output intermediate/Mu-dizi-XNU-POST-SCTLR-B-HIGH-RISK.img \
+              --report intermediate/POSTMMU-BASE-AUDIT.json
+            if [ "$VARIANT" = "text-b" ]; then
+              # Restore old native ARM64 instructions, remove 16 legacy
+              # stripe hooks and draw explanatory text only BEFORE MMU-on.
+              python3 ci/patch_dizi_text_console_b.py \
+                --input intermediate/Mu-dizi-XNU-POST-SCTLR-B-HIGH-RISK.img \
+                --output dist/Mu-dizi-XNU-TEXT-B-HIGH-RISK.img \
+                --report dist/MMU-AB-AUDIT.json
+              (cd dist && sha256sum Mu-dizi-XNU-TEXT-B-HIGH-RISK.img > SHA256SUMS.txt)
+            else
+              cp intermediate/Mu-dizi-XNU-POST-SCTLR-B-HIGH-RISK.img dist/
+              cp intermediate/POSTMMU-BASE-AUDIT.json dist/MMU-AB-AUDIT.json
+              (cd dist && sha256sum Mu-dizi-XNU-POST-SCTLR-B-HIGH-RISK.img > SHA256SUMS.txt)
+            fi
           else
             python3 ci/build_dizi_mmu_variant.py \
               --input source/Mu-dizi-XNU-FIVE-NOSP-BASE.img \

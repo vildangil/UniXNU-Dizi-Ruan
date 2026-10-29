@@ -81,9 +81,9 @@ It was physically tested on 2026-10-29, but Y552/Y576 were not visible. That is 
 Source: [ci/patch_dizi_text_console_b.py](../ci/patch_dizi_text_console_b.py).
 The single manual workflow reconstructs the exact pinned postmmu-b image and
 then applies the new text-console patch. Expected complete Android boot-v4
-SHA-256: `feaa33629f5830f2545b6d097e91438694029e8347badb89e243d7dda3dd4423`.
+SHA-256: `25842763d44144f8e35d44fa9f746e9a06ca63b4a3e08a24b8f17e8b7c9c54dc`.
 Expected embedded Mach-O SHA-256:
-`5f36cafc84f1404dd1b6abc3e36f19b6def04d950f46ba2affc5c1425b956122`.
+`9c4f6f81808ccacb1607fc1ed77ff20b7e2d8079a1e5137c10bcc941b3d4cc5b`.
 These exact bytes were locally reproduced from run #40915244076's image.
 **The text variant has not been tested on physical dizi.**
 
@@ -111,7 +111,8 @@ SCTLR means only that the preceding code ran, not that XNU booted.
 
 The code is SHA-pinned to one kernel build, writes only to a separately
 copied boot image, verifies 16 original branch sites and a completely
-empty code cave, checks that compiled ARM64 instructions have no unresolved
+empty code cave in the __start padding **before** the 0xFFFFFFF0073F1000
+low exception vector table, checks that compiled ARM64 instructions have no unresolved
 relocations, and verifies the final complete boot-image hash.
 EDK2, Android partition layout and the original native SCTLR/ISB/guard
 instructions are unchanged. Test **only** with `fastboot boot` and keep a

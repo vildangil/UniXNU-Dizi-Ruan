@@ -4,7 +4,7 @@ schema_version = 1
 name = "dizi"
 soc = "SM7435"
 os_profile = "unselected"
-summary = "On physical dizi, EDK2 and UniXNU menu/PMIC input work, ExitBootServices and DarwinEnter handoff have passed, and early instrumented XNU ARM64 start_first_cpu and bootstrap instructions run. 2026-10-29 hardware screenshot of pinned orange-b run 40824108833 shows Y260 immediately before native SCTLR_EL1 enabling MMU, plus Y504 and Y528 control-register stages. NO proof SCTLR/ISB completed, MMU-on execution, kernel initialization or userland. Historical EBS exception was resolved by NO-KEP. Native full XNU profile remains incomplete, cpus=1, Ruan/SMP unverified."
+summary = "On physical dizi, EDK2 and UniXNU menu/PMIC input work, ExitBootServices and DarwinEnter handoff have passed, and early instrumented XNU ARM64 start_first_cpu and bootstrap instructions run. 2026-10-29 hardware screenshot of pinned text-b run 40930881144 shows readable native XNU debug text reaching PRE SCTLR EL1, with old stripes removed. Previous orange-b run 40824108833 showed Y260 plus Y504/Y528. NO proof SCTLR/ISB completed, MMU-on execution, kernel initialization or userland. Historical EBS exception was resolved by NO-KEP. Native full XNU profile remains incomplete, cpus=1, Ruan/SMP unverified."
 
 [[area]]
 id = "configuration"
@@ -182,9 +182,9 @@ paths = [".github/workflows/xnu-mmu-ab-lab.yml","ci/patch_dizi_text_console_b.py
 inputs = ["Obtain board-specific hardware observations and validated build sources."]
 configuration = ["No sheng/SM8550 configuration or driver is selected."]
 procedure = ["Review source pins and run the next safe on-device checkpoint."]
-findings = ["2026-10-29 hardware evidence confirmed XNU-entry, bootargs, TTBR1/MAIR/TLBI/VBAR and pre-SCTLR Y260. The postmmu-b variant SHA256 c79487a78c23db8eae9948b23dfc2f4953937dc93f89b67b2ec6bcd2a04e69af produced no visible Y552/Y576: this cannot distinguish an MMU transition fault from missing physical GOP mapping after MMU-on. The new text-b candidate restores 14 hooked ARM64 instructions, redirects only entry and pre-SCTLR sites to a stackless text framebuffer renderer in verified __start padding before the ARM64 low exception vectors, and disables all legacy bands. Its exact output SHA256 25842763d44144f8e35d44fa9f746e9a06ca63b4a3e08a24b8f17e8b7c9c54dc is locally verified, not hardware-confirmed."]
+findings = ["2026-10-29 hardware evidence confirmed XNU-entry, bootargs, TTBR1/MAIR/TLBI/VBAR and pre-SCTLR Y260. The postmmu-b variant SHA256 c79487a78c23db8eae9948b23dfc2f4953937dc93f89b67b2ec6bcd2a04e69af produced no visible Y552/Y576: this cannot distinguish an MMU transition fault from missing physical GOP mapping after MMU-on. The text-b image restored 14 hooked ARM64 instructions and moved text diagnostics to entry and pre-SCTLR. Its SHA256 25842763d44144f8e35d44fa9f746e9a06ca63b4a3e08a24b8f17e8b7c9c54dc matches GitHub run 40930881144 and the screenshot now hardware-confirms its pre-SCTLR text renderer, not MMU-on."]
 completion = ["Record reproducible host and hardware tests before claiming implementation."]
 limits = ["Early XNU entry and pre-SCTLR execution are confirmed on dizi; MMU-on operation and OS functionality are not. Ruan remains untested. Current text console writes only while MMU is disabled."]
-next_action = ["Test text-b with temporary fastboot boot; capture exact visible text. For post-MMU diagnostics, derive and verify the virtual framebuffer mapping or use a separately proven UART or persistent crash-dump channel. Never infer SCTLR failure from absent physical-GOP writes."]
+next_action = ["Hardware text-b pre-SCTLR proof is complete; next validate live TCR/TTBR1 table coverage, first post-ISB instruction mapping and VBAR physical/virtual mapping. Only then attempt mapped post-MMU text or verified UART/persistent trace. Never infer SCTLR failure from absent physical-GOP writes."]
 evidence = []
 

@@ -54,6 +54,36 @@ There is also a **zero-length** `/memory/reg` tuple at
 `0xE9500000`; do not count it as allocatable RAM.
 The 6 non-empty tuples sum to 6,061 MiB.
 
+## Important discrepancy with the old reference-only Dizi FDT
+
+The historical `data/dizi-fdt-observed.json` (duplicated in
+`config/dizi-hardware.json`) was derived from a different `Mu-dizi.img`
+FDT and lists **7,944 MiB** in its 7 banks, including
+`0x8C0000000` + **3 GiB** (through `0x97FFFFFFF`).
+The new *physical recovery* DTB instead lists **6,061 MiB**
+in 6 non-empty banks, including `0x8C0000000` + **1 GiB**
+(through `0x8FFFFFFFF`). No `/memory/reg` bank above
+`0x900000000` is present in the physical recovery DTB.
+
+This is **not** a minor carveout: the old image describes nearly
+1.84 GiB more physical RAM than recovery's live DTB. The old
+reference memory map cannot be used uncritically to address RAM
+on this physical device.
+
+**Dependency audit:** `ci/build_dizi_reference_adt.py` explicitly reads
+the legacy `data/dizi-fdt-observed.json` bank and asserts the old 3 GiB
+size. However that script labels its output **reference / ADT parsing
+test only**, checks `memory_ownership_verified=false`, and prohibits
+native kernel entry. The current manual `text-b` workflow reconstructs
+a pinned Mach-O/boot image instead; it does not directly consume this
+legacy JSON. Therefore the old FDT discrepancy is a definite stale
+reference for *future* allocation decisions, **not established as the
+cause of the current `text-b` MMU boundary**.
+
+Preserve the old test for reproducibility, but use the recovery-derived
+facts for conflict checks and require a real DarwinBoot/UEFI allocation
+map for any new XNU memory ownership claim.
+
 ## Fixed and dynamic reserved regions critical for XNU
 
 | Origin | Physical range | Meaning |

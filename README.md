@@ -2,7 +2,32 @@
 
 Experimental [UniXNU](https://github.com/UniXNU/UniXNU) port for Xiaomi Redmi Pad Pro (`dizi`, Snapdragon SM7435). The `ruan` variant is not separately verified.
 
-**Current stage (2026-10-28):** Physical dizi has successfully executed the
+**Current stage (2026-10-29):** Physical dizi has now displayed the **ORANGE
+Y260 pre-SCTLR_EL1 stripe** on the pinned `orange-b` image produced by
+[manual run #40824108833](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40824108833).
+The rolling release for that hardware test has SHA-256
+`1c245f4da986e6ea57f928246064939ddcdc44c4833535184fa78b60532e060e`.
+The photo also shows the earlier Y504 and Y528 MMU bootstrap stripes.
+Orange is emitted from a no-SP trampoline at
+`0xFFFFFFF0073F234C` which replays the displaced MOVK and branches
+to the **unchanged** `msr SCTLR_EL1, x0` at
+`0xFFFFFFF0073F2350`. This verifies progress **up to but not through**
+SCTLR; successful MMU-on instruction fetch, memory mapping, exception
+vectors, initialized kernel, and userland remain **UNCONFIRMED**.
+The stackless diagnostic stubs can still clobber x9-x11; this is
+experimental instrumentation, not a production fix. No firmware partitions
+were flashed.
+
+**Next diagnostic:** one `postmmu-b` test adds optional markers Y552
+(first instruction after `SCTLR_EL1; ISB`) and Y576 (after the native
+`cmp x0,x1; b.ne .` self-loop guard) without modifying those native
+instructions. Those markers require the framebuffer to be covered by
+XNU's V=P mapping; a *missing* marker is not by itself proof of failure
+at the corresponding CPU instruction. Use the single manual
+[`xnu-mmu-ab-lab`](.github/workflows/xnu-mmu-ab-lab.yml) workflow,
+which defaults to B variants. No automated push builds.
+
+**Previous stage (2026-10-28):** Physical dizi has successfully executed the
 real firmware `CoreExitBootServices` after removing the Windows-only KEP
 hook, entered ARM64 `DarwinEnter`, executed a diagnostic Mach-O entry,
 and reached the first original `start_first_cpu` instruction. The
@@ -187,6 +212,38 @@ appropriate trust/security inputs and the first XNU entry checkpoint.
 Do not remove the fail-closed patch until those are checked.
 
 ## FIRST XNU entry on hardware: firmware synchronous exception (2026-10-27)
+
+#### ORANGE Y260 confirmed in hardware (2026-10-29)
+
+The physical screenshot from the `orange-b` test shows a distinct
+orange band between CYAN Y240 and RED Y288. That visual position is
+**Y260**, despite the later execution order. The release built from
+[Actions #40824108833](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40824108833)
+pins boot SHA-256
+`1c245f4da986e6ea57f928246064939ddcdc44c4833535184fa78b60532e060e`
+and prelinked Mach-O SHA-256
+`58ba8bb76ad326ea765a92299ef845e2fa574cbf94c181c5249e42da1250293e`.
+The successful color is evidence that the SP-independent pre-SCTLR
+trampoline ran. It **does not** establish that the following SCTLR MSR
+and ISB completed, or that MMU translation is functioning. The last
+original instruction in the orange trampoline is replayed before control
+returns to `0xFFFFFFF0073F2350`.
+
+Inspection of the exact instrumented ARM64 Mach-O reveals:
+- `0xFFFFFFF0073F2350`: `msr SCTLR_EL1, x0`
+- `0xFFFFFFF0073F2354`: `isb`
+- `0xFFFFFFF0073F2368`: `cmp x0, x1`
+- `0xFFFFFFF0073F236C`: `b.ne .` (intentional self-loop on mismatch)
+
+The next SHA-pinned `postmmu-b` probe marks the first instruction
+**after** SCTLR+ISB (Y552), then the first instruction **after** the
+comparison self-loop (Y576). It uses previously empty executable cave
+space and leaves SCTLR, ISB, CMP, B.NE and functional EDK2 unchanged.
+Since it still writes to GOP PA `0xB8000000`, the color signals require
+the physical framebuffer to remain covered by the V=P bootstrap
+mapping after MMU enable. Neither absence of a stripe nor successful
+CI is a conclusive kernel-boot result. The probe has **not yet been
+tested on physical dizi**.
 
 #### Fourth stackless MMU marker Y480 confirmed on physical dizi (2026-10-28)
 

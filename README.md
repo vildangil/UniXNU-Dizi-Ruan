@@ -2,6 +2,26 @@
 
 Experimental [UniXNU](https://github.com/UniXNU/UniXNU) port for Xiaomi Redmi Pad Pro (`dizi`, Snapdragon SM7435). The `ruan` variant is not separately verified.
 
+**New optional MMU register experiment (2026-10-29): `regs-b` is now the
+default variant of the same manual GitHub Actions workflow.** It rebuilds
+the physically proven `text-b` image and then patches **only** its existing
+pre-MMU diagnostic code cave (1,493 of 1,584 available bytes).
+The pre-`SCTLR_EL1` console should now report live hexadecimal
+`TCR_EL1`, `TTBR1_EL1`, `TTBR0_EL1`, `MAIR_EL1`,
+`VBAR_EL1`, the **old** `SCTLR_EL1`, and x22/x23/x25
+bootstrap page-table operands. Original native instructions and EDK2
+remain unchanged. Locally verified full boot-v4 SHA-256:
+`ccb3c22f680aa67aac58669f77c051e4784e253e7965baf3a93feb8e38374a0b`.
+Mach-O SHA-256:
+`a6222120639cc2fb39b5d3e353b623253d3cd9f58dd006685b95b8f1948f65eb`.
+
+**This is still HIGH RISK and has not been tested on physical hardware.**
+The values are real pre-MMU register reads, not proof that MMU enable
+succeeded or that the page-table descriptors are correct.
+There are **no framebuffer writes after MMU-on**. Run via temporary
+`fastboot boot` only, **never flash**. Details:
+[docs/WORKFLOWS.md](docs/WORKFLOWS.md).
+
 **Memory evidence from real recovery (2026-10-29).** Full FDT v17
 and `/proc/iomem` are now available from the physical tablet. The
 recovery DTB has 6,061 MiB of RAM banks, **not** the 7,944 MiB described

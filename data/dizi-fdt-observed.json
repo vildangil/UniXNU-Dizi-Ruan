@@ -55,7 +55,7 @@
     "base": 37580963840,
     "size": 1073741824,
     "validated_on_device": false,
-    "reason": "first 1 GiB of the 3 GiB upper bank, no overlap with fixed reservations described in DTB; runtime allocations NOT verified"
+    "reason": "Legacy static-FDT candidate only; NOT an approved runtime allocation. Recovery Linux /proc/iomem (2026-10-29) marks the upper ~149 MiB of this proposed 1 GiB range reserved starting at 0x8F6B00000. Actual UEFI/DarwinBoot allocations and XNU MMU table placement remain unverified."
   },
   "reserved_fixed": [
     {
@@ -94,5 +94,57 @@
     "kernel platform drivers",
     "ruan variant",
     "firmware XNU boot chain"
-  ]
+  ],
+  "recovery_observation_2026_10_29": {
+    "source": "physical dizi recovery root ADB: valid FDT v17, /proc/iomem and dmesg; recovery memory map differs from EDK2 and XNU",
+    "raw_files_not_committed": true,
+    "dtb_sha256": "49354f92611c5b489f12f9c6352521eeaa5824e571083bc69511c70f401650c2",
+    "dtb_model": "Qualcomm Technologies, Inc. Parrot QRD, DIZI based on SM7435P",
+    "dtb_ram_banks_nonempty": [
+      {
+        "base": "0x80000000",
+        "size": "0x68E00000"
+      },
+      {
+        "base": "0xEA700000",
+        "size": "0x15900000"
+      },
+      {
+        "base": "0x800000000",
+        "size": "0x3FD00000"
+      },
+      {
+        "base": "0x840000000",
+        "size": "0x7AB00000"
+      },
+      {
+        "base": "0x8BB100000",
+        "size": "0x1E00000"
+      },
+      {
+        "base": "0x8C0000000",
+        "size": "0x40000000"
+      }
+    ],
+    "dtb_zero_length_memory_reg": "0xE9500000",
+    "splash_region": {
+      "base": "0xB8000000",
+      "size": "0x2B00000",
+      "purpose": "43MiB legacy splash/GOP physical reservation, NOT proven post-MMU VA"
+    },
+    "ramoops": {
+      "base": "0x80D00000",
+      "size": "0x200000",
+      "runtime_persistence_unverified_for_XNU": true
+    },
+    "high_bank_1g": {
+      "base": "0x8C0000000",
+      "size": "0x40000000",
+      "first_runtime_reserved_addr": "0x8F6B00000",
+      "iomem_reserved_megabytes_approx": 149,
+      "completely_free_under_UEFI": false
+    },
+    "initial_xnu_load_and_runtime_tables_verified": false,
+    "more_detail": "docs/DIZI-RECOVERY-MEMORY-20261029.md"
+  }
 }

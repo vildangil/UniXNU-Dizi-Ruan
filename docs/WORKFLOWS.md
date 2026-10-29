@@ -11,7 +11,7 @@
 | xnu-prelink-sm7435-linux.yml | Linux prelink fallback |
 | publish-xnu-source.yml | Owner-approved publishing of source-build results |
 | promote-dizi-control-boot.yml | Owner-controlled promotion of an existing tested image |
-| xnu-mmu-ab-lab.yml | Manual B-series MMU A/B; defaults to readable early-XNU text console |
+| xnu-mmu-ab-lab.yml | Manual B-series MMU A/B; defaults to pre-SCTLR real EL1 register text capture |
 
 The older one-off workflow files (EBS trace, ADT, DarwinEnter, first opcode,
 bootstrap checkpoints, and one-workflow-per-MMU-marker) were removed from the
@@ -28,7 +28,8 @@ files can be recovered from git history if needed.
    - orange-a: sixth-a plus a stackless ORANGE Y260 pre-SCTLR marker;
    - orange-b: sixth-b plus the same ORANGE marker (physically reached Y260 on 2026-10-29);
    - postmmu-b: historical orange-b plus Y552/Y576; the 2026-10-29 physical test was inconclusive because GOP PA may be unmapped after MMU enable;
-   - **text-b (new default)**: restore original 14 old hooked instructions, replace the other two hooks with large text at Mach-O entry and immediately before SCTLR_EL1; no post-MMU framebuffer writes.
+   - text-b: original hardware-tested text console before SCTLR, no post-MMU framebuffer writes;
+   - **regs-b (new default)**: text-b plus live hex reads of TCR/TTBR1/TTBR0/MAIR/VBAR/SCTLR and x22/x23/x25 at pre-SCTLR, with no additional post-MMU access.
 3. Leave **publish_release=true** to replace the **one** image at
    https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-latest-test .
    With **publish_release=false** the output is only in **Actions Artifacts**.
@@ -76,7 +77,7 @@ It was physically tested on 2026-10-29, but Y552/Y576 were not visible. That is 
 - Native SCTLR, ISB, CMP, B.NE, TTBR1 and EDK2 are preserved. This is
   diagnostic code, NOT a production XNU MMU fix.
 
-## Text-based diagnostic: text-b (default)
+## Text-based diagnostic: text-b (historical hardware-confirmed baseline)
 
 Source: [ci/patch_dizi_text_console_b.py](../ci/patch_dizi_text_console_b.py).
 The single manual workflow reconstructs the exact pinned postmmu-b image and
@@ -85,7 +86,7 @@ SHA-256: `25842763d44144f8e35d44fa9f746e9a06ca63b4a3e08a24b8f17e8b7c9c54dc`.
 Expected embedded Mach-O SHA-256:
 `9c4f6f81808ccacb1607fc1ed77ff20b7e2d8079a1e5137c10bcc941b3d4cc5b`.
 These exact bytes were locally reproduced from run #40915244076's image.
-**The text variant has not been tested on physical dizi.**
+**The text variant reached PRE SCTLR EL1 on physical dizi** (2026-10-29 screenshot; the success message is fixed text, not measured register values).
 
 Only two text checkpoints are active:
 
@@ -117,6 +118,68 @@ relocations, and verifies the final complete boot-image hash.
 EDK2, Android partition layout and the original native SCTLR/ISB/guard
 instructions are unchanged. Test **only** with `fastboot boot` and keep a
 recovery path. Do **not** `fastboot flash`.
+
+## Register readout diagnostic: regs-b (new default, untested hardware)
+
+The hardware-verified `text-b` boot-v4 (SHA-256
+`25842763d44144f8e35d44fa9f746e9a06ca63b4a3e08a24b8f17e8b7c9c54dc`)
+is reproduced **byte-for-byte** first. Then
+[ci/patch_dizi_mmu_registers_b.py](../ci/patch_dizi_mmu_registers_b.py)
+replaces only its existing 0x630-byte early tracing cave and the
+two tracer branch sites, **without** modifying any other XNU instructions.
+
+The new output's locally verified full boot-v4 SHA-256 is
+`ccb3c22f680aa67aac58669f77c051e4784e253e7965baf3a93feb8e38374a0b`.
+Mach-O SHA-256:
+`a6222120639cc2fb39b5d3e353b623253d3cd9f58dd006685b95b8f1948f65eb`.
+Only 1,413 Mach-O bytes change. The new ARM64 code is 1,493 bytes inside
+a 1,584-byte verified cave and stops before the low exception vectors.
+No extra Actions workflow, release or branch is created.
+
+At the pre-`SCTLR_EL1` stage it uses genuine
+`MRS x11,TCR_EL1`, `TTBR1_EL1`, `TTBR0_EL1`, `MAIR_EL1`,
+`VBAR_EL1`, `SCTLR_EL1`, followed by copies of `x22`, `x23`,
+`x25` (page-table and relocation intermediates). Values are converted
+to 16 uppercase hexadecimal characters on-screen using a small
+stackless ARM64 loop. The formatter writes only in its private
+already-verified pre-MMU diagnostic cave; it **does not** overwrite
+native Mach-O instructions. Its framebuffer drawing is the same proven
+1600x2560 physical GOP renderer as `text-b` and executes **only before**
+the native `SCTLR_EL1` / `ISB` sequence.
+
+Expected headings (the hexadecimal fields below are **placeholders**;
+the hardware test should replace them with actual values):
+
+```text
+DIZI / XNU MMU REGS B
+NOW: PRE SCTLR EL1
+TCR:       0123456789ABCDEF
+TTBR1:     0123456789ABCDEF
+TTBR0:     0123456789ABCDEF
+MAIR:      0123456789ABCDEF
+VBAR:      0123456789ABCDEF
+SCTLR OLD: 0123456789ABCDEF
+X22:       0123456789ABCDEF
+X23:       0123456789ABCDEF
+X25 TTB:   0123456789ABCDEF
+MMU ON: NOT VERIFIED
+POST MMU: NOT PROBED
+```
+
+- The `SCTLR OLD` value is read **before** XNU writes the new
+  enable bits; a clear M bit is not an error.
+- These are live register **readouts**, but they do **not** prove the
+  loaded translation tables contain valid executable descriptors.
+  A separate table walk / controlled hardware test is still required.
+- Reading `TTBR1` / `TCR` before SCTLR can help rule out wrong
+  granule, misaligned root tables, or invalid first post-ISB VA coverage.
+- The tracer preserves x0/x1, x12 return handling, x18-x30, SP,
+  NZCV, native SCTLR/ISB and the cmp/b.ne guard. x2-x11/x13-x17
+  remain experimental scratch registers, as with the proven text-b.
+- **New regs-b image has NOT been hardware-tested**. Test only using
+  temporary `fastboot boot`, keep recovery working and **never flash**.
+  Save a clear photo showing all hex values, the build SHA and run ID.
+- This does **not** import the old ios-sweet bootloader or replace UniXNU.
 
 ## Interpretation / limitations
 

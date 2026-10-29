@@ -2,6 +2,35 @@
 
 Experimental [UniXNU](https://github.com/UniXNU/UniXNU) port for Xiaomi Redmi Pad Pro (`dizi`, Snapdragon SM7435). The `ruan` variant is not separately verified.
 
+**Next diagnostic (2026-10-29): text-b, no old colored XNU bands.**
+The single manual [MMU A/B workflow](.github/workflows/xnu-mmu-ab-lab.yml)
+now defaults to `text-b`. It rebuilds the last hardware-tested
+`postmmu-b` image (boot SHA-256
+`c79487a78c23db8eae9948b23dfc2f4953937dc93f89b67b2ec6bcd2a04e69af`),
+restores **14 original ARM64 instructions** at the old traced sites
+(including two PC-relative `ADRP` instructions), and changes the other
+two sites into an early text console: Mach-O entry and immediately
+before `SCTLR_EL1`. This disables all **16** previous bar hooks.
+Old XNU tracing trampolines are unreachable, and the renderer clears
+the existing menu/bands using the verified pre-MMU physical GOP address
+`0xB8000000`. It uses no SP, does not clobber NZCV or x0/x1, and
+does not access the physical framebuffer after SCTLR. Original
+`SCTLR_EL1`, `ISB`, `CMP`, `B.NE`, working EDK2 and FAT32 contents
+outside the Mach-O are unchanged. Expected boot-v4 SHA-256:
+`25842763d44144f8e35d44fa9f746e9a06ca63b4a3e08a24b8f17e8b7c9c54dc`.
+The renderer is placed in verified empty __start padding before the
+ARM64 low exception vector table (not inside the vector slots).
+The patched Mach-O SHA-256 is
+`9c4f6f81808ccacb1607fc1ed77ff20b7e2d8079a1e5137c10bcc941b3d4cc5b`.
+
+**This is not yet a hardware-tested image, nor a confirmed fix for XNU
+MMU-on execution.** The text console can only state progress before
+SCTLR; displaying text after enabling the MMU requires a verified virtual
+framebuffer mapping or another proven output channel.
+See [docs/WORKFLOWS.md](docs/WORKFLOWS.md) for commands, variants,
+download procedure and risks. Use temporary `fastboot boot` only,
+**never** `fastboot flash`.
+
 **Hardware checkpoint follow-up (2026-10-29, postmmu-b):** The user tested
 the exact boot-v4 image built by
 [manual run #40915244076](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40915244076).

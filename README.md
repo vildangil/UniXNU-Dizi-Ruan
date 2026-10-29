@@ -17,9 +17,11 @@ the existing menu/bands using the verified pre-MMU physical GOP address
 does not access the physical framebuffer after SCTLR. Original
 `SCTLR_EL1`, `ISB`, `CMP`, `B.NE`, working EDK2 and FAT32 contents
 outside the Mach-O are unchanged. Expected boot-v4 SHA-256:
-`feaa33629f5830f2545b6d097e91438694029e8347badb89e243d7dda3dd4423`.
+`25842763d44144f8e35d44fa9f746e9a06ca63b4a3e08a24b8f17e8b7c9c54dc`.
+The renderer is placed in verified empty __start padding before the
+ARM64 low exception vector table (not inside the vector slots).
 The patched Mach-O SHA-256 is
-`5f36cafc84f1404dd1b6abc3e36f19b6def04d950f46ba2affc5c1425b956122`.
+`9c4f6f81808ccacb1607fc1ed77ff20b7e2d8079a1e5137c10bcc941b3d4cc5b`.
 
 **This is not yet a hardware-tested image, nor a confirmed fix for XNU
 MMU-on execution.** The text console can only state progress before

@@ -2,6 +2,30 @@
 
 Experimental [UniXNU](https://github.com/UniXNU/UniXNU) port for Xiaomi Redmi Pad Pro (`dizi`, Snapdragon SM7435). The `ruan` variant is not separately verified.
 
+**Hardware checkpoint follow-up (2026-10-29, postmmu-b):** The user tested
+the exact boot-v4 image built by
+[manual run #40915244076](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40915244076).
+The uploaded file was independently hashed: boot SHA-256
+`c79487a78c23db8eae9948b23dfc2f4953937dc93f89b67b2ec6bcd2a04e69af`,
+matching the current rolling Release. Extracted Mach-O SHA-256:
+`e08f5af65af91e1bbb2065806f392f32eae6166e56a20f5fefef7df741380cf1`.
+The physical screenshot still shows the previously confirmed colored
+checkpoints through Y528 and the prior ORANGE Y260, but the new Y552
+(post-`msr SCTLR_EL1; isb`) and Y576 (after the native CMP/B.NE guard)
+stripes are **not visually distinguishable**. The screen also retains
+the `POWER key = confirm` prompt, which may persist on an unrefreshed
+framebuffer after handoff; its presence does not by itself establish
+that confirmation was missed.
+
+**Interpretation:** This is not evidence of successful post-SCTLR execution,
+but neither is it evidence that the CPU hung inside SCTLR or the comparison:
+both new post-MMU probes directly store to framebuffer PA `0xB8000000`,
+which may not be virtually mapped after translation is enabled. Future
+probes must independently establish the framebuffer address translation,
+or use an observation path not dependent on this physical GOP address.
+The experimental image remains **HIGH RISK** and is for temporary
+`fastboot boot` only; no partition flashing or native XNU/userland success.
+
 **Current stage (2026-10-29):** Physical dizi has now displayed the **ORANGE
 Y260 pre-SCTLR_EL1 stripe** on the pinned `orange-b` image produced by
 [manual run #40824108833](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40824108833).

@@ -2,6 +2,19 @@
 
 Experimental [UniXNU](https://github.com/UniXNU/UniXNU) port for Xiaomi Redmi Pad Pro (`dizi`, Snapdragon SM7435). The `ruan` variant is not separately verified.
 
+**Memory evidence from real recovery (2026-10-29).** Full FDT v17
+and `/proc/iomem` are now available from the physical tablet. The
+recovery DTB has 6,061 MiB of RAM banks, **not** the 7,944 MiB described
+by the older `Mu-dizi.img` reference FDT. The old 3 GiB high bank at
+`0x8C0000000` appears as only 1 GiB in live recovery DTB, and
+recovery reserves its upper ~149 MiB starting at `0x8F6B00000`.
+Frame-buffer reservation `0xB8000000 + 43 MiB` and `ramoops`
+`0x80D00000 + 2 MiB` are confirmed. These observations do **not**
+substitute for the live EDK2/DarwinBoot memory map or XNU TTBR1/TCR
+registers. The legacy 3 GiB ADT generator is explicitly an unbootable
+parser-only test, not the source of the present `text-b` payload.
+See [recovery memory evidence](docs/DIZI-RECOVERY-MEMORY-20261029.md).
+
 **Hardware result (2026-10-29): text-b reached the native pre-SCTLR_EL1
 checkpoint on physical dizi.** The device screenshot displays the clean
 blue-on-dark `DIZI / XNU DEBUG` text, `PASS: XNU ENTRY`,
@@ -45,8 +58,8 @@ ARM64 low exception vector table (not inside the vector slots).
 The patched Mach-O SHA-256 is
 `9c4f6f81808ccacb1607fc1ed77ff20b7e2d8079a1e5137c10bcc941b3d4cc5b`.
 
-**This is not yet a hardware-tested image, nor a confirmed fix for XNU
-MMU-on execution.** The text console can only state progress before
+**This image has since been hardware-tested to the pre-SCTLR checkpoint; it
+is NOT a confirmed fix for MMU-on execution.** The text console can only state progress before
 SCTLR; displaying text after enabling the MMU requires a verified virtual
 framebuffer mapping or another proven output channel.
 See [docs/WORKFLOWS.md](docs/WORKFLOWS.md) for commands, variants,

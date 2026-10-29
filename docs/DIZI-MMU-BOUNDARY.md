@@ -50,6 +50,31 @@ builds 2-MiB mapping descriptors using boot-time relocation offsets.
   TCR stage-1 configuration, framebuffer alias and VBAR mapping remain unverified.
 - `board.toml` is still `example=true`; native XNU runtime is not qualified.
 
+## New recovery-based memory evidence (2026-10-29)
+
+The physical tablet's root-capable recovery yielded a full 851,838-byte
+FDT v17, matching sysfs Device Tree tarball, `/proc/iomem`, full dmesg,
+cmdline and meminfo. Detailed, sanitized findings:
+[docs/DIZI-RECOVERY-MEMORY-20261029.md](DIZI-RECOVERY-MEMORY-20261029.md).
+
+Critical data:
+- `/reserved-memory/splash_region`: PA `0xB8000000`, 43 MiB.
+  Valid *physical* reserve only, not proof of a post-SCTLR virtual alias.
+- `ramoops`: `0x80D00000` + 2 MiB.
+- A previous proposed 1 GiB XNU RAM candidate at `0x8C0000000`
+  contains Linux recovery reserved allocations beginning at
+  `0x8F6B00000`. It is therefore **not** an approved 1 GiB runtime pool.
+  Even subranges without `/proc/iomem` reservations cannot be
+  considered free in EDK2 until its *own* current memory map is obtained.
+- Recovery `/chosen/stdout-path` points to UART `0x98C000`,
+  but Linux reported **Console Disabled**. Do not assume a working
+  serial post-MMU channel.
+
+The recovery data allow us to rule out unsafe allocations, but do not
+read XNU's runtime TTBR1, TCR, VBAR or page-table contents. The next
+test should capture those values **before** SCTLR using the existing
+UniXNU design, with firmware-owned allocations verified.
+
 ## Next safe engineering work
 
 1. Correlate live UEFI memory descriptors, ADT boot_args and pinned Mach-O

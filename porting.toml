@@ -176,15 +176,15 @@ evidence = []
 
 [[area]]
 id = "diagnostics"
-status = "planned"
+status = "in_progress"
 components = []
-paths = [".github/workflows/validate.yml","porting.toml"]
+paths = [".github/workflows/xnu-mmu-ab-lab.yml","ci/patch_dizi_text_console_b.py","porting.toml"]
 inputs = ["Obtain board-specific hardware observations and validated build sources."]
 configuration = ["No sheng/SM8550 configuration or driver is selected."]
 procedure = ["Review source pins and run the next safe on-device checkpoint."]
-findings = ["Screenshot evidence: UniXNU menu, BlockIo=122, SimpleFS=6, initrd-not-FAT; global counts do not show a Dizi payload."]
+findings = ["2026-10-29 hardware evidence confirmed XNU-entry, bootargs, TTBR1/MAIR/TLBI/VBAR and pre-SCTLR Y260. The postmmu-b variant SHA256 c79487a78c23db8eae9948b23dfc2f4953937dc93f89b67b2ec6bcd2a04e69af produced no visible Y552/Y576: this cannot distinguish an MMU transition fault from missing physical GOP mapping after MMU-on. The new text-b candidate restores 14 hooked ARM64 instructions, redirects only entry and pre-SCTLR sites to a stackless text framebuffer renderer, and disables all legacy bands. Its exact output SHA256 feaa33629f5830f2545b6d097e91438694029e8347badb89e243d7dda3dd4423 is locally verified, not hardware-confirmed."]
 completion = ["Record reproducible host and hardware tests before claiming implementation."]
-limits = ["XNU kernel entry and OS functionality are not confirmed on dizi or ruan."]
-next_action = ["Collect and validate device-specific resources."]
+limits = ["Early XNU entry and pre-SCTLR execution are confirmed on dizi; MMU-on operation and OS functionality are not. Ruan remains untested. Current text console writes only while MMU is disabled."]
+next_action = ["Test text-b with temporary fastboot boot; capture exact visible text. For post-MMU diagnostics, derive and verify the virtual framebuffer mapping or use a separately proven UART or persistent crash-dump channel. Never infer SCTLR failure from absent physical-GOP writes."]
 evidence = []
 

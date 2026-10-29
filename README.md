@@ -2,6 +2,28 @@
 
 Experimental [UniXNU](https://github.com/UniXNU/UniXNU) port for Xiaomi Redmi Pad Pro (`dizi`, Snapdragon SM7435). The `ruan` variant is not separately verified.
 
+**Hardware result (2026-10-29): text-b reached the native pre-SCTLR_EL1
+checkpoint on physical dizi.** The device screenshot displays the clean
+blue-on-dark `DIZI / XNU DEBUG` text, `PASS: XNU ENTRY`,
+`PASS: BOOTARGS / TTB`, `PASS: TTBR1 MAIR TLBI VBAR`, and
+`NOW: PRE SCTLR EL1`, followed by `MMU ON: NOT VERIFIED`.
+The image is the SHA-pinned test published by
+[manual run #40930881144](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40930881144),
+boot-v4 SHA-256
+`25842763d44144f8e35d44fa9f746e9a06ca63b4a3e08a24b8f17e8b7c9c54dc`.
+The old colored XNU stripe hooks no longer interfere with the screen.
+This is **hardware confirmation of the pre-MMU text renderer**, not
+evidence that `SCTLR_EL1` and its following `ISB` completed.
+The PASS phrases are fixed strings, not independent system-register reads.
+Exact native disassembly, known limitations and the next memory-map
+verification tasks are in
+[docs/DIZI-MMU-BOUNDARY.md](docs/DIZI-MMU-BOUNDARY.md).
+
+**No new boot test is needed just to reproduce the same pre-SCTLR text.**
+The next engineering blocker is validating the runtime TCR/TTBR1
+translation tables and the first post-MMU instruction and VBAR mappings
+before attempting any new framebuffer writes after MMU-on.
+Firmware and Android partitions remain unmodified.
 **Next diagnostic (2026-10-29): text-b, no old colored XNU bands.**
 The single manual [MMU A/B workflow](.github/workflows/xnu-mmu-ab-lab.yml)
 now defaults to `text-b`. It rebuilds the last hardware-tested

@@ -8,12 +8,13 @@ on:
         description: 'Diagnostic branch from pinned fifth-NOSP base'
         type: choice
         required: true
-        default: orange-a
+        default: postmmu-b
         options:
           - sixth-a
           - sixth-b
           - orange-a
           - orange-b
+          - postmmu-b
       publish_release:
         description: 'Replace the single dizi-xnu-latest-test release asset'
         type: boolean
@@ -76,10 +77,23 @@ jobs:
           VARIANT: ${{ inputs.variant }}
         run: |
           set -euo pipefail
-          python3 -m py_compile ci/build_dizi_mmu_variant.py
-          python3 ci/build_dizi_mmu_variant.py \
-            --input source/Mu-dizi-XNU-FIVE-NOSP-BASE.img \
-            --variant "$VARIANT" --output-dir dist
+          python3 -m py_compile ci/build_dizi_mmu_variant.py ci/patch_dizi_post_mmu_b.py
+          if [ "$VARIANT" = "postmmu-b" ]; then
+            # Reconstruct the exact proven orange-b baseline, then patch ONLY
+            # two post-SCTLR tracing locations. EDK2 stays byte-identical.
+            python3 ci/build_dizi_mmu_variant.py \
+              --input source/Mu-dizi-XNU-FIVE-NOSP-BASE.img \
+              --variant orange-b --output-dir intermediate
+            python3 ci/patch_dizi_post_mmu_b.py \
+              --input intermediate/Mu-dizi-XNU-ORANGE-NOSP-B-NZCV-HIGH-RISK.img \
+              --output dist/Mu-dizi-XNU-POST-SCTLR-B-HIGH-RISK.img \
+              --report dist/MMU-AB-AUDIT.json
+            (cd dist && sha256sum Mu-dizi-XNU-POST-SCTLR-B-HIGH-RISK.img > SHA256SUMS.txt)
+          else
+            python3 ci/build_dizi_mmu_variant.py \
+              --input source/Mu-dizi-XNU-FIVE-NOSP-BASE.img \
+              --variant "$VARIANT" --output-dir dist
+          fi
           (cd dist && sha256sum --check SHA256SUMS.txt)
           test "$(find dist -maxdepth 1 -name '*.img' | wc -l)" -eq 1
 

@@ -145,6 +145,10 @@
       "completely_free_under_UEFI": false
     },
     "initial_xnu_load_and_runtime_tables_verified": false,
-    "more_detail": "docs/DIZI-RECOVERY-MEMORY-20261029.md"
+    "more_detail": "docs/DIZI-RECOVERY-MEMORY-20261029.md",
+    "legacy_fdt_ram_total_mib": 7944,
+    "live_recovery_dtb_ram_total_mib": 6061,
+    "legacy_3g_upper_bank_contradicted_by_recovery": true,
+    "legacy_adt_consumption": "ci/build_dizi_reference_adt.py consumes the old 3GiB bank for a reference-only ADT parser probe and explicitly forbids XNU entry; text-b workflow does NOT directly use this JSON"
   }
 }

@@ -11,7 +11,7 @@
 | xnu-prelink-sm7435-linux.yml | Linux prelink fallback |
 | publish-xnu-source.yml | Owner-approved publishing of source-build results |
 | promote-dizi-control-boot.yml | Owner-controlled promotion of an existing tested image |
-| xnu-mmu-ab-lab.yml | **New: one manual workflow for sixth/ORANGE MMU A/B builds** |
+| xnu-mmu-ab-lab.yml | Manual B-series MMU A/B, orange and post-SCTLR checkpoints |
 
 The older one-off workflow files (EBS trace, ADT, DarwinEnter, first opcode,
 bootstrap checkpoints, and one-workflow-per-MMU-marker) were removed from the
@@ -26,7 +26,8 @@ files can be recovered from git history if needed.
    - sixth-a: remove Y528 stack access only;
    - sixth-b: also preserve NZCV in all six MMU drawing loops;
    - orange-a: sixth-a plus a stackless ORANGE Y260 pre-SCTLR marker;
-   - orange-b: sixth-b plus the same ORANGE marker.
+   - orange-b: sixth-b plus the same ORANGE marker (physically reached Y260 on 2026-10-29);
+   - **postmmu-b (new default)**: orange-b plus Y552 immediately after SCTLR+ISB and Y576 after the native SCTLR comparison guard.
 3. Leave **publish_release=true** to replace the **one** image at
    https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-latest-test .
    With **publish_release=false** the output is only in **Actions Artifacts**.
@@ -35,7 +36,7 @@ files can be recovered from git history if needed.
 5. Only ever test **temporarily** using fastboot boot; never use
    fastboot flash. Have an Android backup and working recovery method.
 
-All four outputs are deterministic, SHA-pinned reproductions of the verified
+The original four outputs are deterministic, SHA-pinned reproductions of the verified
 **fifth-NOSP Y504 base** (boot SHA-256:
 b2f22f83c9b55d5a89d60f7df42488486346754911153cc502256f686681371b).
 The first run creates a **separate immutable base release**
@@ -49,12 +50,37 @@ The workflow does **not** rebuild EDK2, does not modify Android partitions,
 and has no push, pull_request, issue_comment or cron trigger. It preserves
 the native TTBR1_EL1, SCTLR_EL1, and ISB instruction bytes.
 
+## New post-SCTLR B diagnostic
+
+After physical dizi confirmed the orange Y260 stripe using
+[run #40824108833](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/40824108833)
+(boot SHA-256
+`1c245f4da986e6ea57f928246064939ddcdc44c4833535184fa78b60532e060e`),
+the `postmmu-b` experiment was added to the **same manual workflow**
+and is now the **default**. It rebuilds the pinned orange-b image in CI,
+then applies `ci/patch_dizi_post_mmu_b.py` (only two new instrumented
+Mach-O branch hooks, 88 changed bytes). Local full-image SHA-256:
+`c79487a78c23db8eae9948b23dfc2f4953937dc93f89b67b2ec6bcd2a04e69af`.
+This new variant has no hardware verification yet.
+
+- **Y552 cyan**: control reached the instruction *after*
+  `msr SCTLR_EL1; isb` and GOP writes through the assumed V=P mapping.
+- **Y576 yellow**: control also passed the native
+  `cmp x0,x1; b.ne .` guard without entering its self-loop.
+- If neither is visible, this is inconclusive: MMU transition, early
+  exception, code cave mapping or framebuffer mapping could be at fault.
+- If Y552 appears but Y576 does not, inspect the comparison and possible
+  exception before claiming a register-value mismatch. Both checkpoints
+  still use a physical-address framebuffer diagnostic.
+- Native SCTLR, ISB, CMP, B.NE, TTBR1 and EDK2 are preserved. This is
+  diagnostic code, NOT a production XNU MMU fix.
+
 ## Interpretation / limitations
 
 - Y480: execution reached the instrumented point before TLBI.
 - Y504: execution reached the point after the TLBI/IC sequence, before VBAR.
 - Y528: execution reached the point after VBAR and before SCTLR preparation.
-- Y260: would indicate reaching the pre-SCTLR diagnostic marker.
+- Y260: hardware-confirmed reaching the pre-SCTLR diagnostic marker (orange-b, 2026-10-29).
 - Even all four bands are **not** proof of successful MMU enable, virtual
   memory initialization, usable userland, or iPadOS boot.
 - The diagnostic code still changes x9/x10/x11 and some other pre-existing

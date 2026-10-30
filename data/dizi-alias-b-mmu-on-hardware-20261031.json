@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-31",
+  "device": "Xiaomi Redmi Pad Pro dizi (SM7435P)",
+  "variant": "alias-b (corrected MAIR)",
+  "photo": "On-device screenshot submitted in conversation",
+  "actions_run": "https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41136028600",
+  "boot_v4_sha256": "ef9832e794860eedb6b2e11ba08edcf99eae030152d6dcc9496475d9b278c7dd",
+  "macho_sha256": "991a06e89c1d75eccd0c82f7efc28127d877b8318178c343225cb3c34a341876",
+  "observed_exact_messages": [
+    "DIZI XNU ENTRY",
+    "PRE ALIAS ARMED",
+    "POST SCTLR OK",
+    "GUARD PASSED"
+  ],
+  "what_it_proves": [
+    "The trace reached the native pre-SCTLR hook after validating the MAIR/TCR/TTBR1/VBAR and existing page-table descriptors.",
+    "A single valid L2 2MiB Device framebuffer alias was installed in the TTBR1 table.",
+    "Native SCTLR_EL1 write and ISB completed; CPU executed the post-ISB hook and successfully wrote text through the high TTBR1 virtual framebuffer alias.",
+    "CPU executed past the original CMP/B.NE guard to the 0xFFFFFFF0073F2370 hook."
+  ],
+  "what_it_does_not_prove": [
+    "Native CPACR_EL1 and TPIDR_EL1 writes completed after the last hook.",
+    "Return from set_mmu_ttb to higher level XNU bootstrapping.",
+    "Memory allocator, exceptions, scheduler, IOKit, rootfs or userland initialization."
+  ],
+  "kernel_postguard_native_instructions": [
+    {
+      "va": "0xFFFFFFF0073F2374",
+      "instruction": "msr CPACR_EL1,x0"
+    },
+    {
+      "va": "0xFFFFFFF0073F2378",
+      "instruction": "msr TPIDR_EL1,xzr"
+    },
+    {
+      "va": "0xFFFFFFF0073F237C",
+      "instruction": "cbnz x21, 0xFFFFFFF0073F238C"
+    },
+    {
+      "va": "0xFFFFFFF0073F2380",
+      "instruction": "add x0,x20,x22"
+    },
+    {
+      "va": "0xFFFFFFF0073F2384",
+      "instruction": "sub x0,x0,x23"
+    },
+    {
+      "va": "0xFFFFFFF0073F2388",
+      "instruction": "ret"
+    },
+    {
+      "va": "0xFFFFFFF0073F239C",
+      "instruction": "br x0"
+    }
+  ],
+  "note": "Visible UniXNU menu background is stale pre-existing framebuffer contents; does not mean control returned to UEFI.",
+  "safety": "Future tests: temporary fastboot boot only; never fastboot flash."
+}

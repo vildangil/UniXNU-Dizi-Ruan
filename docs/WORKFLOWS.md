@@ -11,7 +11,7 @@
 | xnu-prelink-sm7435-linux.yml | Linux prelink fallback |
 | publish-xnu-source.yml | Owner-approved publishing of source-build results |
 | promote-dizi-control-boot.yml | Owner-controlled promotion of an existing tested image |
-| xnu-mmu-ab-lab.yml | Manual B-series MMU A/B; defaults to pre-SCTLR real EL1 register text capture |
+| xnu-mmu-ab-lab.yml | Manual B-series MMU A/B; defaults to guarded read-only pre-SCTLR descriptor capture |
 
 The older one-off workflow files (EBS trace, ADT, DarwinEnter, first opcode,
 bootstrap checkpoints, and one-workflow-per-MMU-marker) were removed from the
@@ -29,7 +29,8 @@ files can be recovered from git history if needed.
    - orange-b: sixth-b plus the same ORANGE marker (physically reached Y260 on 2026-10-29);
    - postmmu-b: historical orange-b plus Y552/Y576; the 2026-10-29 physical test was inconclusive because GOP PA may be unmapped after MMU enable;
    - text-b: original hardware-tested text console before SCTLR, no post-MMU framebuffer writes;
-   - **regs-b (new default)**: text-b plus live hex reads of TCR/TTBR1/TTBR0/MAIR/VBAR/SCTLR and x22/x23/x25 at pre-SCTLR, with no additional post-MMU access.
+   - regs-b: physical screenshot confirms live pre-SCTLR EL1 register readout;
+   - **walk-b (new default)**: SHA-pinned regs-b plus guarded page-table descriptor reads before SCTLR; see [walk-b documentation](DIZI-MMU-WALK-B.md).
 3. Leave **publish_release=true** to replace the **one** image at
    https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-latest-test .
    With **publish_release=false** the output is only in **Actions Artifacts**.

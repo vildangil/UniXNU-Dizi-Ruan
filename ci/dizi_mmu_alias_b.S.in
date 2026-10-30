@@ -69,7 +69,7 @@ check_alias:
     cbnz x11, alias_fail
     mrs x9, MAIR_EL1
     movz x10, #0x44ff
-    movk x10, #0x008b, lsl #16
+    movk x10, #0x00bb, lsl #16
     movk x10, #0x04ff, lsl #32
     movk x10, #0x0c08, lsl #48
     eor x11, x9, x10

@@ -2,6 +2,32 @@
 
 Experimental [UniXNU](https://github.com/UniXNU/UniXNU) port for Xiaomi Redmi Pad Pro (`dizi`, Snapdragon SM7435). The `ruan` variant is not separately verified.
 
+**31 October 2026 — latest dizi result:** `slot-b` was photographed
+on real hardware with `TTBR1 L1=0x802F70003`,
+`SLOT L2=0`, `STATUS=2`. Thus the candidate
+TTBR1 L2 entry `0x20` was unused before `SCTLR_EL1`.
+That does not mean the framebuffer is already mapped or that
+MMU enabling succeeds.
+
+**Next optional test: `alias-b` (HIGH RISK, NOT hardware-tested).**
+The existing **manual** GitHub Actions workflow in `main`
+now offers `alias-b` as an explicit choice; its safer
+default remains `slot-b`. On exact register and page-table
+matches only, the new code inserts a single 2-MiB
+Device-nGnRnE, execute-never TTBR1 block mapping
+`0xFFFFFFF004000000` to physical framebuffer
+`0xB8000000`, then tries the strings `POST SCTLR OK`
+and `GUARD PASSED` through that high VA. It leaves
+the native `SCTLR/ISB/CMP/B.NE` instructions unchanged.
+If the checks disagree, it skips the mapping and shows
+`ALIAS GUARD FAIL`. This is diagnostic, not a permanent
+framebuffer driver or a fix for full XNU boot.
+
+Locally reproduced boot-v4 SHA-256:
+`6c7f4469a9da06fbd3dc0eeafc3f04f7268ab821c8d810f1e0458b05615e044a`.
+See [the full safety and hardware evidence](docs/DIZI-MMU-ALIAS-B.md).
+**Only temporary `fastboot boot`, never `fastboot flash`.**
+
 **Latest hardware finding (2026-10-31): `fbwalk-b` proves there is no
 TTBR0 L1 mapping for framebuffer VA `0xB8000000`.** The real
 device printed `TTBR0=0x802F6D000`, `L1 DESC=0`, `STATUS=1`.
@@ -20,7 +46,8 @@ or write page-table entries. It derives from the already
 hardware-tested `walk-b` image and modifies just 16 bytes of
 its existing diagnostic cave. Expected boot-v4 SHA-256:
 `ab1edbbc8b05fe9b59f0f6909ce84c75faf40c1c98edea6acb50d268c9e688ee`.
-The new image is **not yet tested**. Use temporary `fastboot boot`
+The `slot-b` screenshot has since confirmed the empty slot on dizi.
+Use temporary `fastboot boot`
 only, never flash. See [hardware evidence and slot-b rationale](docs/DIZI-MMU-FBMAP-B.md).
 
 **Hardware MMU translation result (2026-10-30):** `walk-b`

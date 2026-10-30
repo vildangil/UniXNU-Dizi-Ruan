@@ -35,6 +35,7 @@ files can be recovered from git history if needed.
    - **slot-b (default, physically verified)**: L1 C0/L2 20 read-only slot probe, showing SLOT L2=0/STATUS=2 on device;
    - **alias-b (HIGH RISK, explicit opt-in; corrected after hardware MAIR guard fail)**: single guarded 2-MiB Device alias, plus post-SCTLR text checkpoints; [details and exact hash](DIZI-MMU-ALIAS-B.md);
    - guard-b: read-only historical eight-check diagnosis, hardware-confirmed `FAIL STEP 4` due to the old MAIR guard expectation.
+   - **deep-b (new, manual, not hardware-tested)**: extended single-run TPIDR_EL1, return/branch into _arm_init and MPIDR CPU0 affinity checkpoints, keeping alias-b MMU method. [Detailed stages and SMP plan](DIZI-DEEP-SMP-PREFLIGHT.md).
 3. Leave **publish_release=true** to replace the **one** image at
    https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-latest-test .
    With **publish_release=false** the output is only in **Actions Artifacts**.
@@ -293,6 +294,45 @@ The **corrected** variant is **not yet tested on hardware**, is
 not the default. Detailed engineering notes:
 [docs/DIZI-MMU-ALIAS-B.md](DIZI-MMU-ALIAS-B.md).
 As always, test only via `fastboot boot`, NEVER flash.
+
+## Deep-b and SM7435 SMP preflight — after hardware MMU-on
+
+The corrected `alias-b` was tested on device and displayed
+`POST SCTLR OK` and `GUARD PASSED`; this **confirms native MMU-on
+execution**, not an OS or secondary CPU boot. Its full SHA-256
+is `ef9832e794860eedb6b2e11ba08edcf99eae030152d6dcc9496475d9b278c7dd`.
+
+The opt-in `deep-b` test uses the same SHA-pinned `slot-b` image
+and guarded high-VA framebuffer alias, adds a total of eight
+native one-instruction hooks, and preserves original native
+`SCTLR/ISB/CMP/B.NE`. It tracks TPIDR clearing,
+return/branch from the bootstrap and the start of
+`_arm_init`. The `_arm_init` marker reads the **boot core**
+`MPIDR_EL1`, but does **not** start secondaries.
+Only the 1,584-byte pre-vector diagnostic cave and the
+eight exact hook sites can differ.
+
+Expected new `deep-b` boot SHA-256:
+`4acf22fe3b0fb389ccc057b591b7c41fc57e0e0c32eaa246342f34e85c232c45`.
+Embedded Mach-O SHA-256:
+`0248d8724fa4978dd2391088d82e06c9ed1130829d1d77f20229eb512a1abecd`.
+The 1,543-byte ARM64 trace has no link relocations and was
+rebuilt twice byte-for-byte locally. `deep-b` is not yet
+hardware-tested; choose manually.
+
+A separate offline SM7435 SMP topology check uses
+`python3 ci/check_sm7435_smp.py`; a manually triggered
+`validate.yml` also publishes the JSON CPU preflight artifact.
+This validates eight physical Aff1 CPU IDs, a PSCI SMC
+description and GICv3 resources, but not `CPU_ON` or IPI.
+The SoC-only XNU reset-vector patch now preserves
+`MPIDR_EL1 & 0xFFFF` unconditionally, with a pinned revision
+in `feeds.toml`. The default remains `cpus=1`; a
+`cpus=2` menu entry exists **only as an opt-in for a later
+validated CPU1 experiment**, not as a tested runtime.
+
+[Full diagnostic stages and SMP validation gates](DIZI-DEEP-SMP-PREFLIGHT.md).
+Use temporary `fastboot boot` only, never flash.
 
 ## Interpretation / limitations
 

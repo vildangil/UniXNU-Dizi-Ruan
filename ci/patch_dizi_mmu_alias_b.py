@@ -23,8 +23,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 BASE_BOOT_SHA = 'ab1edbbc8b05fe9b59f0f6909ce84c75faf40c1c98edea6acb50d268c9e688ee'
 BASE_MACHO_SHA = '9e0f5f1411d674879ceedad09736e941349d487bb4836949e8a3bc51c4289662'
-OUTPUT_BOOT_SHA = '6c7f4469a9da06fbd3dc0eeafc3f04f7268ab821c8d810f1e0458b05615e044a'
-OUTPUT_MACHO_SHA = 'fc51ca317cadc189042a78658f742ad78e9ea0af6bad60fead5dd1425db582f1'
+OUTPUT_BOOT_SHA = 'ef9832e794860eedb6b2e11ba08edcf99eae030152d6dcc9496475d9b278c7dd'
+OUTPUT_MACHO_SHA = '991a06e89c1d75eccd0c82f7efc28127d877b8318178c343225cb3c34a341876'
 FONT_SHA = '71d8475b427a59edaca1ad55592e83812e7fe5c7f8be8444ffc1d3733d303501'
 BOOT_SIZE = 68800512
 KERNEL_OFFSET = 0x19c000 + 0x101200
@@ -201,6 +201,8 @@ def build(source: Path, destination: Path, report: Path) -> dict:
       'page_table_l1_index':'C0','page_table_l2_index':'20',
       'l2_block_descriptor':hex(BLOCK_DESC),
       'device_mair_attribute_index':3,
+      'expected_mair_el1':'0x0C0804FF00BB44FF',
+      'correction':'One ARM64 MOVK immediate changed from 0x008b to 0x00bb; matching measured MAIR_EL1.',
       'pre_sctlr_guards':['TCR','TTBR1','VBAR','MAIR','SCTLR.M=0',
                           'verified L1 table','verified executable L2 block',
                           'empty L2 alias slot'],

@@ -10,6 +10,9 @@ on:
       - "package/unixnu.toml"
       - "porting.toml"
       - "ci/check_sm7435_smp.py"
+      - "ci/check_dizi_memory_map.py"
+      - "data/dizi-*.json"
+      - "config/dizi-hardware.json"
       - "package/Sm7435PsciReadOnly.*"
       - ".github/workflows/validate.yml"
 
@@ -78,6 +81,19 @@ jobs:
           test -n "$compiler"
           "$compiler" --target=aarch64-none-elf -ffreestanding -Wall -Wextra -Werror \
             -c package/Sm7435PsciReadOnly.c -o /tmp/Sm7435PsciReadOnly.o
+      - name: Audit redacted recovery RAM, splash framebuffer and page-map assumptions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile ci/check_dizi_memory_map.py
+          python3 ci/check_dizi_memory_map.py --output dizi-memory-audit.json
+      - name: Retain non-invasive platform RAM evidence audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: dizi-sm7435-memory-source-preflight
+          path: dizi-memory-audit.json
+          if-no-files-found: error
+          retention-days: 30
       - name: Keep CPU topology audit for review
         uses: actions/upload-artifact@v4
         with:

@@ -2,6 +2,33 @@
 
 Experimental [UniXNU](https://github.com/UniXNU/UniXNU) port for Xiaomi Redmi Pad Pro (`dizi`, Snapdragon SM7435). The `ruan` variant is not separately verified.
 
+**31 October 2026 — MMU-on confirmed; new deep-b and SMP preflight.**
+The corrected, SHA-pinned `alias-b` ran on physical Redmi Pad Pro
+with **`DIZI XNU ENTRY`, `PRE ALIAS ARMED`, `POST SCTLR OK`,
+and `GUARD PASSED`**. This proves XNU executed after the native
+`SCTLR_EL1 + ISB` and displayed through the guarded TTBR1 high
+VA framebuffer alias. It does **not** prove `_arm_init`, SMP or
+the rest of the OS.
+
+The existing **manual** MMU workflow now includes **`deep-b`**:
+one device test checks `TPIDR_EL1`, native `RET` / secondary
+`BR` handoff, the first `_arm_init` instruction, and
+read-only `MPIDR_EL1` CPU0 affinity. It retains the original
+kernel, DarwinBoot, EDK2 and working MMU alias; no other CPUs
+are powered on. Exact boot-v4 SHA-256:
+`4acf22fe3b0fb389ccc057b591b7c41fc57e0e0c32eaa246342f34e85c232c45`.
+The tracer was built twice locally and is **not yet hardware-tested**.
+
+The pinned [SM7435 common](https://github.com/vildangil/UniXNU-sm7435-common)
+XNU SMP source patch has also been repaired to preserve Aff1
+physical MPIDR IDs `0x000..0x700` unconditionally, avoiding
+the old `HAS_CLUSTER=0` fall-through that identified every
+secondary as CPU0. The board keeps its safe `cpus=1` default;
+an opt-in `cpus=2` profile and an offline eight-core
+topology/PSCI/GICR audit are staged, **not actual multicore boot**.
+More: [one-run post-MMU diagnostics and SMP verification plan](docs/DIZI-DEEP-SMP-PREFLIGHT.md).
+Only temporary `fastboot boot`, never `fastboot flash`.
+
 **31 October 2026 — MAIR guard corrected after hardware test.**
 The physically tested `guard-b` displayed
 `FAIL STEP 4: 0C0804FF00BB44FF`. This **matches the original

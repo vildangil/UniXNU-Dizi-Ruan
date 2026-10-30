@@ -87,12 +87,19 @@ native `msr SCTLR_EL1, x0`:
 | TCR_EL1 | `0x00000022A51A251A` |
 | TTBR1_EL1 | `0x0000000802F6E000` |
 | TTBR0_EL1 | `0x0000000802F6D000` |
-| MAIR_EL1 | `0x0C0804FF008B44FF` |
+| MAIR_EL1 | **`0x0C0804FF00BB44FF`** |
 | VBAR_EL1 | **`0xFFFFFFF0073ED000`** |
 | SCTLR_EL1 (old, before write) | `0x0000000030D00808` |
 | x22 | `0xFFFFFFF007004000` |
 | x23 | `0x0000000802E04000` |
 | x25 | `0x0000000802F6D000` |
+
+**31 October 2026 correction:** The actual `regs-b` photo and independent
+`guard-b` run both show `MAIR_EL1=0x0C0804FF00BB44FF`.
+The previously transcribed `0x0C0804FF008B44FF` was a visual
+error (`BB` mistaken for `8B`), not a runtime MAIR register change.
+The discrepancy is in MAIR **AttrIdx 2**; AttrIdx 3 remains `0x00`
+(Device-nGnRnE), used by the optional framebuffer alias experiment.
 
 **Corrected visual transcription:** VBAR ends in `3ED000`, not
 `3E0000`; the enlarged original photo and the source `ADRP`

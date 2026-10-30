@@ -1,0 +1,33 @@
+{
+  "device": "dizi",
+  "observation_date": "2026-10-30",
+  "variant": "walk-b",
+  "source": "Physical screen photograph submitted by device owner; transcribed manually; not a post-MMU success claim",
+  "boot_sha256": "8c5c1aba446897a7548461a05718d79ddfb5607cfd0745c5187d423ed3a05542",
+  "registers": {
+    "TCR_EL1": "0x00000022A51A251A",
+    "TTBR1_EL1": "0x0000000802F6E000",
+    "TTBR0_EL1": "0x0000000802F6D000",
+    "VBAR_EL1": "0xFFFFFFF0073ED000",
+    "X22": "0xFFFFFFF007004000",
+    "X23": "0x0000000802E04000"
+  },
+  "descriptors": {
+    "L1": "0x0000000802F70003",
+    "L2": "0x0000000803000601",
+    "L3_PC": "0x0",
+    "L3_VBAR": "0x0",
+    "STATUS": 2
+  },
+  "next_instruction_va": "0xFFFFFFF0073F2358",
+  "framebuffer_pa": "0xB8000000",
+  "inference_only": {
+    "L1_table_pa": "0x802F70000",
+    "L2_block_pa": "0x803000000",
+    "next_instruction_pa": "0x8031F2358",
+    "vbar_pa": "0x8031ED000",
+    "ttbr0_fb_va_l1_index": "0x02",
+    "ttbr0_fb_va_l2_index": "0x1C0"
+  },
+  "mmu_on_hardware_confirmed": false
+}

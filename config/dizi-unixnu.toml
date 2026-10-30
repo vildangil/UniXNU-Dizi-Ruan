@@ -33,6 +33,16 @@ path = "Payloads/kernel.macho"
 args = "-v keepsyms=1 debug=0x14e cpus=1"
 confirm = "Test unverified XNU on dizi?"
 
+# Opt-in only: exact same XNU Mach-O, with 2-core boot argument for later
+# ArmCpu/PSCI verification. It does not power on CPU1 by itself here.
+[[entry]]
+id = "xnu-dualcore"
+title = "XNU stage1 | 2 CPUs (SMP experiment)"
+type = "xnu"
+path = "Payloads/kernel.macho"
+args = "-v keepsyms=1 debug=0x14e cpus=2"
+confirm = "UNVERIFIED SMP: test exactly two CPUs on dizi?"
+
 [[entry]]
 id = "xnu-normal"
 title = "XNU stage1 | normal CPUs"

@@ -2,6 +2,22 @@
 
 Experimental [UniXNU](https://github.com/UniXNU/UniXNU) port for Xiaomi Redmi Pad Pro (`dizi`, Snapdragon SM7435). The `ruan` variant is not separately verified.
 
+**31 October 2026 — MAIR guard corrected after hardware test.**
+The physically tested `guard-b` displayed
+`FAIL STEP 4: 0C0804FF00BB44FF`. This **matches the original
+regs-b photograph**, which was previously misread as
+`0C0804FF008B44FF`. Only the expected MAIR immediate in
+`alias-b` was corrected (`0x008b` → `0x00bb`, AArch64
+`MOVK`): the new image differs from the failed one by **one byte**,
+and the framebuffer mapping still uses MAIR AttrIdx 3 = `0x00`
+(Device-nGnRnE). Exact corrected boot-v4 SHA-256:
+`ef9832e794860eedb6b2e11ba08edcf99eae030152d6dcc9496475d9b278c7dd`.
+The corrected variant **has not been hardware-tested** and still
+writes one live L2 mapping. Choose **alias-b** explicitly in the
+single manual workflow in `main`; the default remains the safer
+`slot-b`. Only temporary `fastboot boot`, **never flash**.
+See [hardware proof, old and new hashes, and risks](docs/DIZI-MMU-ALIAS-B.md).
+
 **31 October 2026 — latest dizi result:** `slot-b` was photographed
 on real hardware with `TTBR1 L1=0x802F70003`,
 `SLOT L2=0`, `STATUS=2`. Thus the candidate
@@ -9,7 +25,8 @@ TTBR1 L2 entry `0x20` was unused before `SCTLR_EL1`.
 That does not mean the framebuffer is already mapped or that
 MMU enabling succeeds.
 
-**Next optional test: `alias-b` (HIGH RISK, NOT hardware-tested).**
+**Experimental `alias-b` (HIGH RISK): initial run failed at MAIR guard;
+corrected one-byte build is not yet hardware-tested.**
 The existing **manual** GitHub Actions workflow in `main`
 now offers `alias-b` as an explicit choice; its safer
 default remains `slot-b`. On exact register and page-table
@@ -24,7 +41,7 @@ If the checks disagree, it skips the mapping and shows
 framebuffer driver or a fix for full XNU boot.
 
 Locally reproduced boot-v4 SHA-256:
-`6c7f4469a9da06fbd3dc0eeafc3f04f7268ab821c8d810f1e0458b05615e044a`.
+`ef9832e794860eedb6b2e11ba08edcf99eae030152d6dcc9496475d9b278c7dd`.
 See [the full safety and hardware evidence](docs/DIZI-MMU-ALIAS-B.md).
 **Only temporary `fastboot boot`, never `fastboot flash`.**
 

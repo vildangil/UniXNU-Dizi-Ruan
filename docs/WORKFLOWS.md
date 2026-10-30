@@ -33,7 +33,8 @@ files can be recovered from git history if needed.
    - walk-b: hardware-proven L1/L2 block mapping for native XNU code and VBAR;
    - fbwalk-b: hardware-confirmed absence of TTBR0 identity mapping at framebuffer VA 0xB8000000 (L1=0, STATUS=1);
    - **slot-b (default, physically verified)**: L1 C0/L2 20 read-only slot probe, showing SLOT L2=0/STATUS=2 on device;
-   - **alias-b (HIGH RISK, explicit opt-in)**: guarded temporary 2-MiB Device alias for the framebuffer plus textual checkpoints after native SCTLR+ISB; [details](DIZI-MMU-ALIAS-B.md).
+   - **alias-b (HIGH RISK, explicit opt-in; corrected after hardware MAIR guard fail)**: single guarded 2-MiB Device alias, plus post-SCTLR text checkpoints; [details and exact hash](DIZI-MMU-ALIAS-B.md);
+   - guard-b: read-only historical eight-check diagnosis, hardware-confirmed `FAIL STEP 4` due to the old MAIR guard expectation.
 3. Leave **publish_release=true** to replace the **one** image at
    https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-latest-test .
    With **publish_release=false** the output is only in **Actions Artifacts**.
@@ -232,6 +233,32 @@ post-MMU stores** and has not been tested on physical dizi yet.
 Temporary `fastboot boot` only, **never flash**. Capture a clear
 photo of `SLOT L2` and `STATUS` before any mapping experiment.
 
+## Hardware-confirmed guard mismatch and one-byte correction (2026-10-31)
+
+The physical `guard-b` display showed `FAIL STEP 4:
+0C0804FF00BB44FF`, which matches the *original* `regs-b` photo.
+Our previous transcription `0C0804FF008B44FF` was wrong.
+This only changes MAIR **AttrIdx 2**; the alias descriptor still
+selects MAIR AttrIdx 3 (`0x00` Device-nGnRnE).
+
+Current `alias-b` changes exactly one AArch64 `MOVK` instruction
+from `#0x008b` to `#0x00bb`. No MMU or native code change,
+and all other safety checks remain intact. The corrected boot-v4
+SHA-256 is
+`ef9832e794860eedb6b2e11ba08edcf99eae030152d6dcc9496475d9b278c7dd`.
+The Mach-O SHA-256 is
+`991a06e89c1d75eccd0c82f7efc28127d877b8318178c343225cb3c34a341876`.
+The **previous failing** alias-b SHA-256 is
+`6c7f4469a9da06fbd3dc0eeafc3f04f7268ab821c8d810f1e0458b05615e044a`,
+preserved in Git history and the
+[hardware record](DIZI-MMU-ALIAS-B.md).
+
+The fixed image was locally rebuilt twice with identical hashes.
+It has **not** been tested on hardware. Keep `slot-b` as the
+safe workflow default. `alias-b` is **explicitly selected**
+because it modifies a live L2 descriptor. Only temporary
+`fastboot boot`; never `fastboot flash`.
+
 ## Experimental post-MMU text via verified high VA alias (alias-b)
 
 The physical 2026-10-31 `slot-b` photograph showed
@@ -260,8 +287,8 @@ it should additionally show `GUARD PASSED`.
 Absence of either is inconclusive.
 
 The pinned, locally reproduced complete image SHA-256 is
-`6c7f4469a9da06fbd3dc0eeafc3f04f7268ab821c8d810f1e0458b05615e044a`.
-This variant is **not yet tested on hardware**, is
+`ef9832e794860eedb6b2e11ba08edcf99eae030152d6dcc9496475d9b278c7dd`.
+The **corrected** variant is **not yet tested on hardware**, is
 **HIGH RISK**, and is an **explicit workflow choice**,
 not the default. Detailed engineering notes:
 [docs/DIZI-MMU-ALIAS-B.md](DIZI-MMU-ALIAS-B.md).

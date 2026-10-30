@@ -1,0 +1,206 @@
+.section .text.trace,"ax",%progbits
+.p2align 2
+.global dizi_entry_trampoline
+.global dizi_pre_trampoline
+// All instructions and strings are PC-relative, SP-free, flag-neutral.
+// The body uses only the same scratch registers as text-b plus x16 cookie.
+dizi_entry_trampoline:
+    adr x12, entry_resume
+    movz w13, #0
+    b dizi_renderer
+entry_resume:
+    nop
+dizi_pre_trampoline:
+    .inst 0xf28b27a0
+    adr x12, pre_resume
+    movz w16, #0
+    b check_alias
+pre_resume:
+    nop
+check_alias:
+    mrs x9, TCR_EL1
+    mov x6, x9
+    movz x10, #0x251a
+    movk x10, #0xa51a, lsl #16
+    movk x10, #0x22, lsl #32
+    eor x11, x9, x10
+    cbnz x11, alias_fail_1
+    mrs x9, TTBR1_EL1
+    mov x6, x9
+    movz x10, #0xe000
+    movk x10, #0x02f6, lsl #16
+    movk x10, #0x0008, lsl #32
+    eor x11, x9, x10
+    cbnz x11, alias_fail_2
+    mrs x9, VBAR_EL1
+    mov x6, x9
+    movz x10, #0xd000
+    movk x10, #0x073e, lsl #16
+    movk x10, #0xfff0, lsl #32
+    movk x10, #0xffff, lsl #48
+    eor x11, x9, x10
+    cbnz x11, alias_fail_3
+    mrs x9, MAIR_EL1
+    mov x6, x9
+    movz x10, #0x44ff
+    movk x10, #0x008b, lsl #16
+    movk x10, #0x04ff, lsl #32
+    movk x10, #0x0c08, lsl #48
+    eor x11, x9, x10
+    cbnz x11, alias_fail_4
+    mrs x9, SCTLR_EL1
+    mov x6, x9
+    tbnz x9, #0, alias_fail_5
+    movz x10, #0xe000
+    movk x10, #0x02f6, lsl #16
+    movk x10, #0x0008, lsl #32
+    ldr x9, [x10, #0x600]
+    mov x6, x9
+    movz x11, #0x0003
+    movk x11, #0x02f7, lsl #16
+    movk x11, #0x0008, lsl #32
+    eor x9, x9, x11
+    cbnz x9, alias_fail_6
+    movz x10, #0x0000
+    movk x10, #0x02f7, lsl #16
+    movk x10, #0x0008, lsl #32
+    ldr x9, [x10, #0x1c8]
+    mov x6, x9
+    movz x11, #0x0601
+    movk x11, #0x0300, lsl #16
+    movk x11, #0x0008, lsl #32
+    eor x9, x9, x11
+    cbnz x9, alias_fail_7
+    ldr x9, [x10, #0x100]
+    mov x6, x9
+    cbnz x9, alias_fail_8
+    // Read-only checks succeeded: do NOT modify any page-table entries.
+    movz w16, #0
+    movz w13, #1
+    b dizi_renderer
+alias_fail_1:
+    movz w16, #1
+    b alias_fail
+alias_fail_2:
+    movz w16, #2
+    b alias_fail
+alias_fail_3:
+    movz w16, #3
+    b alias_fail
+alias_fail_4:
+    movz w16, #4
+    b alias_fail
+alias_fail_5:
+    movz w16, #5
+    b alias_fail
+alias_fail_6:
+    movz w16, #6
+    b alias_fail
+alias_fail_7:
+    movz w16, #7
+    b alias_fail
+alias_fail_8:
+    movz w16, #8
+    b alias_fail
+alias_fail:
+    // Stage number and actual 64-bit register/descriptor, displayed pre-MMU.
+    // These STRB writes modify ONLY this private diagnostic text constant.
+    adr x9, msg_fail
+    mov w11, w16
+    add w11, w11, #48
+    strb w11, [x9, #10]
+    add x9, x9, #13
+    adr x5, hex_digits
+    movz x10, #16
+format_hex_loop:
+    lsr x11, x6, #60
+    ldrb w11, [x5, x11]
+    strb w11, [x9], #1
+    lsl x6, x6, #4
+    sub x10, x10, #1
+    cbnz x10, format_hex_loop
+    movz w13, #4
+    b dizi_renderer
+// All rendering uses physical GOP PA, before the native SCTLR write.
+dizi_renderer:
+    movz x9, #0
+    movk x9, #0xb800, lsl #16
+    cbz w13, render_entry
+    sub w11, w13, #1
+    cbz w11, render_pre
+    b render_fail
+render_entry:
+    mov x2, x9
+    movz w10, #0x1324
+    movk w10, #0xff0c, lsl #16
+    movz x4, #0
+    movk x4, #4, lsl #16
+clear_loop:
+    stp w10, w10, [x2], #8
+    sub x4, x4, #1
+    cbnz x4, clear_loop
+    dsb sy
+    adr x15, msg_entry
+    movz x11, #0x40a0
+    movk x11, #0x0006, lsl #16
+    b draw_text
+render_pre:
+    adr x15, msg_pre
+    movz x11, #0xbea0
+    movk x11, #0x000a, lsl #16
+    b draw_text
+render_fail:
+    adr x15, msg_fail
+    movz x11, #0xbea0
+    movk x11, #0x000a, lsl #16
+    b draw_text
+draw_text:
+    add x7, x9, x11
+    movz w10, #0xf0ff
+    movk w10, #0xffe6, lsl #16
+    movz x3, #6400
+    adr x17, font5_table
+next_char:
+    ldrb w8, [x15], #1
+    cbz w8, render_done
+    sub w8, w8, #32
+    lsl x5, x8, #3
+    sub x5, x5, x8
+    add x5, x17, x5
+    mov x2, x7
+    movz x4, #7
+next_glyph_row:
+    ldrb w11, [x5], #1
+    mov x14, x2
+    movz x6, #5
+next_glyph_bit:
+    tbz w11, #4, glyph_blank
+    mov x9, x14
+    movz x8, #4
+pixel_rows:
+    stp w10, w10, [x9]
+    stp w10, w10, [x9, #8]
+    add x9, x9, x3
+    sub x8, x8, #1
+    cbnz x8, pixel_rows
+glyph_blank:
+    add x14, x14, #16
+    lsl w11, w11, #1
+    sub x6, x6, #1
+    cbnz x6, next_glyph_bit
+    add x2, x2, x3, lsl #2
+    sub x4, x4, #1
+    cbnz x4, next_glyph_row
+    add x7, x7, #96
+    b next_char
+render_done:
+    dsb sy
+    br x12
+.p2align 2
+font5_table:
+FONT_DATA
+.p2align 2
+hex_digits: .ascii "0123456789ABCDEF"
+msg_entry: .asciz "DIZI XNU ENTRY"
+msg_pre:   .asciz "ALL CHECKS PASS"
+msg_fail:  .asciz "FAIL STEP 0: 0000000000000000"

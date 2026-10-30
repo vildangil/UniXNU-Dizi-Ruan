@@ -1,4 +1,4 @@
-# Dizi: hardware-confirmed XNU L1/L2 map and next TTBR0 framebuffer check
+# Dizi: hardware-confirmed XNU mapping and framebuffer MMU diagnostics
 
 ## Screenshot from 2026-10-30 — walk-b
 
@@ -40,7 +40,77 @@ two addresses, **not** that execution crossed the MMU transition. Other
 VA ranges, memory attributes, exception-vector code and live post-MMU
 behaviour remain unverified.
 
-## fbwalk-b — next read-only pre-MMU test
+## Hardware result: TTBR0 framebuffer identity mapping absent
+
+The physical `fbwalk-b` screenshot (2026-10-31) showed:
+
+```text
+DIZI / XNU FB WALK B
+NOW: PRE SCTLR EL1
+TCR:    00000022A51A251A
+TTBR0:  0000000802F6D000
+VBAR:   FFFFFFF0073ED000
+L1 DESC:0000000000000000
+L2 DESC:0000000000000000
+L3 FB:  0000000000000000
+L3 FB1: 0000000000000000
+STATUS: 0000000000000001
+NO POST MMU WRITE
+FB ROOT 02 L2 INDEX 1C0
+```
+
+The source image was SHA-256
+`e16a4c797a1afdebfe3b7bd61b47bc79a64a24c769d2c77f5a5bda4be948887b`.
+This is a live, pre-SCTLR read of the TTBR0 root at
+`0x802F6D000`: index `0x02` at `0x802F6D010` is **zero**.
+Consequently the physical panel address `0xB8000000`, if used as
+a **VA** after MMU-on, is not mapped by TTBR0. `STATUS=1` means
+only L1 was read; L2/L3 values on the screen are default zeros, not
+actual memory reads.
+
+`TCR.TG0=0` (4-KiB granule), `T0SZ=26` (38-bit TTBR0
+VA range), and `EPD0=0` (walks permitted). Lack of a valid
+L1 descriptor, rather than TCR disabling TTBR0 walks, accounts
+for the missing translation. The prior post-SCTLR raw-PA framebuffer
+stripes could therefore have faulted on their first store.
+**This does not prove** that the first post-SCTLR instruction ran:
+there could also be an earlier CPU exception or unrelated MMU error.
+
+## Next conservative step: high TTBR1 alias slot B
+
+Instead of broadly identity-mapping 1 GiB of mixed RAM/MMIO under
+TTBR0, test a dedicated 2-MiB virtual window **in TTBR1**, using
+the already verified L1 table and a prospective **unused** L2 entry.
+The candidate VA is `0xFFFFFFF004000000` (L1 C0, L2 20),
+separate from the existing XNU kernel's mapped code.
+Potential future PA target: `0xB8000000` (the framebuffer).
+The proposed alias is **not created yet**.
+
+The `slot-b` read-only variant of the same manual workflow
+reproduces the hardware-tested `walk-b` image byte-for-byte and
+changes only **16 bytes inside its existing diagnostic cave**.
+It checks the same photographed TCR, TTBR1 and VBAR values
+before reading the L1 table and L2 entry at index 0x20.
+
+Expected `slot-b` boot SHA-256:
+`ab1edbbc8b05fe9b59f0f6909ce84c75faf40c1c98edea6acb50d268c9e688ee`.
+
+Expected behavior:
+
+- `STATUS=2` and `SLOT L2=0000000000000000`: the candidate
+  entry is unused *at the instant of the read*. Still not a
+  guaranteed safe permanent framebuffer alias.
+- A nonzero slot entry: do not overwrite it; select another
+  candidate later.
+- `STATUS=0/1`: guard mismatch or invalid L1 table; do not
+  infer the candidate is free.
+
+`slot-b` does not modify page tables, system registers,
+firmware or the native XNU MMU transition. No post-MMU
+framebuffer writes occur. It has not yet been tested on hardware.
+Continue testing only with temporary `fastboot boot`, **never flash**.
+
+## fbwalk-b — prior read-only pre-MMU test
 
 To determine why the old physical-address GOP stores did not work
 after enabling MMU, the next test should inspect TTBR0's translation

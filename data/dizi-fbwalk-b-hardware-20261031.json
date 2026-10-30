@@ -1,0 +1,35 @@
+{
+  "device": "dizi",
+  "observation_date": "2026-10-31",
+  "variant": "fbwalk-b",
+  "evidence": "User photograph of physical Redmi Pad Pro; pre-SCTLR screen only",
+  "boot_sha256": "e16a4c797a1afdebfe3b7bd61b47bc79a64a24c769d2c77f5a5bda4be948887b",
+  "registers": {
+    "TCR_EL1": "0x00000022A51A251A",
+    "TTBR0_EL1": "0x0000000802F6D000",
+    "VBAR_EL1": "0xFFFFFFF0073ED000",
+    "X22": "0xFFFFFFF007004000",
+    "X23": "0x0000000802E04000"
+  },
+  "entries": {
+    "L1_DESC": "0x0000000000000000",
+    "L2_DESC": "0x0000000000000000",
+    "L3_FB": "0x0000000000000000",
+    "L3_FB1": "0x0000000000000000",
+    "STATUS": 1
+  },
+  "address_checked": "0xB8000000",
+  "expected_l1_index": "0x02",
+  "expected_l2_index_if_table": "0x1C0",
+  "l1_descriptor_address": "0x802F6D010",
+  "meaning": "L1 descriptor absent: TTBR0 does not map VA 0xB8000000 in the photographed page tables; L2 and L3 were not visited.",
+  "post_sctlr_execution_confirmed": false,
+  "framebuffer_alias_high_ttbr1_tested": false,
+  "next_read_only_test": {
+    "variant": "slot-b",
+    "candidate_high_va": "0xFFFFFFF004000000",
+    "ttbr1_l1_index": "0xC0",
+    "ttbr1_l2_index": "0x20",
+    "page_table_mutation": false
+  }
+}

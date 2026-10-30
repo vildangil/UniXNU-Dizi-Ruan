@@ -2,8 +2,29 @@
 
 Experimental [UniXNU](https://github.com/UniXNU/UniXNU) port for Xiaomi Redmi Pad Pro (`dizi`, Snapdragon SM7435). The `ruan` variant is not separately verified.
 
-**New optional MMU register experiment (2026-10-29): `regs-b` is now the
-default variant of the same manual GitHub Actions workflow.** It rebuilds
+**Hardware MMU translation result (2026-10-30):** `walk-b`
+read L1 `0x0000000802F70003` and L2 `0x0000000803000601`
+with `STATUS=2`, meaning an L2 **2-MiB block**, not a missing L3
+table. Its output physical base `0x803000000` maps the first
+post-ISB XNU instruction to `0x8031F2358` and
+`VBAR_EL1` to `0x8031ED000`; both match the independent
+`x23 + (VA - x22)` calculation. This strongly supports the
+*pre-MMU* mappings for code and exception vectors, but it does **not**
+prove that `SCTLR_EL1` completed or that the framebuffer is virtually
+accessible after MMU-on.
+
+**Next manual diagnostic (2026-10-30): `fbwalk-b`, directly in
+`main`, no new branches.** This SHA-pinned, read-only test uses the
+same verified `walk-b` base and changes 40 bytes only in the
+existing pre-SCTLR cave to inspect the `TTBR0` mapping of
+framebuffer VA `0xB8000000` (L1 index `02`, L2 index `1C0`).
+Expected boot-v4 SHA-256:
+`e16a4c797a1afdebfe3b7bd61b47bc79a64a24c769d2c77f5a5bda4be948887b`.
+No post-MMU framebuffer stores have been added. **Not yet tested
+on hardware; high risk, temporary `fastboot boot` only, never flash.**
+[Proof and next diagnostic](docs/DIZI-MMU-FBMAP-B.md).
+
+**Previous register diagnostic (2026-10-30): `regs-b`**. It rebuilds
 the physically proven `text-b` image and then patches **only** its existing
 pre-MMU diagnostic code cave (1,493 of 1,584 available bytes).
 The pre-`SCTLR_EL1` console should now report live hexadecimal
@@ -15,7 +36,7 @@ remain unchanged. Locally verified full boot-v4 SHA-256:
 Mach-O SHA-256:
 `a6222120639cc2fb39b5d3e353b623253d3cd9f58dd006685b95b8f1948f65eb`.
 
-**This is still HIGH RISK and has not been tested on physical hardware.**
+**`regs-b` and `walk-b` were tested on physical dizi; neither proves MMU-on.**
 The values are real pre-MMU register reads, not proof that MMU enable
 succeeded or that the page-table descriptors are correct.
 There are **no framebuffer writes after MMU-on**. Run via temporary

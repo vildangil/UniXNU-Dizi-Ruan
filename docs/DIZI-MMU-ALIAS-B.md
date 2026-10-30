@@ -12,12 +12,13 @@ that is not evidence the EFI menu was entered again.
 The fail branch occurs **before** the alias page-table store, so this
 photo does not demonstrate the installation of a framebuffer mapping or
 successful MMU enable. No `POST SCTLR OK` or `GUARD PASSED`
-checkpoint was reported. Exact guard expectation constants for
-TCR, TTBR1, VBAR, MAIR, L1, and L2 were independently disassembled
-and checked against prior hardware screenshots and agree. Which
-individual guard failed **at runtime remains unknown**.
+checkpoint was reported. The later hardware-tested `guard-b`
+identified **FAIL STEP 4**, showing actual
+`MAIR_EL1=0x0C0804FF00BB44FF`. The original guard expected
+`0x0C0804FF008B44FF` due to a mistaken photo transcription.
+This was an instrumentation error, not evidence of a hardware MAIR fault.
 
-### Safer diagnostic: guard-b (read-only, not yet hardware-tested)
+### Safer diagnostic: guard-b (hardware-confirmed failure at step 4)
 
 New source in main:
 [`ci/dizi_mmu_guard_b.S.in`](../ci/dizi_mmu_guard_b.S.in)
@@ -47,14 +48,52 @@ Pinned output boot-v4 SHA-256:
 `17e9504f4737d4b483df5c9d4fbd85d07a5829fd6fe3d711b9f0a3530ac8fba3`.
 Pinned output Mach-O SHA-256:
 `7fc9719c6d5205a911be58244e5242c55c3b6821bb4ec2756ff70b2a2ec69b6f`.
-Locally rebuilt twice with identical SHA; not tested on dizi.
+Locally rebuilt twice with identical SHA, and hardware-tested on dizi:
+`DIZI XNU ENTRY / FAIL STEP 4: 0C0804FF00BB44FF`.
 The existing manual [MMU A/B workflow](../.github/workflows/xnu-mmu-ab-lab.yml)
-now exposes **guard-b** as the default selection in `main` (commit
-`db343e6bf9af99a0f552051f441f4362947114a1`); its source was
-verified by a fresh GitHub readback. The original `alias-b`, `slot-b`
-and earlier diagnostics remain available. Select `guard-b`, publish the
-single rolling release asset, and use temporary `fastboot boot` only.
-Never flash partitions.
+includes **guard-b** for reproducing the now-understood failure.
+The safer default is **slot-b**; the fixed, high-risk `alias-b`
+must be chosen explicitly. All historical diagnostic variants remain
+available. Use temporary `fastboot boot` only; never flash partitions.
+
+## Fixed `alias-b` (2026-10-31): one-byte MAIR guard correction
+
+The photo in the previous section and the original `regs-b` photo
+both read **`0x0C0804FF00BB44FF`**. The old `alias-b` expected
+`0x0C0804FF008B44FF`: it rejected a healthy register because
+the previous photograph had been transcribed incorrectly.
+These values differ in **MAIR AttrIdx 2**; the actual framebuffer
+mapping uses **AttrIdx 3**, which remains `0x00` and means
+Device-nGnRnE. No change in the memory type is needed.
+
+Corrected the single AArch64 immediate
+`movk x10, #0x008b, lsl #16` to
+`movk x10, #0x00bb, lsl #16` in
+[`ci/dizi_mmu_alias_b.S.in`](../ci/dizi_mmu_alias_b.S.in).
+The rebuilt image differs from the previously published failing
+`alias-b` in **exactly one byte**, inside the existing experimental
+diagnostic code cave. All other bytes, including native
+`SCTLR_EL1/ISB/CMP/B.NE`, the framebuffer descriptor,
+EDK2, and Android boot metadata, are unchanged.
+
+| Image | Full boot-v4 SHA-256 |
+| --- | --- |
+| Historical failed alias-b | `6c7f4469a9da06fbd3dc0eeafc3f04f7268ab821c8d810f1e0458b05615e044a` |
+| **Corrected current alias-b** | **`ef9832e794860eedb6b2e11ba08edcf99eae030152d6dcc9496475d9b278c7dd`** |
+
+Corrected embedded Mach-O SHA-256:
+`991a06e89c1d75eccd0c82f7efc28127d877b8318178c343225cb3c34a341876`.
+The fixed image was rebuilt twice locally with identical hashes and
+the original and corrected images were compared byte-by-byte.
+**The corrected variant has not yet been tested on physical hardware.**
+
+This still **writes one live L2 descriptor** after exact guards.
+It can fault or hang; it is NOT a confirmed MMU fix.
+Only explicit opt-in `alias-b`, temporary `fastboot boot`,
+a working recovery, and **NEVER `fastboot flash`**.
+Look for `PRE ALIAS ARMED`, `POST SCTLR OK`,
+`GUARD PASSED` or `ALIAS GUARD FAIL`. Absence of
+post-MMU text is inconclusive.
 
 ## Hardware basis, 31 October 2026
 
@@ -161,16 +200,16 @@ must not be retained as a general framebuffer-driver implementation.
 - Input boot SHA-256:
   `ab1edbbc8b05fe9b59f0f6909ce84c75faf40c1c98edea6acb50d268c9e688ee`
 - Locally reproduced output boot SHA-256:
-  `6c7f4469a9da06fbd3dc0eeafc3f04f7268ab821c8d810f1e0458b05615e044a`
+  `ef9832e794860eedb6b2e11ba08edcf99eae030152d6dcc9496475d9b278c7dd`
 - Output embedded Mach-O SHA-256:
-  `fc51ca317cadc189042a78658f742ad78e9ea0af6bad60fead5dd1425db582f1`
+  `991a06e89c1d75eccd0c82f7efc28127d877b8318178c343225cb3c34a341876`
 - Compiler: clang AArch64 assembler, `llvm-objcopy`, `readelf`,
   `nm`; the compiled trace has no unresolved relocations.
 - Trace size: 1,163 bytes out of a pre-verified 1,584-byte cave.
 - Original native `SCTLR_EL1`, `ISB`, `CMP`, `B.NE`,
   EDK2, and the other boot-image bytes are unchanged.
 
-**This image has never been run on dizi hardware.** The new entry
+**The corrected image has never been run on dizi hardware.** The new entry
 may change the behaviour of the native bootstrap, and faulty mappings
 may produce a black screen, an exception, or a hang. Have working
 fastboot/recovery access and backups. **Use only `fastboot boot`;

@@ -115,6 +115,30 @@ defaults and two **opt-in** `cpus=2` menu profiles.
 The CPU count and register addresses are DT descriptions
 and do **not** prove the actual runtime register readbacks.
 
+### Source-only PSCI query helper now available
+
+[`package/Sm7435PsciReadOnly.c`](../package/Sm7435PsciReadOnly.c)
+and [its header](../package/Sm7435PsciReadOnly.h) implement
+**read-only** PSCI queries following the AArch64 SMCCC calling
+convention: `PSCI_VERSION` (`0x84000000`),
+`PSCI_FEATURES(CPU_ON64)` and
+`AFFINITY_INFO64` for physical affinities
+`0x000..0x700`. The function returns all results in a
+caller-provided 8-CPU snapshot without power-control calls.
+
+This helper was compiled locally using
+`clang --target=aarch64-none-elf -ffreestanding -Wall -Wextra -Werror`.
+The object disassembly contains `MRS MPIDR_EL1`
+and the read-only `SMC #0` wrapper. It is now included
+in `validate.yml` as a **compile-only** check. The helper
+is not linked into EDK2 or XNU and is **not run on the device**.
+When incorporated later, it must run only in a verified EL1
+calling context, with a working stack, accessible output RAM,
+and a confirmed SMC conduit. It can return an unsupported or
+disabled PSCI result; an SMC may trap if called in an
+inappropriate EL/context. It does **not** confirm that the
+secondary CPU reset vector, GICR, IPI or timers work.
+
 ### Real secondary CPU verification gates
 
 Do not attempt `PSCI CPU_ON` directly from the early

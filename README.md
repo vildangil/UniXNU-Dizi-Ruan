@@ -2,6 +2,27 @@
 
 Experimental [UniXNU](https://github.com/UniXNU/UniXNU) port for Xiaomi Redmi Pad Pro (`dizi`, Snapdragon SM7435). The `ruan` variant is not separately verified.
 
+**Latest hardware finding (2026-10-31): `fbwalk-b` proves there is no
+TTBR0 L1 mapping for framebuffer VA `0xB8000000`.** The real
+device printed `TTBR0=0x802F6D000`, `L1 DESC=0`, `STATUS=1`.
+The L1 descriptor at `0x802F6D010` is therefore invalid;
+earlier diagnostic writes to physical framebuffer addresses after
+enabling MMU could have caused a data abort. This does **not** prove
+execution actually reached those writes, nor does it establish that
+the native MMU transition succeeds.
+
+**New manual test in `main` — `slot-b`.** The existing single
+manual workflow now checks an unused prospective **TTBR1 high-VA
+alias slot**, L1 index C0 / L2 index 20, corresponding to
+`0xFFFFFFF004000000`. This is a read-only check *before*
+`SCTLR_EL1`; it does **not** map framebuffer PA `0xB8000000`
+or write page-table entries. It derives from the already
+hardware-tested `walk-b` image and modifies just 16 bytes of
+its existing diagnostic cave. Expected boot-v4 SHA-256:
+`ab1edbbc8b05fe9b59f0f6909ce84c75faf40c1c98edea6acb50d268c9e688ee`.
+The new image is **not yet tested**. Use temporary `fastboot boot`
+only, never flash. See [hardware evidence and slot-b rationale](docs/DIZI-MMU-FBMAP-B.md).
+
 **Hardware MMU translation result (2026-10-30):** `walk-b`
 read L1 `0x0000000802F70003` and L2 `0x0000000803000601`
 with `STATUS=2`, meaning an L2 **2-MiB block**, not a missing L3

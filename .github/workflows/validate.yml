@@ -10,6 +10,7 @@ on:
       - "package/unixnu.toml"
       - "porting.toml"
       - "ci/check_sm7435_smp.py"
+      - "package/Sm7435PsciReadOnly.*"
       - ".github/workflows/validate.yml"
 
 permissions:
@@ -69,6 +70,14 @@ jobs:
           set -euo pipefail
           python3 -m py_compile ci/check_sm7435_smp.py
           python3 ci/check_sm7435_smp.py --output sm7435-smp-audit.json
+      - name: Compile source-only read-only eight-core PSCI SMC helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          compiler="$(command -v clang-18 || command -v clang)"
+          test -n "$compiler"
+          "$compiler" --target=aarch64-none-elf -ffreestanding -Wall -Wextra -Werror \
+            -c package/Sm7435PsciReadOnly.c -o /tmp/Sm7435PsciReadOnly.o
       - name: Keep CPU topology audit for review
         uses: actions/upload-artifact@v4
         with:

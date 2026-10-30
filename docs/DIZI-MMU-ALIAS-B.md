@@ -1,5 +1,58 @@
 # Dizi UniXNU: guarded MMU-on framebuffer alias B
 
+## Hardware result: alias-b rejected its own guards (2026-10-31)
+
+The physical dizi screenshot of the exact `alias-b` Release
+(SHA-256 `6c7f4469a9da06fbd3dc0eeafc3f04f7268ab821c8d810f1e0458b05615e044a`)
+shows **DIZI XNU ENTRY** and **ALIAS GUARD FAIL**.
+The previous UniXNU menu remains visible beneath the diagnostic region
+because this renderer clears only the first 2 MiB of the framebuffer;
+that is not evidence the EFI menu was entered again.
+
+The fail branch occurs **before** the alias page-table store, so this
+photo does not demonstrate the installation of a framebuffer mapping or
+successful MMU enable. No `POST SCTLR OK` or `GUARD PASSED`
+checkpoint was reported. Exact guard expectation constants for
+TCR, TTBR1, VBAR, MAIR, L1, and L2 were independently disassembled
+and checked against prior hardware screenshots and agree. Which
+individual guard failed **at runtime remains unknown**.
+
+### Safer diagnostic: guard-b (read-only, not yet hardware-tested)
+
+New source in main:
+[`ci/dizi_mmu_guard_b.S.in`](../ci/dizi_mmu_guard_b.S.in)
+and [`ci/patch_dizi_mmu_guard_b.py`](../ci/patch_dizi_mmu_guard_b.py).
+They reconstruct the exact hardware-tested `slot-b` image, use the
+same early framebuffer font, check all eight alias preconditions,
+and display either `ALL CHECKS PASS` or
+`FAIL STEP N: <16-digit actual hexadecimal value>`.
+
+| Step | What was measured |
+| --- | --- |
+| 1 | TCR_EL1 |
+| 2 | TTBR1_EL1 |
+| 3 | VBAR_EL1 |
+| 4 | MAIR_EL1 |
+| 5 | SCTLR_EL1 M bit (must be disabled before transition) |
+| 6 | TTBR1 L1 kernel table descriptor |
+| 7 | TTBR1 L2 executable kernel block descriptor |
+| 8 | Proposed alias L2 entry (must be zero) |
+
+The measured actual register/descriptor is printed for the first
+disagreement, without attempting to bypass any safety guard.
+No page-table descriptors are written. No post-MMU framebuffer writes
+are added. Original native SCTLR/ISB/CMP/B.NE remain unchanged.
+
+Pinned output boot-v4 SHA-256:
+`17e9504f4737d4b483df5c9d4fbd85d07a5829fd6fe3d711b9f0a3530ac8fba3`.
+Pinned output Mach-O SHA-256:
+`7fc9719c6d5205a911be58244e5242c55c3b6821bb4ec2756ff70b2a2ec69b6f`.
+Locally rebuilt twice with identical SHA; not tested on dizi.
+The **existing Actions workflow does not yet expose guard-b**;
+the attempted GitHub workflow update was rejected by the connection.
+The locally built test image can be used via temporary `fastboot boot`.
+Never flash partitions.
+
 ## Hardware basis, 31 October 2026
 
 The user's on-device **slot-b** screenshot reached the existing

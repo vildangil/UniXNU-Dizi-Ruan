@@ -1,0 +1,320 @@
+.section .text.trace,"ax",%progbits
+.p2align 2
+.global dizi_entry_trampoline
+.global dizi_pre_trampoline
+.global dizi_post_trampoline
+.global dizi_guard_trampoline
+.global dizi_tpidr_trampoline
+.global dizi_return_trampoline
+.global dizi_branch_trampoline
+.global dizi_arm_init_trampoline
+// All instructions and strings are PC-relative, SP-free, flag-neutral.
+// The body uses only the same scratch registers as text-b plus x16 cookie.
+dizi_entry_trampoline:
+    adr x12, entry_resume
+    movz w13, #0
+    b dizi_renderer
+entry_resume:
+    nop
+dizi_pre_trampoline:
+    .inst 0xf28b27a0
+    adr x12, pre_resume
+    movz w16, #0
+    b check_alias
+pre_resume:
+    nop
+dizi_post_trampoline:
+    .inst 0xf2e00001
+    adr x12, post_resume
+    movz w9, #0xbeef
+    eor w9, w9, w16
+    cbnz w9, post_skip
+    mrs x9, SCTLR_EL1
+    tbz x9, #0, post_skip
+    movz w13, #2
+    b dizi_renderer
+post_skip:
+    b post_resume
+post_resume:
+    nop
+dizi_guard_trampoline:
+    .inst 0xd2a00600
+    adr x12, guard_resume
+    movz w9, #0xbeef
+    eor w9, w9, w16
+    cbnz w9, guard_skip
+    movz w13, #3
+    b dizi_renderer
+guard_skip:
+    b guard_resume
+guard_resume:
+    nop
+// Exact device-photo register and table-content guards.
+// This block is executed before the native SCTLR write.
+dizi_tpidr_trampoline:
+    .inst 0xd518d09f
+    adr x12, tpidr_resume
+    movz w9, #0xbeef
+    eor w9, w9, w16
+    cbnz w9, tpidr_skip
+    movz w13, #5
+    b dizi_renderer
+tpidr_skip:
+    b tpidr_resume
+tpidr_resume:
+    nop
+dizi_return_trampoline:
+    adr x12, return_resume
+    movz w9, #0xbeef
+    eor w9, w9, w16
+    cbnz w9, return_resume
+    movz w13, #6
+    b dizi_renderer
+return_resume:
+    ret
+dizi_branch_trampoline:
+    adr x12, branch_resume
+    movz w9, #0xbeef
+    eor w9, w9, w16
+    cbnz w9, branch_resume
+    movz w13, #9
+    b dizi_renderer
+branch_resume:
+    br x0
+dizi_arm_init_trampoline:
+    .inst 0xd10343ff
+    adr x12, arm_init_resume
+    mrs x9, MPIDR_EL1
+    ubfx x9, x9, #0, #24
+    cbnz x9, arm_init_other
+    movz w13, #7
+    b dizi_renderer
+arm_init_other:
+    movz w13, #8
+    b dizi_renderer
+arm_init_resume:
+    nop
+check_alias:
+    mrs x9, TCR_EL1
+    movz x10, #0x251a
+    movk x10, #0xa51a, lsl #16
+    movk x10, #0x22, lsl #32
+    eor x11, x9, x10
+    cbnz x11, alias_fail
+    mrs x9, TTBR1_EL1
+    movz x10, #0xe000
+    movk x10, #0x02f6, lsl #16
+    movk x10, #0x0008, lsl #32
+    eor x11, x9, x10
+    cbnz x11, alias_fail
+    mrs x9, VBAR_EL1
+    movz x10, #0xd000
+    movk x10, #0x073e, lsl #16
+    movk x10, #0xfff0, lsl #32
+    movk x10, #0xffff, lsl #48
+    eor x11, x9, x10
+    cbnz x11, alias_fail
+    mrs x9, MAIR_EL1
+    movz x10, #0x44ff
+    movk x10, #0x00bb, lsl #16
+    movk x10, #0x04ff, lsl #32
+    movk x10, #0x0c08, lsl #48
+    eor x11, x9, x10
+    cbnz x11, alias_fail
+    mrs x9, SCTLR_EL1
+    tbnz x9, #0, alias_fail
+    movz x10, #0xe000
+    movk x10, #0x02f6, lsl #16
+    movk x10, #0x0008, lsl #32
+    ldr x9, [x10, #0x600]
+    movz x11, #0x0003
+    movk x11, #0x02f7, lsl #16
+    movk x11, #0x0008, lsl #32
+    eor x9, x9, x11
+    cbnz x9, alias_fail
+    movz x10, #0x0000
+    movk x10, #0x02f7, lsl #16
+    movk x10, #0x0008, lsl #32
+    ldr x9, [x10, #0x1c8]
+    movz x11, #0x0601
+    movk x11, #0x0300, lsl #16
+    movk x11, #0x0008, lsl #32
+    eor x9, x9, x11
+    cbnz x9, alias_fail
+    ldr x9, [x10, #0x100]
+    cbnz x9, alias_fail
+    // Physical framebuffer first 2MiB, AttrIdx=3 Device-nGnRnE,
+    // AF=1, nG=1, AP=0, SH=0, PXN=1, UXN=1, block type=01.
+    movz x9, #0x0c0d
+    movk x9, #0xb800, lsl #16
+    movk x9, #0x0060, lsl #48
+    str x9, [x10, #0x100]
+    dsb ishst
+    tlbi vmalle1
+    dsb ish
+    isb
+    movz w16, #0xbeef
+    movz w13, #1
+    b dizi_renderer
+alias_fail:
+    movz w16, #0
+    movz w13, #4
+    b dizi_renderer
+// Stage0 clears first two framebuffer MiB before MMU-on.
+// Stage1 uses physical PA. Stage2/3 only use a TTBR1 high-VA alias
+// if the guard/cookie and SCTLR-enable check succeeded.
+dizi_renderer:
+    movz x9, #0
+    movk x9, #0xb800, lsl #16
+    cbz w13, render_entry
+    sub w11, w13, #1
+    cbz w11, render_pre
+    sub w11, w13, #4
+    cbz w11, render_fail
+    movz x9, #0
+    movk x9, #0x0400, lsl #16
+    movk x9, #0xfff0, lsl #32
+    movk x9, #0xffff, lsl #48
+    sub w11, w13, #2
+    cbz w11, render_post
+    sub w11, w13, #3
+    cbz w11, render_guard
+    sub w11, w13, #5
+    cbz w11, render_tpidr
+    sub w11, w13, #6
+    cbz w11, render_handoff
+    sub w11, w13, #7
+    cbz w11, render_arm_init
+    sub w11, w13, #8
+    cbz w11, render_other
+    b render_branch
+render_entry:
+    mov x2, x9
+    movz w10, #0x1324
+    movk w10, #0xff0c, lsl #16
+    movz x4, #0
+    movk x4, #4, lsl #16
+clear_loop:
+    stp w10, w10, [x2], #8
+    sub x4, x4, #1
+    cbnz x4, clear_loop
+    dsb sy
+    adr x15, msg_entry
+    movz x11, #0x40a0
+    movk x11, #0x0006, lsl #16
+    b draw_text
+render_pre:
+    adr x15, msg_pre
+    movz x11, #0xbea0
+    movk x11, #0x000a, lsl #16
+    b draw_text
+render_fail:
+    adr x15, msg_fail
+    movz x11, #0xbea0
+    movk x11, #0x000a, lsl #16
+    b draw_text
+render_post:
+    adr x15, msg_post
+    movz x11, #0x9aa0
+    movk x11, #0x0010, lsl #16
+    b draw_text
+render_guard:
+    adr x15, msg_guard
+    movz x11, #0x76a0
+    movk x11, #0x0016, lsl #16
+    b draw_text
+render_tpidr:
+    adr x15, msg_tpidr
+    movz x11, #0xafa0
+    movk x11, #0x0019, lsl #16
+    b draw_text
+render_handoff:
+    adr x15, msg_handoff
+    b draw_last_row
+render_arm_init:
+    adr x15, msg_arm_init
+    b draw_last_row
+render_other:
+    adr x15, msg_arm_other
+    b draw_last_row
+render_branch:
+    adr x15, msg_branch
+    b draw_last_row
+draw_last_row:
+    movz x11, #0xe8a0
+    movk x11, #0x001c, lsl #16
+    add x9, x9, x11
+    movz x6, #28
+    movz w5, #0x1324
+    movk w5, #0xff0c, lsl #16
+clear_last_row:
+    mov x2, x9
+    movz x4, #528
+clear_last_pixels:
+    stp w5, w5, [x2], #8
+    sub x4, x4, #1
+    cbnz x4, clear_last_pixels
+    add x9, x9, #0x1000
+    add x9, x9, #0x900
+    sub x6, x6, #1
+    cbnz x6, clear_last_row
+    movz x9, #0
+    movk x9, #0x0400, lsl #16
+    movk x9, #0xfff0, lsl #32
+    movk x9, #0xffff, lsl #48
+draw_text:
+    add x7, x9, x11
+    movz w10, #0xf0ff
+    movk w10, #0xffe6, lsl #16
+    movz x3, #6400
+    adr x17, font5_table
+next_char:
+    ldrb w8, [x15], #1
+    cbz w8, render_done
+    sub w8, w8, #32
+    lsl x5, x8, #3
+    sub x5, x5, x8
+    add x5, x17, x5
+    mov x2, x7
+    movz x4, #7
+next_glyph_row:
+    ldrb w11, [x5], #1
+    mov x14, x2
+    movz x6, #5
+next_glyph_bit:
+    tbz w11, #4, glyph_blank
+    mov x9, x14
+    movz x8, #4
+pixel_rows:
+    stp w10, w10, [x9]
+    stp w10, w10, [x9, #8]
+    add x9, x9, x3
+    sub x8, x8, #1
+    cbnz x8, pixel_rows
+glyph_blank:
+    add x14, x14, #16
+    lsl w11, w11, #1
+    sub x6, x6, #1
+    cbnz x6, next_glyph_bit
+    add x2, x2, x3, lsl #2
+    sub x4, x4, #1
+    cbnz x4, next_glyph_row
+    add x7, x7, #96
+    b next_char
+render_done:
+    dsb sy
+    br x12
+.p2align 2
+font5_table:
+FONT_DATA
+.p2align 2
+msg_entry: .asciz "DIZI XNU ENTRY"
+msg_pre:   .asciz "PRE ALIAS ARMED"
+msg_fail:  .asciz "ALIAS GUARD FAIL"
+msg_post:  .asciz "POST SCTLR OK"
+msg_guard: .asciz "GUARD PASSED"
+msg_tpidr: .asciz "TPIDR DONE"
+msg_handoff: .asciz "RETURN TO ARM_INIT"
+msg_branch: .asciz "SECONDARY BRANCH"
+msg_arm_init: .asciz "ARM_INIT CPU0"
+msg_arm_other: .asciz "ARM_INIT OTHER CPU"

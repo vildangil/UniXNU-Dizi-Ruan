@@ -11,7 +11,7 @@
 | xnu-prelink-sm7435-linux.yml | Linux prelink fallback |
 | publish-xnu-source.yml | Owner-approved publishing of source-build results |
 | promote-dizi-control-boot.yml | Owner-controlled promotion of an existing tested image |
-| xnu-mmu-ab-lab.yml | Manual B-series MMU A/B; defaults to guarded pre-SCTLR TTBR0 framebuffer mapping checks |
+| xnu-mmu-ab-lab.yml | Manual B-series MMU A/B; defaults to pre-SCTLR read-only TTBR1 virtual alias slot check |
 
 The older one-off workflow files (EBS trace, ADT, DarwinEnter, first opcode,
 bootstrap checkpoints, and one-workflow-per-MMU-marker) were removed from the
@@ -31,7 +31,8 @@ files can be recovered from git history if needed.
    - text-b: original hardware-tested text console before SCTLR, no post-MMU framebuffer writes;
    - regs-b: physical screenshot confirms live pre-SCTLR EL1 register readout;
    - walk-b: hardware-proven L1/L2 block mapping for native XNU code and VBAR;
-   - **fbwalk-b (new default)**: read-only TTBR0 walk of framebuffer VA 0xB8000000 before SCTLR; see [FB map evidence and test](DIZI-MMU-FBMAP-B.md).
+   - fbwalk-b: hardware-confirmed absence of TTBR0 identity mapping at framebuffer VA 0xB8000000 (L1=0, STATUS=1);
+   - **slot-b (new default)**: read-only candidate slot test in TTBR1 L1 C0 / L2 20, for a possible future 2-MiB high-VA framebuffer alias; see [FB map evidence](DIZI-MMU-FBMAP-B.md).
 3. Leave **publish_release=true** to replace the **one** image at
    https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-latest-test .
    With **publish_release=false** the output is only in **Actions Artifacts**.
@@ -193,6 +194,42 @@ A separate `fbwalk-b` test now checks whether the framebuffer
 has a usable TTBR0 virtual mapping after the transition, without
 accessing the framebuffer post-MMU.
 See [docs/DIZI-MMU-FBMAP-B.md](DIZI-MMU-FBMAP-B.md).
+
+## Read-only TTBR1 alias-slot B diagnostic (2026-10-31)
+
+The physical `fbwalk-b` run (SHA-256
+`e16a4c797a1afdebfe3b7bd61b47bc79a64a24c769d2c77f5a5bda4be948887b`)
+showed `TTBR0=0x802F6D000`, `L1 DESC=0` and `STATUS=1`.
+The low virtual address `0xB8000000` therefore has no mapping
+in the observed TTBR0 root. Missing post-SCTLR physical framebuffer
+writes are consistent with a translation fault, but the transition
+itself is not proven to have completed.
+
+The new `slot-b` workflow variant starts with the exact already
+hardware-confirmed `walk-b` binary, modifies only **16 bytes of its
+existing pre-SCTLR code cave**, and uses the same safe L1 table
+probe to read L2 index `0x20` in TTBR1. This corresponds to
+proposed future framebuffer alias VA `0xFFFFFFF004000000`,
+separated from the current XNU code VA range. It **does not**
+install the alias or write page tables.
+
+- Output boot-v4 SHA-256:
+  `ab1edbbc8b05fe9b59f0f6909ce84c75faf40c1c98edea6acb50d268c9e688ee`
+- Output Mach-O SHA-256:
+  `9e0f5f1411d674879ceedad09736e941349d487bb4836949e8a3bc51c4289662`
+- Source: [ci/patch_dizi_mmu_slot_b.py](../ci/patch_dizi_mmu_slot_b.py).
+- The text `SLOT L2: 0000000000000000` with `STATUS=2`
+  means the candidate entry is unused **at the moment of this read**.
+  This is not a live framebuffer mapping and not permission to
+  overwrite an existing XNU table entry without further checks.
+- `STATUS=0/1` means the guard or table walk did not reach L2.
+  An occupied L2 entry must never be overwritten.
+
+The test changes no EDK2, DarwinBoot, original XNU MMU system
+register instructions or kernel mappings. It performs **no
+post-MMU stores** and has not been tested on physical dizi yet.
+Temporary `fastboot boot` only, **never flash**. Capture a clear
+photo of `SLOT L2` and `STATUS` before any mapping experiment.
 
 ## Interpretation / limitations
 

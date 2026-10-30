@@ -48,9 +48,12 @@ Pinned output boot-v4 SHA-256:
 Pinned output Mach-O SHA-256:
 `7fc9719c6d5205a911be58244e5242c55c3b6821bb4ec2756ff70b2a2ec69b6f`.
 Locally rebuilt twice with identical SHA; not tested on dizi.
-The **existing Actions workflow does not yet expose guard-b**;
-the attempted GitHub workflow update was rejected by the connection.
-The locally built test image can be used via temporary `fastboot boot`.
+The existing manual [MMU A/B workflow](../.github/workflows/xnu-mmu-ab-lab.yml)
+now exposes **guard-b** as the default selection in `main` (commit
+`db343e6bf9af99a0f552051f441f4362947114a1`); its source was
+verified by a fresh GitHub readback. The original `alias-b`, `slot-b`
+and earlier diagnostics remain available. Select `guard-b`, publish the
+single rolling release asset, and use temporary `fastboot boot` only.
 Never flash partitions.
 
 ## Hardware basis, 31 October 2026

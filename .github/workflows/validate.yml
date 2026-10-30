@@ -9,6 +9,7 @@ on:
       - "dts/**"
       - "package/unixnu.toml"
       - "porting.toml"
+      - "ci/check_sm7435_smp.py"
       - ".github/workflows/validate.yml"
 
 permissions:
@@ -62,3 +63,16 @@ jobs:
           assert required <= {area["id"] for area in record["area"]}
           print("Dizi SM7435 device-port scaffolding: validated (not bootable)")
           PY
+      - name: SM7435 SMP MPIDR/PSCI/GICR preflight (offline, no CPU_ON)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile ci/check_sm7435_smp.py
+          python3 ci/check_sm7435_smp.py --output sm7435-smp-audit.json
+      - name: Keep CPU topology audit for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: dizi-sm7435-smp-source-preflight
+          path: sm7435-smp-audit.json
+          if-no-files-found: error
+          retention-days: 30

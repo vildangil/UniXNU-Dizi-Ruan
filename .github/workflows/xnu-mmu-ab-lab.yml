@@ -23,6 +23,7 @@ on:
           - alias-b
           - guard-b
           - deep-b
+          - arch-b
       publish_release:
         description: 'Replace the single dizi-xnu-latest-test release asset'
         type: boolean
@@ -85,8 +86,8 @@ jobs:
           VARIANT: ${{ inputs.variant }}
         run: |
           set -euo pipefail
-          python3 -m py_compile ci/build_dizi_mmu_variant.py ci/patch_dizi_post_mmu_b.py ci/patch_dizi_text_console_b.py ci/patch_dizi_mmu_registers_b.py ci/patch_dizi_mmu_walk_b.py ci/patch_dizi_mmu_fbwalk_b.py ci/patch_dizi_mmu_slot_b.py ci/patch_dizi_mmu_alias_b.py ci/patch_dizi_mmu_guard_b.py ci/patch_dizi_mmu_deep_b.py
-          if [ "$VARIANT" = "postmmu-b" ] || [ "$VARIANT" = "text-b" ] || [ "$VARIANT" = "regs-b" ] || [ "$VARIANT" = "walk-b" ] || [ "$VARIANT" = "fbwalk-b" ] || [ "$VARIANT" = "slot-b" ] || [ "$VARIANT" = "alias-b" ] || [ "$VARIANT" = "guard-b" ] || [ "$VARIANT" = "deep-b" ]; then
+          python3 -m py_compile ci/build_dizi_mmu_variant.py ci/patch_dizi_post_mmu_b.py ci/patch_dizi_text_console_b.py ci/patch_dizi_mmu_registers_b.py ci/patch_dizi_mmu_walk_b.py ci/patch_dizi_mmu_fbwalk_b.py ci/patch_dizi_mmu_slot_b.py ci/patch_dizi_mmu_alias_b.py ci/patch_dizi_mmu_guard_b.py ci/patch_dizi_mmu_deep_b.py ci/patch_dizi_mmu_arch_b.py
+          if [ "$VARIANT" = "postmmu-b" ] || [ "$VARIANT" = "text-b" ] || [ "$VARIANT" = "regs-b" ] || [ "$VARIANT" = "walk-b" ] || [ "$VARIANT" = "fbwalk-b" ] || [ "$VARIANT" = "slot-b" ] || [ "$VARIANT" = "alias-b" ] || [ "$VARIANT" = "guard-b" ] || [ "$VARIANT" = "deep-b" ] || [ "$VARIANT" = "arch-b" ]; then
             # Both variants start at the SHA-pinned orange-b from the immutable
             # fifth-NOSP release. Reconstruct the exact prior post-SCTLR image.
             python3 ci/build_dizi_mmu_variant.py \
@@ -96,7 +97,7 @@ jobs:
               --input intermediate/Mu-dizi-XNU-ORANGE-NOSP-B-NZCV-HIGH-RISK.img \
               --output intermediate/Mu-dizi-XNU-POST-SCTLR-B-HIGH-RISK.img \
               --report intermediate/POSTMMU-BASE-AUDIT.json
-            if [ "$VARIANT" = "text-b" ] || [ "$VARIANT" = "regs-b" ] || [ "$VARIANT" = "walk-b" ] || [ "$VARIANT" = "fbwalk-b" ] || [ "$VARIANT" = "slot-b" ] || [ "$VARIANT" = "alias-b" ] || [ "$VARIANT" = "guard-b" ] || [ "$VARIANT" = "deep-b" ]; then
+            if [ "$VARIANT" = "text-b" ] || [ "$VARIANT" = "regs-b" ] || [ "$VARIANT" = "walk-b" ] || [ "$VARIANT" = "fbwalk-b" ] || [ "$VARIANT" = "slot-b" ] || [ "$VARIANT" = "alias-b" ] || [ "$VARIANT" = "guard-b" ] || [ "$VARIANT" = "deep-b" ] || [ "$VARIANT" = "arch-b" ]; then
               # Recreate the exact hardware-tested text-b byte-for-byte
               # (SHA-256 25842763...), then optionally replace only its
               # diagnostic cave with real pre-SCTLR register readout.
@@ -104,34 +105,44 @@ jobs:
                 --input intermediate/Mu-dizi-XNU-POST-SCTLR-B-HIGH-RISK.img \
                 --output intermediate/Mu-dizi-XNU-TEXT-B-HIGH-RISK.img \
                 --report intermediate/TEXT-B-BASE-AUDIT.json
-              if [ "$VARIANT" = "regs-b" ] || [ "$VARIANT" = "walk-b" ] || [ "$VARIANT" = "fbwalk-b" ] || [ "$VARIANT" = "slot-b" ] || [ "$VARIANT" = "alias-b" ] || [ "$VARIANT" = "guard-b" ] || [ "$VARIANT" = "deep-b" ]; then
+              if [ "$VARIANT" = "regs-b" ] || [ "$VARIANT" = "walk-b" ] || [ "$VARIANT" = "fbwalk-b" ] || [ "$VARIANT" = "slot-b" ] || [ "$VARIANT" = "alias-b" ] || [ "$VARIANT" = "guard-b" ] || [ "$VARIANT" = "deep-b" ] || [ "$VARIANT" = "arch-b" ]; then
                 # Rebuild the screenshot-confirmed regs-b with exact SHA.
                 python3 ci/patch_dizi_mmu_registers_b.py \
                   --input intermediate/Mu-dizi-XNU-TEXT-B-HIGH-RISK.img \
                   --output intermediate/Mu-dizi-XNU-REGS-B-HIGH-RISK.img \
                   --report intermediate/REGS-B-BASE-AUDIT.json
-                if [ "$VARIANT" = "walk-b" ] || [ "$VARIANT" = "fbwalk-b" ] || [ "$VARIANT" = "slot-b" ] || [ "$VARIANT" = "alias-b" ] || [ "$VARIANT" = "guard-b" ] || [ "$VARIANT" = "deep-b" ]; then
+                if [ "$VARIANT" = "walk-b" ] || [ "$VARIANT" = "fbwalk-b" ] || [ "$VARIANT" = "slot-b" ] || [ "$VARIANT" = "alias-b" ] || [ "$VARIANT" = "guard-b" ] || [ "$VARIANT" = "deep-b" ] || [ "$VARIANT" = "arch-b" ]; then
                   # Limited read-only pre-SCTLR L1/L2/L3 descriptor capture,
                   # from the SHA-pinned, locally verified 1569-byte ARM64 blob.
                   python3 ci/patch_dizi_mmu_walk_b.py \
                     --input intermediate/Mu-dizi-XNU-REGS-B-HIGH-RISK.img \
                     --output intermediate/Mu-dizi-XNU-WALK-B-HIGH-RISK.img \
                     --report intermediate/WALK-B-BASE-AUDIT.json
-                  if [ "$VARIANT" = "slot-b" ] || [ "$VARIANT" = "alias-b" ] || [ "$VARIANT" = "guard-b" ] || [ "$VARIANT" = "deep-b" ]; then
+                  if [ "$VARIANT" = "slot-b" ] || [ "$VARIANT" = "alias-b" ] || [ "$VARIANT" = "guard-b" ] || [ "$VARIANT" = "deep-b" ] || [ "$VARIANT" = "arch-b" ]; then
                     # Reconstruct photographed slot-b byte-for-byte.
                     python3 ci/patch_dizi_mmu_slot_b.py \
                       --input intermediate/Mu-dizi-XNU-WALK-B-HIGH-RISK.img \
                       --output intermediate/Mu-dizi-XNU-SLOT-B-HIGH-RISK.img \
                       --report intermediate/SLOT-B-BASE-AUDIT.json
-                    if [ "$VARIANT" = "deep-b" ]; then
-                      # One full pre/post MMU trace: TPIDR, native return/BR,
-                      # first _arm_init opcode and read-only BSP MPIDR check.
-                      # Does NOT use PSCI CPU_ON or touch secondary cores.
+                    if [ "$VARIANT" = "deep-b" ] || [ "$VARIANT" = "arch-b" ]; then
+                      # Reconstruct the exact photographed deep-b checkpoint.
                       python3 ci/patch_dizi_mmu_deep_b.py \
                         --input intermediate/Mu-dizi-XNU-SLOT-B-HIGH-RISK.img \
-                        --output dist/Mu-dizi-XNU-DEEP-B-HIGH-RISK.img \
-                        --report dist/MMU-AB-AUDIT.json
-                      (cd dist && sha256sum Mu-dizi-XNU-DEEP-B-HIGH-RISK.img > SHA256SUMS.txt)
+                        --output intermediate/Mu-dizi-XNU-DEEP-B-HIGH-RISK.img \
+                        --report intermediate/DEEP-B-BASE-AUDIT.json
+                      if [ "$VARIANT" = "arch-b" ]; then
+                        # Read-only _arm_init MRS checks: EL, timer, MMU,
+                        # TPIDR, MIDR and core affinity. No CPU_ON or new MMIO.
+                        python3 ci/patch_dizi_mmu_arch_b.py \
+                          --input intermediate/Mu-dizi-XNU-DEEP-B-HIGH-RISK.img \
+                          --output dist/Mu-dizi-XNU-ARCH-B-HIGH-RISK.img \
+                          --report dist/MMU-AB-AUDIT.json
+                        (cd dist && sha256sum Mu-dizi-XNU-ARCH-B-HIGH-RISK.img > SHA256SUMS.txt)
+                      else
+                        cp intermediate/Mu-dizi-XNU-DEEP-B-HIGH-RISK.img dist/
+                        cp intermediate/DEEP-B-BASE-AUDIT.json dist/MMU-AB-AUDIT.json
+                        (cd dist && sha256sum Mu-dizi-XNU-DEEP-B-HIGH-RISK.img > SHA256SUMS.txt)
+                      fi
                     elif [ "$VARIANT" = "guard-b" ]; then
                       python3 ci/patch_dizi_mmu_guard_b.py \
                         --input intermediate/Mu-dizi-XNU-SLOT-B-HIGH-RISK.img \

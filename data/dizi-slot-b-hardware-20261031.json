@@ -1,0 +1,28 @@
+{
+  "device": "Xiaomi Redmi Pad Pro dizi",
+  "observation_date": "2026-10-31",
+  "variant": "slot-b",
+  "source": "On-device screenshot; manual transcription; pre-SCTLR read-only measurement",
+  "boot_v4_sha256": "ab1edbbc8b05fe9b59f0f6909ce84c75faf40c1c98edea6acb50d268c9e688ee",
+  "registers": {
+    "TCR_EL1": "0x00000022A51A251A",
+    "TTBR1_EL1": "0x0000000802F6E000",
+    "VBAR_EL1": "0xFFFFFFF0073ED000",
+    "X22": "0xFFFFFFF007004000",
+    "X23": "0x0000000802E04000"
+  },
+  "walk": {
+    "l1_descriptor": "0x0000000802F70003",
+    "proposed_alias_slot_l2_descriptor": "0x0000000000000000",
+    "l3_pc": "0x0000000000000000",
+    "l3_vbr": "0x0000000000000000",
+    "status": 2,
+    "l1_index": "0xC0",
+    "l2_index": "0x20",
+    "candidate_alias_va": "0xFFFFFFF004000000",
+    "l2_slot_entry_pa": "0x802F70100",
+    "framebuffer_pa": "0xB8000000"
+  },
+  "interpretation": "The L1 table pointer is valid; candidate L2 slot is zero at the sampled pre-SCTLR instant. It is not yet mapped and the MMU transition itself is unproven.",
+  "hardware_post_sctlr_execution_confirmed": false
+}

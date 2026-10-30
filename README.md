@@ -2,6 +2,38 @@
 
 Experimental [UniXNU](https://github.com/UniXNU/UniXNU) port for Xiaomi Redmi Pad Pro (`dizi`, Snapdragon SM7435). The `ruan` variant is not separately verified.
 
+**31 October 2026 — hardware deep-b reached `_arm_init CPU0`.**
+The user's physical dizi photo shows `DIZI XNU ENTRY`,
+`PRE ALIAS ARMED`, `POST SCTLR OK`, `GUARD PASSED`,
+**`TPIDR DONE`** and **`ARM_INIT CPU0`**. This confirms
+the native CPU bootstrap reached the first instrumented
+`_arm_init` instruction after MMU-on and TPIDR zeroing.
+It does **not** prove `_arm_init` completed, and **no other
+CPU** has been powered on by the test.
+
+**New optional `arch-b` diagnostic:** same already hardware-confirmed
+deep-b handoff; read-only `CurrentEL`, `CNTFRQ_EL0`,
+`SCTLR_EL1.M`, `TPIDR_EL1`, `MIDR_EL1` and bootstrap
+`MPIDR_EL1` are checked at `_arm_init`. It will show either
+`ARCH REGS OK` or `ARCH REGS FAIL`. The new test
+changes only the existing traced code cave and does not
+start any CPU, but **still inherits the earlier guarded
+framebuffer L2 alias write**. Full boot-v4 SHA-256:
+`58c612f6f09776747f2a2ccecad7e82a0fd7ee0fae632e55c5a1f56ae786772b`.
+Locally rebuilt twice; **not yet tested on device**.
+It is an explicit choice in the existing manual MMU workflow;
+`slot-b` remains the default.
+
+**Additional checks beyond CPU:** the manual/PR-only
+`validate.yml` now audits recovery-vs-FDT RAM sizes
+(**6,061 MiB vs 7,944 MiB**), the reserved 43-MiB
+GOP framebuffer, TTBR table locations and the unvalidated
+high-memory candidate. This is an **offline** source check,
+not a real UEFI memory allocation map. No GIC MMIO,
+storage controller or secondary-core power operation
+is attempted. [Read the MMU/SMP and memory test plan](docs/DIZI-DEEP-SMP-PREFLIGHT.md).
+Temporary `fastboot boot` **only**; never flash.
+
 **31 October 2026 — MMU-on confirmed; new deep-b and SMP preflight.**
 The corrected, SHA-pinned `alias-b` ran on physical Redmi Pad Pro
 with **`DIZI XNU ENTRY`, `PRE ALIAS ARMED`, `POST SCTLR OK`,
@@ -17,7 +49,8 @@ read-only `MPIDR_EL1` CPU0 affinity. It retains the original
 kernel, DarwinBoot, EDK2 and working MMU alias; no other CPUs
 are powered on. Exact boot-v4 SHA-256:
 `4acf22fe3b0fb389ccc057b591b7c41fc57e0e0c32eaa246342f34e85c232c45`.
-The tracer was built twice locally and is **not yet hardware-tested**.
+The `deep-b` tracer was subsequently **hardware-tested on dizi**
+and reached `ARM_INIT CPU0`; subsequent `_arm_init` progress is unknown.
 
 The pinned [SM7435 common](https://github.com/vildangil/UniXNU-sm7435-common)
 XNU SMP source patch has also been repaired to preserve Aff1
@@ -39,7 +72,8 @@ regs-b photograph**, which was previously misread as
 and the framebuffer mapping still uses MAIR AttrIdx 3 = `0x00`
 (Device-nGnRnE). Exact corrected boot-v4 SHA-256:
 `ef9832e794860eedb6b2e11ba08edcf99eae030152d6dcc9496475d9b278c7dd`.
-The corrected variant **has not been hardware-tested** and still
+The corrected `alias-b` variant **was hardware-tested** and passed
+`POST SCTLR OK` and `GUARD PASSED`, but it still
 writes one live L2 mapping. Choose **alias-b** explicitly in the
 single manual workflow in `main`; the default remains the safer
 `slot-b`. Only temporary `fastboot boot`, **never flash**.
@@ -53,7 +87,7 @@ That does not mean the framebuffer is already mapped or that
 MMU enabling succeeds.
 
 **Experimental `alias-b` (HIGH RISK): initial run failed at MAIR guard;
-corrected one-byte build is not yet hardware-tested.**
+corrected one-byte build subsequently passed the MMU-on test.**
 The existing **manual** GitHub Actions workflow in `main`
 now offers `alias-b` as an explicit choice; its safer
 default remains `slot-b`. On exact register and page-table

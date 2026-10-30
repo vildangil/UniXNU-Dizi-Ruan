@@ -11,7 +11,7 @@
 | xnu-prelink-sm7435-linux.yml | Linux prelink fallback |
 | publish-xnu-source.yml | Owner-approved publishing of source-build results |
 | promote-dizi-control-boot.yml | Owner-controlled promotion of an existing tested image |
-| xnu-mmu-ab-lab.yml | Manual B-series MMU A/B; defaults to guarded read-only pre-SCTLR descriptor capture |
+| xnu-mmu-ab-lab.yml | Manual B-series MMU A/B; defaults to guarded pre-SCTLR TTBR0 framebuffer mapping checks |
 
 The older one-off workflow files (EBS trace, ADT, DarwinEnter, first opcode,
 bootstrap checkpoints, and one-workflow-per-MMU-marker) were removed from the
@@ -30,7 +30,8 @@ files can be recovered from git history if needed.
    - postmmu-b: historical orange-b plus Y552/Y576; the 2026-10-29 physical test was inconclusive because GOP PA may be unmapped after MMU enable;
    - text-b: original hardware-tested text console before SCTLR, no post-MMU framebuffer writes;
    - regs-b: physical screenshot confirms live pre-SCTLR EL1 register readout;
-   - **walk-b (new default)**: SHA-pinned regs-b plus guarded page-table descriptor reads before SCTLR; see [walk-b documentation](DIZI-MMU-WALK-B.md).
+   - walk-b: hardware-proven L1/L2 block mapping for native XNU code and VBAR;
+   - **fbwalk-b (new default)**: read-only TTBR0 walk of framebuffer VA 0xB8000000 before SCTLR; see [FB map evidence and test](DIZI-MMU-FBMAP-B.md).
 3. Leave **publish_release=true** to replace the **one** image at
    https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-latest-test .
    With **publish_release=false** the output is only in **Actions Artifacts**.
@@ -181,6 +182,17 @@ POST MMU: NOT PROBED
   temporary `fastboot boot`, keep recovery working and **never flash**.
   Save a clear photo showing all hex values, the build SHA and run ID.
 - This does **not** import the old ios-sweet bootloader or replace UniXNU.
+
+
+**2026-10-30 hardware result:** `walk-b` reached STATUS=2, with
+L1 descriptor `0x802F70003` and L2 block descriptor `0x803000601`.
+The first post-ISB instruction and VBAR both translate to the exact
+physical addresses predicted by x22/x23. This is evidence of a
+consistent pre-MMU mapping, NOT proof of successfully enabling MMU.
+A separate `fbwalk-b` test now checks whether the framebuffer
+has a usable TTBR0 virtual mapping after the transition, without
+accessing the framebuffer post-MMU.
+See [docs/DIZI-MMU-FBMAP-B.md](DIZI-MMU-FBMAP-B.md).
 
 ## Interpretation / limitations
 

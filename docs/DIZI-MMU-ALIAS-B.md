@@ -1,6 +1,45 @@
 # Dizi UniXNU: guarded MMU-on framebuffer alias B
 
-## Hardware result: alias-b rejected its own guards (2026-10-31)
+## First confirmed XNU MMU-on execution on dizi (31 October 2026)
+
+A physical tablet screenshot of **corrected `alias-b`** shows, in order:
+
+```text
+DIZI XNU ENTRY
+PRE ALIAS ARMED
+POST SCTLR OK
+GUARD PASSED
+```
+
+The rolling GitHub release at hardware-test time contained exactly
+`Mu-dizi-XNU-LATEST-TEST.img`, SHA-256
+`ef9832e794860eedb6b2e11ba08edcf99eae030152d6dcc9496475d9b278c7dd`,
+published by [Actions run #41136028600](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41136028600).
+The photographed messages match the SHA-pinned ARM64 code.
+
+**Hardware-confirmed facts:** a single TTBR1 L2 framebuffer alias was
+installed after guarded checks, the CPU executed the native
+`msr SCTLR_EL1, x0` and `isb` and reached the next hook, `SCTLR.M`
+read back as enabled, and the renderer wrote through the TTBR1
+**high virtual address** `0xFFFFFFF004000000`. The CPU also
+passed the untouched native `cmp x0,x1; b.ne .` check and reached
+the `0xFFFFFFF0073F2370` hook.
+
+**Not yet confirmed:** execution of the subsequent native
+`msr CPACR_EL1, x0` at `0xFFFFFFF0073F2374`,
+`msr TPIDR_EL1, xzr` at `0xFFFFFFF0073F2378`,
+return/branch at `0xFFFFFFF0073F2388/239C`, higher XNU
+bootstrap routines, IOKit, rootfs or userland. The underlying
+UniXNU EDK2 screen remains visible because the diagnostic clears
+only the first 2 MiB of the framebuffer; it does not mean EDK2
+resumed executing.
+
+The observation is preserved as structured data in
+[`data/dizi-alias-b-mmu-on-hardware-20261031.json`](../data/dizi-alias-b-mmu-on-hardware-20261031.json).
+**Keep the tested corrected alias-b SHA as a hardware-proven
+checkpoint**, not a full OS boot claim.
+
+## Historical initial alias-b failed MAIR guard (2026-10-31)
 
 The physical dizi screenshot of the exact `alias-b` Release
 (SHA-256 `6c7f4469a9da06fbd3dc0eeafc3f04f7268ab821c8d810f1e0458b05615e044a`)
@@ -85,7 +124,7 @@ Corrected embedded Mach-O SHA-256:
 `991a06e89c1d75eccd0c82f7efc28127d877b8318178c343225cb3c34a341876`.
 The fixed image was rebuilt twice locally with identical hashes and
 the original and corrected images were compared byte-by-byte.
-**The corrected variant has not yet been tested on physical hardware.**
+**The corrected alias-b has since been tested on physical hardware and passed both post-SCTLR text checkpoints (see the new hardware result above).**
 
 This still **writes one live L2 descriptor** after exact guards.
 It can fault or hang; it is NOT a confirmed MMU fix.
@@ -209,7 +248,7 @@ must not be retained as a general framebuffer-driver implementation.
 - Original native `SCTLR_EL1`, `ISB`, `CMP`, `B.NE`,
   EDK2, and the other boot-image bytes are unchanged.
 
-**The corrected image has never been run on dizi hardware.** The new entry
+**This image has now been run successfully through the post-SCTLR and native compare checkpoints on dizi; later boot stages are not confirmed.** The new entry
 may change the behaviour of the native bootstrap, and faulty mappings
 may produce a black screen, an exception, or a hang. Have working
 fastboot/recovery access and backups. **Use only `fastboot boot`;

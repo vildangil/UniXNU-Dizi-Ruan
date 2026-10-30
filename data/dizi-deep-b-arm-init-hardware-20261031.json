@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-31",
+  "device": "Xiaomi Redmi Pad Pro dizi/SM7435",
+  "variant": "deep-b",
+  "observed_user_photo": "2026-10-31 on-device screenshot; text was read after rotating to horizontal",
+  "expected_boot_sha256": "4acf22fe3b0fb389ccc057b591b7c41fc57e0e0c32eaa246342f34e85c232c45",
+  "observed_messages": [
+    "DIZI XNU ENTRY",
+    "PRE ALIAS ARMED",
+    "POST SCTLR OK",
+    "GUARD PASSED",
+    "TPIDR DONE",
+    "ARM_INIT CPU0"
+  ],
+  "overwritten_intermediate_status": "The renderer reuses the y296 display row, so RETURN TO ARM_INIT can be overwritten by ARM_INIT CPU0.",
+  "hardware_confirmed": [
+    "Native MMU-on and high TTBR1 virtual framebuffer stores succeeded.",
+    "The original compare/branch guard was passed.",
+    "Native CPACR_EL1 path and TPIDR_EL1 zeroing were reached before the printed TPIDR DONE marker.",
+    "The CPU reached the instrumented first _arm_init opcode at virtual 0xFFFFFFF0079B3404.",
+    "MPIDR_EL1 Aff0:Aff2 read by the _arm_init tracer was zero (CPU0)."
+  ],
+  "limitations": [
+    "The _arm_init entry marker does NOT demonstrate the _arm_init body completed or that its first internal calls succeeded.",
+    "No secondary CPUs were powered on; XNU SMP, GIC redistributor ownership, IPI and timer interrupts are not hardware-validated.",
+    "There is no proof of memory allocator, kernel VM, panic vector, drivers, rootfs or userland."
+  ],
+  "next_steps": [
+    "Read-only architectural register checks at _arm_init: CurrentEL, CNTFRQ, SCTLR.M, TPIDR, MIDR and MPIDR.",
+    "Offline platform memory reservation and FDT audit against recovery evidence.",
+    "Only after independent PSCI / CPU_DATA / GICR checks, opt in to an actual CPU1 launch."
+  ],
+  "safety": "Temporary fastboot boot only; never fastboot flash."
+}

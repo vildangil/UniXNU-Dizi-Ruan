@@ -8,7 +8,7 @@ on:
         description: 'Diagnostic branch from pinned fifth-NOSP base'
         type: choice
         required: true
-        default: fbwalk-b
+        default: slot-b
         options:
           - sixth-a
           - sixth-b
@@ -19,6 +19,7 @@ on:
           - regs-b
           - walk-b
           - fbwalk-b
+          - slot-b
       publish_release:
         description: 'Replace the single dizi-xnu-latest-test release asset'
         type: boolean
@@ -81,8 +82,8 @@ jobs:
           VARIANT: ${{ inputs.variant }}
         run: |
           set -euo pipefail
-          python3 -m py_compile ci/build_dizi_mmu_variant.py ci/patch_dizi_post_mmu_b.py ci/patch_dizi_text_console_b.py ci/patch_dizi_mmu_registers_b.py ci/patch_dizi_mmu_walk_b.py ci/patch_dizi_mmu_fbwalk_b.py
-          if [ "$VARIANT" = "postmmu-b" ] || [ "$VARIANT" = "text-b" ] || [ "$VARIANT" = "regs-b" ] || [ "$VARIANT" = "walk-b" ] || [ "$VARIANT" = "fbwalk-b" ]; then
+          python3 -m py_compile ci/build_dizi_mmu_variant.py ci/patch_dizi_post_mmu_b.py ci/patch_dizi_text_console_b.py ci/patch_dizi_mmu_registers_b.py ci/patch_dizi_mmu_walk_b.py ci/patch_dizi_mmu_fbwalk_b.py ci/patch_dizi_mmu_slot_b.py
+          if [ "$VARIANT" = "postmmu-b" ] || [ "$VARIANT" = "text-b" ] || [ "$VARIANT" = "regs-b" ] || [ "$VARIANT" = "walk-b" ] || [ "$VARIANT" = "fbwalk-b" ] || [ "$VARIANT" = "slot-b" ]; then
             # Both variants start at the SHA-pinned orange-b from the immutable
             # fifth-NOSP release. Reconstruct the exact prior post-SCTLR image.
             python3 ci/build_dizi_mmu_variant.py \
@@ -92,7 +93,7 @@ jobs:
               --input intermediate/Mu-dizi-XNU-ORANGE-NOSP-B-NZCV-HIGH-RISK.img \
               --output intermediate/Mu-dizi-XNU-POST-SCTLR-B-HIGH-RISK.img \
               --report intermediate/POSTMMU-BASE-AUDIT.json
-            if [ "$VARIANT" = "text-b" ] || [ "$VARIANT" = "regs-b" ] || [ "$VARIANT" = "walk-b" ] || [ "$VARIANT" = "fbwalk-b" ]; then
+            if [ "$VARIANT" = "text-b" ] || [ "$VARIANT" = "regs-b" ] || [ "$VARIANT" = "walk-b" ] || [ "$VARIANT" = "fbwalk-b" ] || [ "$VARIANT" = "slot-b" ]; then
               # Recreate the exact hardware-tested text-b byte-for-byte
               # (SHA-256 25842763...), then optionally replace only its
               # diagnostic cave with real pre-SCTLR register readout.
@@ -100,22 +101,29 @@ jobs:
                 --input intermediate/Mu-dizi-XNU-POST-SCTLR-B-HIGH-RISK.img \
                 --output intermediate/Mu-dizi-XNU-TEXT-B-HIGH-RISK.img \
                 --report intermediate/TEXT-B-BASE-AUDIT.json
-              if [ "$VARIANT" = "regs-b" ] || [ "$VARIANT" = "walk-b" ] || [ "$VARIANT" = "fbwalk-b" ]; then
+              if [ "$VARIANT" = "regs-b" ] || [ "$VARIANT" = "walk-b" ] || [ "$VARIANT" = "fbwalk-b" ] || [ "$VARIANT" = "slot-b" ]; then
                 # Rebuild the screenshot-confirmed regs-b with exact SHA.
                 python3 ci/patch_dizi_mmu_registers_b.py \
                   --input intermediate/Mu-dizi-XNU-TEXT-B-HIGH-RISK.img \
                   --output intermediate/Mu-dizi-XNU-REGS-B-HIGH-RISK.img \
                   --report intermediate/REGS-B-BASE-AUDIT.json
-                if [ "$VARIANT" = "walk-b" ] || [ "$VARIANT" = "fbwalk-b" ]; then
+                if [ "$VARIANT" = "walk-b" ] || [ "$VARIANT" = "fbwalk-b" ] || [ "$VARIANT" = "slot-b" ]; then
                   # Limited read-only pre-SCTLR L1/L2/L3 descriptor capture,
                   # from the SHA-pinned, locally verified 1569-byte ARM64 blob.
                   python3 ci/patch_dizi_mmu_walk_b.py \
                     --input intermediate/Mu-dizi-XNU-REGS-B-HIGH-RISK.img \
                     --output intermediate/Mu-dizi-XNU-WALK-B-HIGH-RISK.img \
                     --report intermediate/WALK-B-BASE-AUDIT.json
-                  if [ "$VARIANT" = "fbwalk-b" ]; then
-                    # Same proven pre-MMU diagnostic, now inspect TTBR0
-                    # mapping for framebuffer VA 0xB8000000 (no MMU-on writes).
+                  if [ "$VARIANT" = "slot-b" ]; then
+                    # Pre-SCTLR read-only probe of prospective high TTBR1
+                    # L2 index 0x20; no page table changes and no MMU-on I/O.
+                    python3 ci/patch_dizi_mmu_slot_b.py \
+                      --input intermediate/Mu-dizi-XNU-WALK-B-HIGH-RISK.img \
+                      --output dist/Mu-dizi-XNU-SLOT-B-HIGH-RISK.img \
+                      --report dist/MMU-AB-AUDIT.json
+                    (cd dist && sha256sum Mu-dizi-XNU-SLOT-B-HIGH-RISK.img > SHA256SUMS.txt)
+                  elif [ "$VARIANT" = "fbwalk-b" ]; then
+                    # Historical TTBR0 physical framebuffer VA probe.
                     python3 ci/patch_dizi_mmu_fbwalk_b.py \
                       --input intermediate/Mu-dizi-XNU-WALK-B-HIGH-RISK.img \
                       --output dist/Mu-dizi-XNU-FBMAP-B-HIGH-RISK.img \

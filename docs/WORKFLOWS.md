@@ -32,7 +32,8 @@ files can be recovered from git history if needed.
    - regs-b: physical screenshot confirms live pre-SCTLR EL1 register readout;
    - walk-b: hardware-proven L1/L2 block mapping for native XNU code and VBAR;
    - fbwalk-b: hardware-confirmed absence of TTBR0 identity mapping at framebuffer VA 0xB8000000 (L1=0, STATUS=1);
-   - **slot-b (new default)**: read-only candidate slot test in TTBR1 L1 C0 / L2 20, for a possible future 2-MiB high-VA framebuffer alias; see [FB map evidence](DIZI-MMU-FBMAP-B.md).
+   - **slot-b (default, physically verified)**: L1 C0/L2 20 read-only slot probe, showing SLOT L2=0/STATUS=2 on device;
+   - **alias-b (HIGH RISK, explicit opt-in)**: guarded temporary 2-MiB Device alias for the framebuffer plus textual checkpoints after native SCTLR+ISB; [details](DIZI-MMU-ALIAS-B.md).
 3. Leave **publish_release=true** to replace the **one** image at
    https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-latest-test .
    With **publish_release=false** the output is only in **Actions Artifacts**.
@@ -230,6 +231,41 @@ register instructions or kernel mappings. It performs **no
 post-MMU stores** and has not been tested on physical dizi yet.
 Temporary `fastboot boot` only, **never flash**. Capture a clear
 photo of `SLOT L2` and `STATUS` before any mapping experiment.
+
+## Experimental post-MMU text via verified high VA alias (alias-b)
+
+The physical 2026-10-31 `slot-b` photograph showed
+`TTBR1 L1=0x802F70003`, `SLOT L2=0` and `STATUS=2`.
+This confirms an unused L2 slot in the **pre-SCTLR** page table.
+It does not establish that SCTLR enabling works.
+
+The optional `alias-b` image changes one live descriptor
+in the existing `TTBR1` L2 table **only after** verifying the
+exact screenshot-derived registers, existing code mapping and
+that the candidate entry is still zero. The descriptor
+`0x00600000B8000C0D` maps only the first 2 MiB of the
+framebuffer at `0xB8000000` into high VA
+`0xFFFFFFF004000000`, with MAIR index 3 (Device-nGnRnE)
+and privileged, execute-never access. It does not remap
+the entire 43-MiB framebuffer and never writes via the old
+unmapped TTBR0 low VA after enabling translation.
+
+The arm64 code preserves the original SCTLR/ISB,
+CMP/B.NE and native displaced instructions. If any guard
+fails, the code shows `ALIAS GUARD FAIL` before MMU-on
+and skips the page table write. If all checks pass and
+a post-MMU text store works, the screen should show
+`POST SCTLR OK`; after passing the native comparison
+it should additionally show `GUARD PASSED`.
+Absence of either is inconclusive.
+
+The pinned, locally reproduced complete image SHA-256 is
+`6c7f4469a9da06fbd3dc0eeafc3f04f7268ab821c8d810f1e0458b05615e044a`.
+This variant is **not yet tested on hardware**, is
+**HIGH RISK**, and is an **explicit workflow choice**,
+not the default. Detailed engineering notes:
+[docs/DIZI-MMU-ALIAS-B.md](DIZI-MMU-ALIAS-B.md).
+As always, test only via `fastboot boot`, NEVER flash.
 
 ## Interpretation / limitations
 

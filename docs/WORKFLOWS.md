@@ -35,7 +35,8 @@ files can be recovered from git history if needed.
    - **slot-b (default, physically verified)**: L1 C0/L2 20 read-only slot probe, showing SLOT L2=0/STATUS=2 on device;
    - **alias-b (HIGH RISK, explicit opt-in; corrected after hardware MAIR guard fail)**: single guarded 2-MiB Device alias, plus post-SCTLR text checkpoints; [details and exact hash](DIZI-MMU-ALIAS-B.md);
    - guard-b: read-only historical eight-check diagnosis, hardware-confirmed `FAIL STEP 4` due to the old MAIR guard expectation.
-   - **deep-b (new, manual, not hardware-tested)**: extended single-run TPIDR_EL1, return/branch into _arm_init and MPIDR CPU0 affinity checkpoints, keeping alias-b MMU method. [Detailed stages and SMP plan](DIZI-DEEP-SMP-PREFLIGHT.md).
+   - **deep-b (hardware-confirmed)**: native TPIDR and _arm_init CPU0 entry text on dizi; not a completed kernel initialization;
+   - **arch-b (new, manual, not hardware-tested)**: same deep-b handoff with read-only EL1, CNTFRQ, SCTLR.M, TPIDR, MIDR and boot MPIDR checks at _arm_init. [Detailed stages and memory/SMP plan](DIZI-DEEP-SMP-PREFLIGHT.md).
 3. Leave **publish_release=true** to replace the **one** image at
    https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-latest-test .
    With **publish_release=false** the output is only in **Actions Artifacts**.
@@ -317,8 +318,9 @@ Expected new `deep-b` boot SHA-256:
 Embedded Mach-O SHA-256:
 `0248d8724fa4978dd2391088d82e06c9ed1130829d1d77f20229eb512a1abecd`.
 The 1,543-byte ARM64 trace has no link relocations and was
-rebuilt twice byte-for-byte locally. `deep-b` is not yet
-hardware-tested; choose manually.
+rebuilt twice byte-for-byte locally. **`deep-b` was subsequently
+hardware-tested** on physical dizi and reached `ARM_INIT CPU0`.
+Later `_arm_init` and secondary CPUs are not confirmed.
 
 A separate offline SM7435 SMP topology check uses
 `python3 ci/check_sm7435_smp.py`; a manually triggered
@@ -333,6 +335,42 @@ validated CPU1 experiment**, not as a tested runtime.
 
 [Full diagnostic stages and SMP validation gates](DIZI-DEEP-SMP-PREFLIGHT.md).
 Use temporary `fastboot boot` only, never flash.
+
+## New read-only architecture and memory preflight
+
+The next manual **`arch-b`** variant starts from the physical
+`deep-b` checkpoint, changing only the existing 1,584-byte
+tracing cave. It reads `CurrentEL`, `CNTFRQ_EL0`,
+`SCTLR_EL1`, `TPIDR_EL1`, `MIDR_EL1`, and the bootstrap
+core `MPIDR_EL1` at the first `_arm_init` opcode.
+It prints either `ARCH REGS OK` if all six safe
+conditions hold, or `ARCH REGS FAIL`. It has **not
+yet run on dizi**.
+
+- SHA-256 complete boot:
+  `58c612f6f09776747f2a2ccecad7e82a0fd7ee0fae632e55c5a1f56ae786772b`
+- SHA-256 Mach-O:
+  `af2e080430be9a41bf608d51551086720704a4fca18a3a796948c6778c05c6c9`
+- Trace code: 1,581 / 1,584 bytes; output reproduced
+  twice locally, altering only bytes within the prior cave.
+- No new page table, PSCI, GIC or secondary CPU calls.
+  **The existing guarded `deep-b` high-VA framebuffer
+  alias still writes one L2 descriptor**, so this remains
+  a high-risk temporary boot test.
+
+The manual/PR-only `validate.yml` additionally runs
+`ci/check_dizi_memory_map.py` and emits
+`dizi-sm7435-memory-source-preflight`. It audits
+the conflicting old and recovery FDT RAM maps
+(**7,944 vs 6,061 MiB**), reserved 43 MiB physical
+splash framebuffer, the two observed TTBR1 table levels,
+and the forbidden assumption that a static high
+RAM bank is already safe for XNU allocations.
+It does **not** substitute for a live firmware memory
+map or actual device driver probes.
+
+Detailed source restrictions and diagnostic results:
+[docs/DIZI-DEEP-SMP-PREFLIGHT.md](DIZI-DEEP-SMP-PREFLIGHT.md).
 
 ## Interpretation / limitations
 

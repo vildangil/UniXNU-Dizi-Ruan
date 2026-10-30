@@ -75,6 +75,48 @@ read XNU's runtime TTBR1, TCR, VBAR or page-table contents. The next
 test should capture those values **before** SCTLR using the existing
 UniXNU design, with firmware-owned allocations verified.
 
+## New measured EL1 register snapshot (2026-10-30, regs-b)
+
+The user tested the SHA-pinned `regs-b` binary (boot SHA-256
+`ccb3c22f680aa67aac58669f77c051e4784e253e7965baf3a93feb8e38374a0b`).
+The on-device photograph shows actual `MRS` readings just before the
+native `msr SCTLR_EL1, x0`:
+
+| Value | Observed at pre-SCTLR |
+| --- | --- |
+| TCR_EL1 | `0x00000022A51A251A` |
+| TTBR1_EL1 | `0x0000000802F6E000` |
+| TTBR0_EL1 | `0x0000000802F6D000` |
+| MAIR_EL1 | `0x0C0804FF008B44FF` |
+| VBAR_EL1 | **`0xFFFFFFF0073ED000`** |
+| SCTLR_EL1 (old, before write) | `0x0000000030D00808` |
+| x22 | `0xFFFFFFF007004000` |
+| x23 | `0x0000000802E04000` |
+| x25 | `0x0000000802F6D000` |
+
+**Corrected visual transcription:** VBAR ends in `3ED000`, not
+`3E0000`; the enlarged original photo and the source `ADRP`
+at `0xFFFFFFF0073F232C` agree.
+
+TCR's `T1SZ=26` means a 38-bit TTBR1 VA range, `TG1=2`
+means 4KiB pages, and `IPS=2` allows 40-bit physical addresses.
+`TTBR1=0x802F6E000` is 4KiB-aligned and in recovery-observed RAM.
+This is a **plausible** setup, not a validated page table.
+
+First post-ISB kernel PC `0xFFFFFFF0073F2358` and
+`VBAR=0xFFFFFFF0073ED000` share the same L1 index `0xC0`
+and L2 index `0x39` for 4KiB granule / 38-bit VA. A bounded,
+read-only page-table diagnostic can therefore inspect:
+`*(uint64_t *)(0x802F6E000+0x600)` (L1), the resulting L2
+table's entry `+0x1C8`, and (if L2 selects L3) PC index
+`0x1F2` at `+0xF90` and VBAR index `0x1ED` at `+0xF68`.
+
+These are **proposed diagnostic physical reads**; their safety depends
+on validating the descriptor types and the physical table-pointer
+range. They do not prove SCTLR completed or establish a virtual
+framebuffer mapping. `SCTLR OLD` has the MMU M bit clear, as expected
+before XNU enables stage-1 translation.
+
 ## Next safe engineering work
 
 1. Correlate live UEFI memory descriptors, ADT boot_args and pinned Mach-O

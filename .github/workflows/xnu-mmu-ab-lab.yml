@@ -8,7 +8,7 @@ on:
         description: 'Diagnostic branch from pinned fifth-NOSP base'
         type: choice
         required: true
-        default: guard-b
+        default: slot-b
         options:
           - sixth-a
           - sixth-b

@@ -1,6 +1,6 @@
 ## Release channels — corrected 31 October 2026
 
-**STABLE is not available:** no functioning UniXNU/XNU operating system has been fully verified on Redmi Pad Pro. Previous EL1/MMU/XNU-entry milestones do not qualify. The duplicate NO-SP image prematurely called Stable is being retracted; its historical source remains safe.
+**STABLE is not available:** no functioning UniXNU/XNU operating system has been fully verified on Redmi Pad Pro. Previous EL1/MMU/XNU-entry milestones do not qualify. The erroneously named duplicate `dizi-xnu-stable` release and tag were deleted in owner-only cleanup run #41218722287; the original historical NO-SP reference remains available.
 
 **DEV BETA:** [latest experimental boot image](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-dev-beta). Development images may not work. FB8-READBACK-B is read-only, deliberately stopping before native TTBR1 replacement. Owner command `/run-dizi-fb8-readback` on control PR #1 or manual `variant=fb8-readback-b` with `publish_release=true` builds and publishes DEV BETA. `publish_release=false` keeps an Actions-only artifact. No push/PR/schedule build triggers.
 

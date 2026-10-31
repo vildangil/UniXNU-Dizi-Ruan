@@ -1,3 +1,15 @@
+## Current experiment after physical STACK-B: FB-BRIDGE-B
+
+The previously documented requirement to preserve the missing
+framebuffer descriptor has now been implemented as an **explicit
+high-risk diagnostic** in `main`; it has **not** been
+hardware-tested. [Detailed guards, SHA-256 and screenshot
+interpretation](DIZI-FB-BRIDGE-B.md).
+`FB ALIAS READY` only proves the new descriptor was installed
+and read back; `FB NEW TTBR OK` would additionally confirm
+rendering after the native TTBR1/TTBR0 writes and TLBI/DSB/ISB.
+It is not a permanent display or kernel VM fix.
+
 ## New hardware photo — active stack/data captured (2026-10-31)
 
 The supplied rotated image matches STACK-B and reads:

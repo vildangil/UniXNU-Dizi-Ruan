@@ -50,6 +50,46 @@ The original native `TTBR`, `TLBI`, `DSB`, `ISB`, `SCTLR` and comparison instruc
 
 **Risk:** the experiment changes one live *future* page-table descriptor and may fault, hang or perturb XNU's own VM assumptions. Exact addresses and descriptors are pinned to one measured hardware configuration, and may legitimately differ on a later boot. The previous `stack-b` read-only image remains available for rollback. Only temporary `fastboot boot`, **NEVER `fastboot flash`**. Keep recovery accessible.
 
+## Additional source-only preflight (added during continuation)
+
+The existing `fb-bridge-b` manual Actions selection now runs
+[`ci/check_dizi_fb_bridge_contract.py`](../ci/check_dizi_fb_bridge_contract.py)
+**before** building the new image. The existing manual/PR
+`validate.yml` also runs the same source-only checker and uploads
+`dizi-fb-bridge-precheck.json`. The main builder stores an additional
+`dist/FB-BRIDGE-PRECHECK.json` in its image/audit artifact.
+
+This is deliberately independent of the binary SHA checks:
+
+- It requires the photographed TCR/TTBR1 4KiB/38-bit/40-bit geometry,
+  new `L1[C0]/L2[20]` slot absent, code-vector L3 pages mapped
+  executable to the reference PAs, and active stack/global pages
+  EL1 writable to the corresponding bootstrap PAs.
+- It decodes `0x00600000B8000C0D`: 2-MiB block at
+  `0xB8000000`, AttrIdx3 with `MAIR[31:24]=0x00`
+  Device-nGnRnE, AF1, nG, EL1 RW, UXN1 and PXN1.
+  It checks that the mapped 2 MiB lies inside the observed
+  43-MiB splash framebuffer reservation.
+- It independently audits the source: guards precede the **single**
+  `STR X5,[X19,#0x100]`, `DSB ISHST` precedes readback,
+  two refusal loops remain, and post-switch rendering only follows
+  TTBR1 and SCTLR.M checks. The original ADRP replay remains
+  required; no PSCI `CPU_ON` is permitted.
+- Four negative cases must refuse an occupied alias slot, a
+  non-writable stack PTE, the missing descriptor store and a
+  missing DSB barrier.
+
+The audit source was committed to `main`; a separate JS inspection
+of current GitHub source and snapshot data passed. **A new GitHub
+Actions run has not yet executed this Python preflight**. If the
+preflight fails, fix or explain the mismatch before a physical test;
+do not disable guards merely to produce an image.
+
+These are strictly pre-switch source/hardware-data consistency
+checks. They do **not** independently compare current old-root
+stack contents, prove post-TLBI access, prove writable physical GOP
+for an XNU driver, or confirm the switch itself.
+
 ## Reproducibility
 
 | Binary | SHA-256 |

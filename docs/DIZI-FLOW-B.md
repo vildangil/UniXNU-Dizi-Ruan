@@ -1,5 +1,27 @@
 # Dizi XNU: 8-point `flow-b` trace within `_arm_init`
 
+## Hardware result: all eight flow-b stages on real dizi (2026-10-31)
+
+The latest owner-provided physical tablet photograph shows **every**
+`flow-b` stage (`1 PROLOGUE` through **`8 THREAD READY`**),
+in addition to `ARCH REGS OK`. Boot image SHA-256 was
+`3e587f8da8e3cf2e3de5ba04d3bcd19808c30dffc3ddcf8699ce52eb0261888c`.
+Actions run:
+https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41194255999 .
+
+The last native address reached is **`0xFFFFFFF0079B3ABC`**,
+after the call to `_thread_bootstrap` returned, but before
+the displaced `mov x20,x0` is executed. This confirms code-path
+progress to that boundary, **not** the scheduler, interrupt delivery,
+full `_arm_init` or multi-CPU boot.
+
+Preserved physical result:
+[`data/dizi-flow-b-eight-markers-hardware-20261031.json`](../data/dizi-flow-b-eight-markers-hardware-20261031.json).
+The next Work session should read
+[`docs/AI-WORK-HANDOFF.md`](AI-WORK-HANDOFF.md) and
+instrument the validated **following** native call boundaries
+in one high-value diagnostic before claiming further progress.
+
 ## Hardware baseline (31 October 2026)
 
 The physical Redmi Pad Pro dizi photograph of the **`arch-b`** image
@@ -95,11 +117,12 @@ using [`ci/check_dizi_flow_b_source.py`](../ci/check_dizi_flow_b_source.py).
 - Exactly **940 changed Mach-O bytes**, confined to the
   1,163-byte code insert and 8 one-instruction branch sites.
 - The image and source were independently built and checked
-  locally. **The image has not been tested on hardware.**
+  locally; **the user has since tested it successfully on physical dizi
+  through all eight markers** (see the hardware result above).
 
 ### Operational limits
 
-The new branch hooks make this experimental image **more invasive**
+The eight extra instruction hooks make this experimental image **more invasive**
 than a pure register read. A wrong assumption about stack
 availability, executable padding or the framebuffer mapping could
 cause a CPU fault or hang. The 2-MiB framebuffer alias might also
@@ -113,6 +136,6 @@ we have reliable platform/PSCI/ADT topology and XNU bootstrap evidence.
 
 Only load the image temporarily via **`fastboot boot`**, never
 `fastboot flash`. Have an Android recovery path and the known
-arch-b image available for rollback. A clear photo of the
-right-hand stage list plus any earlier left-hand messages is
-enough to select the next exact problem area.
+arch-b image available for rollback. The requested photo has now confirmed all 8 stages. Inspect the following
+native XNU call path and design a single follow-up test; do not guess
+that the first missing call is a fault without checking control flow.

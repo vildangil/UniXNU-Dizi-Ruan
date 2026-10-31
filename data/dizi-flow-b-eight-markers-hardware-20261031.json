@@ -1,0 +1,50 @@
+{
+  "date": "2026-10-31",
+  "device": "Xiaomi Redmi Pad Pro dizi (Qualcomm SM7435)",
+  "variant": "flow-b",
+  "image_sha256": "3e587f8da8e3cf2e3de5ba04d3bcd19808c30dffc3ddcf8699ce52eb0261888c",
+  "macho_sha256": "b740835898ca1be232e733c76af967a66fbe025c3b8e48f34c2febb8f889efc7",
+  "source": "User-provided physical-device photograph 2458.jpg; text inspected visually",
+  "observed_legacy_messages": [
+    "XNU ENTRY",
+    "PRE ALIAS ARMED",
+    "POST SCTLR OK",
+    "GUARD PASSED",
+    "TPIDR DONE",
+    "ARCH REGS OK"
+  ],
+  "observed_flow_markers": [
+    "1 PROLOGUE",
+    "2 TBI RETURN",
+    "3 KC REBASE",
+    "4 CPU DATA",
+    "5 PE PLATFORM",
+    "6 TIMER WFE",
+    "7 CPU TOPO",
+    "8 THREAD READY"
+  ],
+  "last_confirmed_hook_va": "0xFFFFFFF0079B3ABC",
+  "strongest_inference": "_thread_bootstrap call at 0xFFFFFFF0079B3AB8 returned and the diagnostic hook at 0xFFFFFFF0079B3ABC executed before replaying mov x20,x0.",
+  "not_proven": [
+    "native mov x20,x0 at stage 8 completed",
+    "machine_set_current_thread",
+    "cpu_bootstrap",
+    "timer interrupts",
+    "scheduler operational",
+    "actual secondary CPU starting",
+    "_arm_init completion",
+    "userland, rootfs, IOKit"
+  ],
+  "note": "Background UniXNU menu is stale framebuffer content. Markers are code-path checkpoints, not subsystem functionality tests. Photo alone cannot identify the next failing instruction.",
+  "next_targets": [
+    "0xFFFFFFF0079B3AC8 after machine_set_current_thread",
+    "0xFFFFFFF0079B3AD0 after cpu_bootstrap",
+    "0xFFFFFFF0079B3AD4 after rtclock_early_init",
+    "0xFFFFFFF0079B3AE4 after kernel_startup_bootstrap",
+    "0xFFFFFFF0079B3AE8 after timer_call_init",
+    "0xFFFFFFF0079B3AEC after cpu_init",
+    "0xFFFFFFF0079B3AF0 after processor_bootstrap",
+    "0xFFFFFFF0079B3B7C after arm_vm_init"
+  ],
+  "safety": "Keep cpus=1; temporary fastboot boot only; no flashing or PSCI CPU_ON."
+}

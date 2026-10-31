@@ -1,3 +1,66 @@
+## Current experiment: FB-BRIDGE-B prepared in main (2026-10-31)
+
+Read [docs/DIZI-FB-BRIDGE-B.md](DIZI-FB-BRIDGE-B.md) first.
+This is an *experimental first fix for the missing high-VA framebuffer
+alias in XNU's SECOND, natively constructed TTBR1 page hierarchy*.
+
+The previous physically observed TABLE-B/LEAF-B showed new
+L1[C0]=0x2000000804192003, new L2[20]=0 (missing framebuffer),
+code L2[39]=0x804193003, new root PA=0x804191000, old
+TTBR1=0x802F6E000, and stack/global future RW/NX L3 PTEs from STACK-B.
+The missing mapping is why post-switch drawing through the existing
+alias is UNSAFE until explicitly preserved; a frozen screen alone
+does not prove a native VM hang.
+
+New source in main:
+ci/dizi_mmu_fb_bridge_b.S.in,
+ci/patch_dizi_mmu_fb_bridge_b.py,
+ci/test_dizi_mmu_fb_bridge_b.py.
+Single manual workflow .github/workflows/xnu-mmu-ab-lab.yml now offers
+fb-bridge-b as an OPT-IN variant, preserves default slot-b,
+and reconstructs the exact STACK-B parent before patching.
+
+Local GitHub artifact input SHA verified:
+0aa6bc8c0af4ae12e8010d691e92c5e9e6578a91b89cbfda27aa063dc664d7ed.
+New complete boot-v4 SHA:
+4ff3a8f6839bc3ba9f33a91356b9f55e4e8cd65d6fafaf30391ba41e5babd195.
+Embedded Mach-O SHA:
+4ea7271ea3aefcd741dab55fff5f2f4bbfbec0252c38176da1038ca9cd3f2c3c.
+ARM64 trace SHA:
+1ad661288c843dab1bb6f5f1aa9567763da9d5aad1c8bf7801c359b391793379.
+Rebuilt twice byte-identical locally. The AArch64 trace fits
+1463/2032 bytes in the verified code cave; allowed mutations are
+confined to that code cave and five four-byte hook locations.
+Normal native TTBR helpers, TLBI/DSB/ISB remain untouched.
+
+At 0xFFFFFFF0073EA0B0 (before native physmap metadata and TTBR
+replacement), it checks nine invariants, calls the existing native
+phystokv for PINNED old/new L2 page addresses, verifies the old
+Device framebuffer descriptor 0x00600000B8000C0D, and if all match,
+installs ONLY the new L2[20] 2-MiB Device descriptor. Status:
+FB ALIAS READY success, FBFAIL1..9 intentional pre-switch WFE
+refusal. At 0xFFFFFFF0073EA130 AFTER native TTBR write + TLBI/
+DSB/ISB, checks new TTBR1=0x804191000, SCTLR.M=1 and then
+prints FB NEW TTBR OK via high VA 0xFFFFFFF004000000. No
+unconditional framebuffer access under unknown root.
+
+**IMPORTANT STATUS:** this new variant has NOT yet been tested
+in GitHub Actions and NOT hardware-tested. It does NOT establish
+VM return, IRQ, scheduler, SMP, rootfs or a real framebuffer
+driver. New LIVE L2 descriptor write is high risk, exact
+hardware addresses may vary; guard failures intentionally
+halt. Use ONLY temporary fastboot boot; NEVER flash.
+
+Next: user or available tool manually dispatches the existing
+workflow, variant=fb-bridge-b, publish_release=true; verify
+boot SHA, then ONE physical boot and photograph left-side
+FB ALIAS READY / FBFAILn and FB NEW TTBR OK.
+On success, continue native arm_vm_init and pmap/IO-memory
+work. On guard failure, fix cause instead of bypassing checks.
+All earlier no-FB-BRIDGE statements below are historical.
+
+---
+
 ## Latest hardware: STACK-B active SP/data PTEs (2026-10-31)
 
 Photo reads B=FFFFFFF007BB3DD0, P=00600008039B3603, Q=same,

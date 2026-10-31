@@ -11,6 +11,9 @@ on:
       - "porting.toml"
       - "ci/check_sm7435_smp.py"
       - "ci/check_dizi_memory_map.py"
+      - "ci/check_dizi_fb_bridge_contract.py"
+      - "ci/dizi_mmu_fb_bridge_b.S.in"
+      - "ci/patch_dizi_mmu_fb_bridge_b.py"
       - "data/dizi-*.json"
       - "config/dizi-hardware.json"
       - "package/Sm7435PsciReadOnly.*"
@@ -87,6 +90,19 @@ jobs:
           set -euo pipefail
           python3 -m py_compile ci/check_dizi_memory_map.py
           python3 ci/check_dizi_memory_map.py --output dizi-memory-audit.json
+      - name: Check guarded framebuffer TTBR1 alias contract and negative cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile ci/check_dizi_fb_bridge_contract.py
+          python3 ci/check_dizi_fb_bridge_contract.py --self-test --output dizi-fb-bridge-precheck.json
+      - name: Retain framebuffer alias contract audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: dizi-fb-bridge-precheck
+          path: dizi-fb-bridge-precheck.json
+          if-no-files-found: error
+          retention-days: 30
       - name: Retain non-invasive platform RAM evidence audit
         uses: actions/upload-artifact@v4
         with:

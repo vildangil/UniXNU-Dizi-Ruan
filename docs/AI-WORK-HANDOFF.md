@@ -1,3 +1,41 @@
+## Publication resumed by owner — 2026-10-31
+
+The owner explicitly lifted the accidental publication pause and authorized
+continuing SWITCH-B publication. GitHub API access now works through the
+published environment's configured api.github.com allowlist. The implementation
+and existing manual workflow are being published directly to main; CI/release
+results must be recorded after the run finishes. No hardware SWITCH-B result.
+The local-draft/pause status in earlier entries below is historical.
+
+---
+
+## New unpublished work: VM-B photo and SWITCH-B draft (2026-10-31)
+
+Publication is stopped by the owner's latest instruction. Do not push changes,
+dispatch/publish experimental releases or repeat prior environment draft edits
+without renewed authorization. Latest local changes are not in remote main.
+
+New photo matches VM-B and shows 9/A/B/C/D/F/G clearly; E is not identified.
+Exact VM-B image checksum is not separately owner-confirmed. G is pre-TTBR1
+replacement at 0xFFFFFFF0073EA108, not evidence of VM completion or a hang.
+See data/dizi-vm-b-hardware-photo-20261031.json.
+
+Prepared a local SWITCH-B draft: retain left VM markers, reserve right column
+for N=new root (original x8), O=current TTBR1, T=TCR. It collects runtime
+prerequisites for a safe table review without any new page-table/MMIO writes
+or post-switch framebuffer access. Read docs/DIZI-SWITCH-B.md before using it.
+Boot SHA b4e33fd8fc6064546e31083f589a691184c0e5fc52766ba32c05723597b31bc4.
+64 snapshot/state emulator checks pass; old VM-B reproduces byte-for-byte and
+its 64 state checks pass. Workflow changes are local only; no remote CI claim.
+Next device test, if using this locally built draft: temporary fastboot boot
+.cache/switch-b.img and collect complete N/O/T values plus G. The native table
+switches still continue untouched; root values alone do not prove mappings.
+
+No full OS proximity claim is justified: VM completion, IRQ/scheduler,
+rootfs/drivers and userland remain unproven. Keep cpus=1 and example=true.
+
+---
+
 ## Latest: owner confirms INIT-B through G; VM-B prepared (2026-10-31)
 
 The owner explicitly confirms 9 CURRENT THREAD and **all A..G**, supplying a closer

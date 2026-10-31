@@ -45,7 +45,7 @@ def displaced(site,op,pc):
         return [adrp(pc,target,op&31),flow.branch(pc+4,site+4)]
     return [op,flow.branch(pc+4,site+4)]
 
-def assemble(kernel):
+def assemble(kernel, *, source_transform=None, review_source='dizi_mmu_vm_b.generated.S'):
     template=Path(__file__).with_name('dizi_mmu_flow_b.S.in').read_text()
     # Reuse the audited register/flags-preserving common body and renderer.
     common=template[template.index('trace_common:'):template.index('.p2align 2\nfont5_table:')]
@@ -83,7 +83,8 @@ trace_no_clear:
     if flow.sha(font)!=FONT_SHA: raise ValueError('Font SHA mismatch')
     src+=common+'\n.p2align 2\nfont5_table:\n.byte '+','.join(map(str,font))+'\n'
     src+=''.join(f'msg_{i}: .asciz "{name if i>8 else str(i)+" "+name}"\n' for i,(name,_,_) in enumerate(SITES,1))
-    if src != Path(__file__).with_name('dizi_mmu_vm_b.generated.S').read_text():
+    if source_transform is not None: src=source_transform(src)
+    if src != Path(__file__).with_name(review_source).read_text():
         raise ValueError('Generated assembly differs from reviewed source')
     clang=shutil.which('clang-19') or shutil.which('clang-18') or shutil.which('clang')
     copy=shutil.which('llvm-objcopy-19') or shutil.which('llvm-objcopy-18') or shutil.which('llvm-objcopy')
@@ -98,7 +99,7 @@ trace_no_clear:
     if len(code)>flow.CAVE_END-flow.CAVE: raise ValueError('Cave overflow')
     return code,entries,src
 
-def build(inp,dst,report):
+def build(inp,dst,report,*,variant='vm-b',assembler=assemble,expected_boot=OUTPUT_BOOT,expected_macho=OUTPUT_MACHO):
     if inp.resolve()==dst.resolve(): raise ValueError('Refusing input overwrite')
     boot=inp.read_bytes()
     if len(boot)!=flow.BOOT_BYTES or flow.sha(boot)!=flow.OUTPUT_BOOT: raise ValueError('Expected exact FLOW-B')
@@ -111,7 +112,7 @@ def build(inp,dst,report):
     if flow.sha(kernel)!=flow.SOURCE_MACHO: raise ValueError('Cannot recover pinned ARCH-B')
     for name,site,op in SITES:
         if struct.unpack_from('<I',kernel,flow.off(kernel,site))[0]!=op: raise ValueError('Opcode mismatch '+name)
-    code,entries,src=assemble(kernel)
+    code,entries,src=assembler(kernel)
     kernel[start:start+len(code)]=code
     for (_,site,_),entry in zip(SITES,entries):
         struct.pack_into('<I',kernel,flow.off(kernel,site),flow.branch(site,flow.CAVE+entry))
@@ -120,9 +121,9 @@ def build(inp,dst,report):
     diffs=[i for i,(a,b) in enumerate(zip(orig,kernel)) if a!=b]
     if any(i not in allowed for i in diffs): raise ValueError('Change outside approved locations')
     result=bytearray(boot); result[flow.MACHO_OFF:flow.MACHO_OFF+flow.MACHO_BYTES]=kernel
-    if flow.sha(result)!=OUTPUT_BOOT or flow.sha(kernel)!=OUTPUT_MACHO: raise ValueError('Output SHA mismatch: '+flow.sha(result)+' '+flow.sha(kernel))
+    if flow.sha(result)!=expected_boot or flow.sha(kernel)!=expected_macho: raise ValueError('Output SHA mismatch: '+flow.sha(result)+' '+flow.sha(kernel))
     dst.parent.mkdir(parents=True,exist_ok=True); dst.write_bytes(result)
-    audit={'variant':'vm-b','hardware_tested':False,'input_boot_sha256':flow.OUTPUT_BOOT,'output_boot_sha256':flow.sha(result),'output_macho_sha256':flow.sha(kernel),'payload_sha256':flow.sha(code),'payload_bytes':len(code),'changed_kernel_bytes':len(diffs),'hook_sites':[{'stage':n,'va':hex(s),'original_opcode':hex(o)} for n,s,o in SITES],'new_vector_handler':False,'extra_page_table_writes':False,'extra_psci_calls':False,'cave_bytes':end-start,'stack_bytes':192,'limitation':'G precedes native TTBR0/TTBR1 replacement; no post-switch framebuffer writes added; native VM can continue without further output','safety':'Temporary fastboot boot only; cpus=1'}
+    audit={'variant':variant,'hardware_tested':False,'input_boot_sha256':flow.OUTPUT_BOOT,'output_boot_sha256':flow.sha(result),'output_macho_sha256':flow.sha(kernel),'payload_sha256':flow.sha(code),'payload_bytes':len(code),'changed_kernel_bytes':len(diffs),'hook_sites':[{'stage':n,'va':hex(s),'original_opcode':hex(o)} for n,s,o in SITES],'new_vector_handler':False,'extra_page_table_writes':False,'extra_psci_calls':False,'cave_bytes':end-start,'stack_bytes':192,'limitation':'G precedes native TTBR0/TTBR1 replacement; no post-switch framebuffer writes added; native VM can continue without further output','safety':'Temporary fastboot boot only; cpus=1'}
     report.parent.mkdir(parents=True,exist_ok=True);report.write_text(json.dumps(audit,indent=2)+'\n')
     dst.with_suffix('.S').write_text(src)
     print(json.dumps(audit,indent=2))

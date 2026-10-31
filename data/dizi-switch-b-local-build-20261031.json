@@ -1,0 +1,104 @@
+{
+  "variant": "switch-b",
+  "hardware_tested": false,
+  "input_boot_sha256": "3e587f8da8e3cf2e3de5ba04d3bcd19808c30dffc3ddcf8699ce52eb0261888c",
+  "output_boot_sha256": "b4e33fd8fc6064546e31083f589a691184c0e5fc52766ba32c05723597b31bc4",
+  "output_macho_sha256": "5ada52955c15d1a68a2828e21b91312c6cb27a0ec6af8682c03189c2b6e25fbd",
+  "payload_sha256": "67d336c2e89191d3b7e96c987ee0b69e4e0c4b851f4b37b0a6487b0fed005d01",
+  "payload_bytes": 1891,
+  "changed_kernel_bytes": 1480,
+  "hook_sites": [
+    {
+      "stage": "PROLOGUE",
+      "va": "0xfffffff0079b3424",
+      "original_opcode": "0xaa0003f3"
+    },
+    {
+      "stage": "TBI RETURN",
+      "va": "0xfffffff0079b3448",
+      "original_opcode": "0x91000108"
+    },
+    {
+      "stage": "KC REBASE",
+      "va": "0xfffffff0079b3984",
+      "original_opcode": "0xaa1403e0"
+    },
+    {
+      "stage": "CPU DATA",
+      "va": "0xfffffff0079b39a4",
+      "original_opcode": "0xaa1303e0"
+    },
+    {
+      "stage": "PE PLATFORM",
+      "va": "0xfffffff0079b39b0",
+      "original_opcode": "0xaa1403e1"
+    },
+    {
+      "stage": "TIMER WFE",
+      "va": "0xfffffff0079b39c8",
+      "original_opcode": "0x52800020"
+    },
+    {
+      "stage": "CPU TOPO",
+      "va": "0xfffffff0079b3a78",
+      "original_opcode": "0x79000268"
+    },
+    {
+      "stage": "THREAD READY",
+      "va": "0xfffffff0079b3abc",
+      "original_opcode": "0xaa0003f4"
+    },
+    {
+      "stage": "9 VM ENTRY",
+      "va": "0xfffffff0073e95dc",
+      "original_opcode": "0xaa0103fa"
+    },
+    {
+      "stage": "A VM RAM",
+      "va": "0xfffffff0073e9644",
+      "original_opcode": "0xf0ffec09"
+    },
+    {
+      "stage": "B VM PHYSMAP",
+      "va": "0xfffffff0073e9698",
+      "original_opcode": "0xf0ffec13"
+    },
+    {
+      "stage": "C VM ENTROPY",
+      "va": "0xfffffff0073e96a4",
+      "original_opcode": "0x92407415"
+    },
+    {
+      "stage": "D VM TABLES",
+      "va": "0xfffffff0073e97f8",
+      "original_opcode": "0xf0ffec08"
+    },
+    {
+      "stage": "E VM SEGMENTS",
+      "va": "0xfffffff0073e9cd4",
+      "original_opcode": "0xf0ffec13"
+    },
+    {
+      "stage": "F VM MAP READY",
+      "va": "0xfffffff0073ea104",
+      "original_opcode": "0xf9400108"
+    },
+    {
+      "stage": "G VM SWITCH",
+      "va": "0xfffffff0073ea108",
+      "original_opcode": "0x9240bd00"
+    }
+  ],
+  "new_vector_handler": false,
+  "extra_page_table_writes": false,
+  "extra_psci_calls": false,
+  "cave_bytes": 2032,
+  "stack_bytes": 256,
+  "limitation": "No observation after native TTBR1 replacement. N is not evidence that its tables map the alias.",
+  "safety": "Temporary fastboot boot only; cpus=1",
+  "snapshot_fields": {
+    "N": "x8 before native AND: prospective TTBR1 root; high bits are printed unmasked",
+    "O": "current TTBR1_EL1",
+    "T": "TCR_EL1"
+  }
+}

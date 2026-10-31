@@ -23,29 +23,38 @@ def run(kernel,site,opcode,traced,flags):
     u.mem_write(FB,b'\x33'*0x200000)
     for i,r in enumerate(REGS): u.reg_write(r,0x200000+i*0x1000)
     u.reg_write(UC_ARM64_REG_SP,0x308000);u.reg_write(UC_ARM64_REG_NZCV,flags)
-    pixels=[]
+    pixels=[]; snapshots=[]
+    u.reg_write(UC_ARM64_REG_TTBR1_EL1,0x802f6e000)
+    u.cpr_write(3,0,2,0,2,0x22a51a251a)
     def write(uc,access,address,size,value,data):
+        if address==0x307f12 and size==1 and value==0:
+            snapshots.append(bytes(uc.mem_read(0x307f00,18)).decode('ascii'))
         if FB<=address<FB+0x200000: pixels.append((address,size))
         else:
-            assert 0x200000<=address<0x240000 or 0x307f40<=address<0x308000,hex(address)
+            assert 0x200000<=address<0x240000 or 0x307f00<=address<0x308000,hex(address)
     u.hook_add(UC_HOOK_MEM_WRITE,write)
     stop=site+4
     if opcode>>26==0x25: stop=site+init.signed(opcode&0x3ffffff,26)*4
     if traced: u.emu_start(site,stop,count=1000000)
     else: u.emu_start(site,stop,count=1)
     assert u.reg_read(UC_ARM64_REG_PC)==stop, 'Hook failed to reach native continuation'
-    if traced and init.__name__=='patch_dizi_mmu_vm_b' and site==init.SITES[0][1]:
+    if traced and init.__name__ in ('patch_dizi_mmu_vm_b','patch_dizi_mmu_switch_b') and site==init.SITES[0][1]:
         assert bytes(u.mem_read(FB,16))==bytes(16), 'Stale top pixels not cleared'
         assert bytes(u.mem_read(FB+0x200000-16,16))==bytes(16), 'Clear did not cover full alias'
-        assert any(u.mem_read(FB,0x200000)), 'Marker missing after clear'
+        if init.__name__=='patch_dizi_mmu_vm_b': assert any(u.mem_read(FB,0x200000)), 'Marker missing after clear'
+    if traced and init.__name__=='patch_dizi_mmu_switch_b' and site==init.SITES[-1][1]:
+        assert snapshots==['N 0000000000208000','O 0000000802F6E000','T 00000022A51A251A'],snapshots
     return [u.reg_read(r) for r in REGS]+[u.reg_read(UC_ARM64_REG_SP),u.reg_read(UC_ARM64_REG_NZCV)],bytes(u.mem_read(0x200000,0x40000)),pixels
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--input',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--variant',choices=['init-b','vm-b'],default='init-b');a=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--input',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--variant',choices=['init-b','vm-b','switch-b'],default='init-b');a=p.parse_args()
     global init
     if a.variant=='vm-b':
         import patch_dizi_mmu_vm_b as vm
         init=vm
+    if a.variant=='switch-b':
+        import patch_dizi_mmu_switch_b as sw
+        init=sw
     boot=a.input.read_bytes();assert f.sha(boot)==init.OUTPUT_BOOT
     kernel=boot[f.MACHO_OFF:f.MACHO_OFF+f.MACHO_BYTES]
     cases=[]
@@ -53,8 +62,9 @@ def main():
         for flags in (0,0xf0000000,0xa0000000,0x50000000):
             reference=run(kernel,site,opcode,False,flags);actual=run(kernel,site,opcode,True,flags)
             assert reference[:2]==actual[:2],(name,hex(flags),'native state differs')
-            assert actual[2], 'No pixels drawn'
-            assert max(x+n for x,n in actual[2])<=FB+0x200000
+            if not (a.variant=='switch-b' and site in [x[1] for x in init.SITES[1:8]]):
+                assert actual[2], 'No pixels drawn'
+            if actual[2]: assert max(x+n for x,n in actual[2])<=FB+0x200000
         cases.append({'stage':name,'nzcv_patterns':4,'registers_sp_flags_native_store_and_return_match':True})
     out={'emulator':'unicorn 2.1.4','cases_passed':len(cases)*4,'hardware_tested':False,'cases':cases,'limitations':'No hardware MMU/cache/IRQ/Device mapping validation; no native callee execution'}
     a.output.write_text(json.dumps(out,indent=2)+'\n');print('PASS:',len(cases)*4,'native-vs-hook state comparisons')

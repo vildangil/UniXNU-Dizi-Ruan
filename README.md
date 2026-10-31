@@ -1,3 +1,8 @@
+**SWITCH-B update (2026-10-31):** VM-B device photo reaches `G VM SWITCH`
+before TTBR1 replacement. [SWITCH-B draft](docs/DIZI-SWITCH-B.md) collects numeric
+roots/TCR for safe continuation analysis. Native VM completion and OS boot remain
+unproven. The owner has authorized publication; CI/release status is tracked in the handoff.
+
 **2026-10-31:** Owner confirms hardware INIT-B through `G VM CALL` (before arm_vm_init).
 New `vm-b` is locally built/emulated, with clean output and eight VM-internal
 checkpoints before native TTBR replacement. [Analysis, hashes and next test](docs/DIZI-VM-B.md).

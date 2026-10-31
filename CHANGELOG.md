@@ -1,3 +1,11 @@
+## Unpublished — 2026-10-31
+
+- Recorded VM-B device photo through G (pre-switch), with E not identified.
+- Prepared SWITCH-B numeric pre-switch root/TCR snapshot; no new table edits or
+  unsafe post-switch framebuffer stores. Existing VM-B remains byte-identical.
+- 64 SWITCH-B and 64 VM-B emulator cases pass. Existing workflow updated locally
+  only; publication remains stopped by owner instruction.
+
 ## 2026-10-31 — VM-B and confirmed INIT-B G
 
 - Owner confirms 9 and every A..G on the closer INIT-B photo; G precedes arm_vm_init.

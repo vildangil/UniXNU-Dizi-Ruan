@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-31",
+  "source": "New owner-supplied physical photo in chat",
+  "variant_identification": "VM-B labels and clean output match",
+  "image_sha256_confirmed_by_owner": false,
+  "expected_image_sha256": "7947442d0f41c55ba60104cf9d91a1ed5eb932c766dd5c228323845500850ed2",
+  "readable_vm_markers": [
+    "9 VM ENTRY",
+    "A VM RAM",
+    "B VM PHYSMAP",
+    "C VM ENTROPY",
+    "D VM TABLES",
+    "F VM MAP READY",
+    "G VM SWITCH"
+  ],
+  "not_identified_in_photo": [
+    "E VM SEGMENTS"
+  ],
+  "last_observed_hook_va": "0xFFFFFFF0073EA108",
+  "inference": "Native VM reached pre-switch stage before original AND and TTBR1 replacement call; no post-switch execution evidence",
+  "not_proven": [
+    "TTBR1/TTBR0 switches completed",
+    "arm_vm_init returned",
+    "kernel stopped here",
+    "scheduler or IRQ operation",
+    "rootfs/userland"
+  ],
+  "photo_file_in_repository": false
+}

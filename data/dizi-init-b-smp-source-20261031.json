@@ -1,0 +1,77 @@
+{
+  "soc": "Qualcomm SM7435 Parrot",
+  "physical_cpu_nodes": [
+    {
+      "cpu": 0,
+      "mpidr": "0x000",
+      "class": "E",
+      "xnu_phys_id": 0,
+      "old_aff0_only_result": 0
+    },
+    {
+      "cpu": 1,
+      "mpidr": "0x100",
+      "class": "E",
+      "xnu_phys_id": 256,
+      "old_aff0_only_result": 0
+    },
+    {
+      "cpu": 2,
+      "mpidr": "0x200",
+      "class": "E",
+      "xnu_phys_id": 512,
+      "old_aff0_only_result": 0
+    },
+    {
+      "cpu": 3,
+      "mpidr": "0x300",
+      "class": "E",
+      "xnu_phys_id": 768,
+      "old_aff0_only_result": 0
+    },
+    {
+      "cpu": 4,
+      "mpidr": "0x400",
+      "class": "P",
+      "xnu_phys_id": 1024,
+      "old_aff0_only_result": 0
+    },
+    {
+      "cpu": 5,
+      "mpidr": "0x500",
+      "class": "P",
+      "xnu_phys_id": 1280,
+      "old_aff0_only_result": 0
+    },
+    {
+      "cpu": 6,
+      "mpidr": "0x600",
+      "class": "P",
+      "xnu_phys_id": 1536,
+      "old_aff0_only_result": 0
+    },
+    {
+      "cpu": 7,
+      "mpidr": "0x700",
+      "class": "P",
+      "xnu_phys_id": 1792,
+      "old_aff0_only_result": 0
+    }
+  ],
+  "cpu_count_from_dt": 8,
+  "cpu_classes_from_dt": "4E+4P",
+  "psci": "SMC; v1.0 described by DT, runtime not independently checked",
+  "gicd_pa": "0x17200000",
+  "gicr_pa": "0x17260000",
+  "gicr_stride_bytes": 131072,
+  "timer_frequency_hz": 19200000,
+  "xnu_reset_mpidr_mask": "0xffff",
+  "soc_source_pin": "22a71774c8ebf8ca6f2816bf774ff05d6b96e828",
+  "default_boot_cpu_policy": "cpus=1",
+  "optional_test_profile": "cpus=2, available in config; not enabled automatically",
+  "hardware_secondary_cpu_on_tested": false,
+  "hardware_secondary_reset_vector_tested": false,
+  "psci_affinity_info_readbacks_tested": false,
+  "gicr_sgi_ppi_irq_delivery_tested": false,
+  "xnu_smp_qualified": false
+}

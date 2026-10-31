@@ -1,0 +1,23 @@
+{
+  "device": "dizi",
+  "source_type": "offline recovery and photographed XNU snapshots only",
+  "live_uefi_memory_ownership_validated": false,
+  "recovery_ram_mib": 6061,
+  "legacy_reference_ram_mib": 7944,
+  "legacy_reference_overstates_recovery_ram_mib": 1883,
+  "framebuffer_splash_pa": "0xb8000000",
+  "framebuffer_splash_reservation_mib": 43,
+  "guarded_high_alias_va": "0xfffffff004000000",
+  "guarded_alias_window_mib": 2,
+  "ttbr1_pa": "0x802f6e000",
+  "l1_next_table_pa": "0x802f70000",
+  "kernel_l2_block_pa": "0x803000000",
+  "vbar_va": "0xfffffff0073ed000",
+  "low_va_framebuffer_ttbr0_unmapped_before_sctlr": true,
+  "high_bank_reference_candidate_not_firmware_safe": true,
+  "high_bank_reserved_beginning_pa": "0x8f6b00000",
+  "ramoops_reserved_pa": "0x80D00000",
+  "verified_current_hardware_checkpoint": "_arm_init CPU0 first opcode reached",
+  "verified_allocator_or_rootfs_boot": false,
+  "remaining_input": "UEFI runtime GetMemoryMap near ExitBootServices, ADT reserved ranges and device-native timer/GICR readbacks"
+}

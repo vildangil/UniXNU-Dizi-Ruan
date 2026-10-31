@@ -1,3 +1,12 @@
+## 2026-10-31 — INIT-B continuation (local verification only)
+
+- Added init-b to existing manual MMU workflow; preserved defaults and rollback variants.
+- Relocated BL/ADRP correctly, preserved native link addresses, and added eight persistent left-column checkpoints.
+- Kept final checkpoint before VM replacement to avoid faulting through an invalidated framebuffer alias.
+- Built locally; 64 AArch64 emulator state comparisons pass. Memory/SMP source checks and PSCI AArch64 compilation pass.
+- Recorded exact Mach-O disassembly, output checksums and remaining platform blockers in docs/DIZI-INIT-B.md.
+- API proxy denial prevents remote Actions dispatch/publication; no new hardware result claimed.
+
 # UniXNU Dizi / Ruan — engineering changelog
 
 This log tracks **hardware-confirmed observations**, separately from

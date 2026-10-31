@@ -1,0 +1,88 @@
+{
+  "emulator": "unicorn 2.1.4",
+  "cases_passed": 64,
+  "hardware_tested": false,
+  "cases": [
+    {
+      "stage": "PROLOGUE",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "TBI RETURN",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "KC REBASE",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "CPU DATA",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "PE PLATFORM",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "TIMER WFE",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "CPU TOPO",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "THREAD READY",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "9 CURRENT THREAD",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "A CPU BOOTSTRAP",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "B EARLY CLOCK",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "C STARTUP BOOT",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "D TIMER CALL",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "E CPU INIT",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "F PROCESSOR",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "G VM CALL",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    }
+  ],
+  "limitations": "No hardware MMU/cache/IRQ/Device mapping validation; no native callee execution"
+}

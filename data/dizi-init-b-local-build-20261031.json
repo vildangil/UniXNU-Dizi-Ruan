@@ -1,0 +1,104 @@
+{
+  "variant": "init-b",
+  "hardware_tested": false,
+  "input_boot_sha256": "3e587f8da8e3cf2e3de5ba04d3bcd19808c30dffc3ddcf8699ce52eb0261888c",
+  "output_boot_sha256": "f093fce1722245c097b6712169130cef63a2a40b7aaf9588aec1e11225af377b",
+  "output_macho_sha256": "dbe2c7cdcdf65214d1e3360a0c674f07a91fd41e96487939ab36f944c5eadecf",
+  "payload_sha256": "0e9a269a76015686f0b606a2d4db9d0fd42c61b357751317333a4065a5ee56f1",
+  "payload_bytes": 1664,
+  "changed_kernel_bytes": 1349,
+  "hook_sites": [
+    {
+      "stage": "PROLOGUE",
+      "va": "0xfffffff0079b3424",
+      "original_opcode": "0xaa0003f3"
+    },
+    {
+      "stage": "TBI RETURN",
+      "va": "0xfffffff0079b3448",
+      "original_opcode": "0x91000108"
+    },
+    {
+      "stage": "KC REBASE",
+      "va": "0xfffffff0079b3984",
+      "original_opcode": "0xaa1403e0"
+    },
+    {
+      "stage": "CPU DATA",
+      "va": "0xfffffff0079b39a4",
+      "original_opcode": "0xaa1303e0"
+    },
+    {
+      "stage": "PE PLATFORM",
+      "va": "0xfffffff0079b39b0",
+      "original_opcode": "0xaa1403e1"
+    },
+    {
+      "stage": "TIMER WFE",
+      "va": "0xfffffff0079b39c8",
+      "original_opcode": "0x52800020"
+    },
+    {
+      "stage": "CPU TOPO",
+      "va": "0xfffffff0079b3a78",
+      "original_opcode": "0x79000268"
+    },
+    {
+      "stage": "THREAD READY",
+      "va": "0xfffffff0079b3abc",
+      "original_opcode": "0xaa0003f4"
+    },
+    {
+      "stage": "9 CURRENT THREAD",
+      "va": "0xfffffff0079b3ac8",
+      "original_opcode": "0xb901da9f"
+    },
+    {
+      "stage": "A CPU BOOTSTRAP",
+      "va": "0xfffffff0079b3ad0",
+      "original_opcode": "0x97e9183f"
+    },
+    {
+      "stage": "B EARLY CLOCK",
+      "va": "0xfffffff0079b3ad4",
+      "original_opcode": "0xb0ffb620"
+    },
+    {
+      "stage": "C STARTUP BOOT",
+      "va": "0xfffffff0079b3ae4",
+      "original_opcode": "0x97e49710"
+    },
+    {
+      "stage": "D TIMER CALL",
+      "va": "0xfffffff0079b3ae8",
+      "original_opcode": "0x97e8c612"
+    },
+    {
+      "stage": "E CPU INIT",
+      "va": "0xfffffff0079b3aec",
+      "original_opcode": "0x97e3abb3"
+    },
+    {
+      "stage": "F PROCESSOR",
+      "va": "0xfffffff0079b3af0",
+      "original_opcode": "0xb0ffb620"
+    },
+    {
+      "stage": "G VM CALL",
+      "va": "0xfffffff0079b3b74",
+      "original_opcode": "0xaa1303e0"
+    }
+  ],
+  "new_vector_handler": false,
+  "extra_page_table_writes": false,
+  "extra_psci_calls": false,
+  "cave_bytes": 2032,
+  "stack_bytes": 192,
+  "limitation": "G is before arm_vm_init, not proof of its return; no framebuffer hook after VM replacement",
+  "safety": "Temporary fastboot boot only; cpus=1",
+  "full_existing_workflow_build_step_locally_passed": true,
+  "rebuilt_from_immutable_fifth_nosp_sha256": "b2f22f83c9b55d5a89d60f7df42488486346754911153cc502256f686681371b",
+  "remote_actions_run": null,
+  "corrupt_source_rejected_before_output": true,
+  "read_only_psci_helper_aarch64_compile_passed": true
+}

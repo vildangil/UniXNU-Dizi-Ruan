@@ -1,3 +1,9 @@
+<!-- INIT-B session status -->
+**2026-10-31:** Physical `flow-b` remains the latest hardware evidence (8 THREAD READY).
+New `init-b` adds eight continuation checkpoints; locally built and CPU-emulated,
+**not hardware tested or published**. [Exact hashes, analysis and test](docs/DIZI-INIT-B.md).
+GitHub Actions dispatch currently blocked by environment API access.
+
 # UniXNU Dizi / Ruan
 
 Experimental [UniXNU](https://github.com/UniXNU/UniXNU) port for Xiaomi Redmi Pad Pro (`dizi`, Snapdragon SM7435). The `ruan` variant is not separately verified.

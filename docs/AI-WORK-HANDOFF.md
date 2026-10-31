@@ -1,3 +1,25 @@
+## Continuation session 2026-10-31 — INIT-B locally verified
+
+Read [DIZI-INIT-B.md](DIZI-INIT-B.md) first for the new continuation analysis,
+precise hook semantics, hashes and remaining work. Latest physical evidence is
+still FLOW-B. INIT-B is **locally built and CPU-emulated only**, not hardware tested.
+
+- Confirmed local baseline main bcd0cf2210c9718240914ab3fc4953fb387f6249 matches remote HEAD.
+- Downloaded rolling FLOW-B and checked the full 3e587f8d… hash; inspected exact Mach-O symbols/instructions.
+- Added init-b with 16 total stages, relocated BL and ADRP with correct native link/page targets, and persistent two-column output.
+- Final G VM CALL is BEFORE arm_vm_init (3B74), deliberately avoiding unsafe post-VM framebuffer writes; no VM-return claim.
+- No vector handler or new MMIO/PSCI/page-table writes. cpus=1 and example=true retained.
+- Output boot SHA: f093fce1722245c097b6712169130cef63a2a40b7aaf9588aec1e11225af377b.
+- Output Mach-O SHA: dbe2c7cdcdf65214d1e3360a0c674f07a91fd41e96487939ab36f944c5eadecf.
+- 64 Unicorn native-vs-hook comparisons pass; memory/SMP audits and read-only PSCI helper AArch64 compile pass.
+- New artifacts under data/dizi-init-b-* describe LOCAL checks, never additional hardware measurements.
+- Installed clang/LLVM 19 without root via signed Debian indices and local package extraction. Saved environment install_script/start_skill and required api.github.com allowlist addition.
+- Git over the injected proxy works outside the command sandbox. API CONNECT is denied (403); saving network draft did not apply it. No remote Actions run or new release has been produced. User must apply environment network settings before API dispatch can be retried. No new token requested.
+- Native full-XNU source build requires pinned macOS/Xcode runner; prelink runtime qualification, live memory ownership, ADT/platform, GIC/timer IRQ, scheduler/rootfs remain unverified. No speculative subsystem bypass was made.
+- Next: restore API access, run existing manual workflow on main with init-b, verify output hash, then request one temporary fastboot boot and photo of both columns. Preserve photographed FLOW-B for rollback.
+
+---
+
 # AI / Work handoff — UniXNU on Redmi Pad Pro dizi
 **Updated:** 2026-10-31. **Status:** physical-device `flow-b` reached all eight checkpoints inside XNU `_arm_init`.
 
@@ -153,3 +175,5 @@ Recovery memory observations: 6,061 MiB vs old reference FDT 7,944 MiB, discrepa
 **Reality check:** A completely booted UnixNU is not currently proven. It may require significant native hardware enablement and might take many iterations, not automatically two requests. Keep results falsifiable and do not simulate kernel boot or turn `8 THREAD READY` into proof of a scheduler, IRQs, SMP or userland.
 
 **Most recent owner preference:** Ask Work to implement and test as much as possible in one run; user can return to the older GPT chat after Work, and the older chat should resume by reading THIS file plus latest `data/` and GitHub Actions, without reasking previously supplied hardware details.
+
+Full existing workflow build step was subsequently executed locally from immutable fifth-NOSP through every predecessor to INIT-B, including FLOW-B source reproduction, emulator checks and final SHA256SUMS verification. It passed; corrupted FLOW-B input was rejected before producing output. This remains local execution, not a GitHub Actions run.

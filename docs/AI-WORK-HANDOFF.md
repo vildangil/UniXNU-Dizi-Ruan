@@ -1,3 +1,9 @@
+## Stable / Dev Beta release split — 31 October 2026
+
+Owner request: easy cross-computer access, no new push/PR-triggered builds, keep stable reference separate from experimental development. `dizi-xnu-stable` is an immutable SHA-pinned first NO-SP hardware-confirmed checkpoint (SHA ceb970d0...), NOT a working operating system. `dizi-xnu-dev-beta` is one rolling experimental IMG, overwritten on explicit owner-manual publish. The owner command `/run-dizi-fb8-readback` now publishes FB8-READBACK-B into dev-beta after all checks; manual `publish_release=true` also targets dev-beta. Existing `dizi-xnu-latest-test` stays archival and unchanged. One-time stable publication: `/publish-dizi-stable-reference` on control PR #1, or manual dispatch of publish-dizi-stable-reference.yml. Both release workflows are restricted to manual or exact owner issue comments. No push or PR trigger. See docs/DIZI-RELEASE-CHANNELS.md.
+
+---
+
 ## FBFAIL8 owner continuation — 31 October 2026
 
 The owner photographed `FBFAIL8` in the first physical `FB-BRIDGE-B` test. It is a deliberate pre-switch guard refusal, *not* evidence of native TTBR1 replacement or kernel panic. The pre-switch native L2 readbacks taken on an earlier LEAF-B boot were F=0x0 and K=0x0000000804193003, but FBFAIL8 can mean **either** new FB L2[0x20] nonzero or code L2[0x39] changed. The two *runtime* values must be measured in the same hook.

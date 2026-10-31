@@ -4,7 +4,7 @@
 
 Stable requires a **complete working UniXNU/XNU operating system** repeatedly validated on a physical Redmi Pad Pro (dizi), including native kernel VM, runtime, drivers, interrupts, storage, rootfs and userland. Successful CI, UEFI boot, XNU entry, MMU enablement or diagnostic checkpoints do NOT qualify.
 
-The briefly published dizi-xnu-stable reference was a mistake: it duplicated the historic NO-SP entry experiment, not a functioning OS. Its duplicate release and tag are to be retired, while the original historical image remains intact.
+The briefly published dizi-xnu-stable reference was a mistake: it duplicated the historic NO-SP entry experiment, not a functioning OS. The duplicate `dizi-xnu-stable` release **and tag were removed** in verified owner-only cleanup run #41218722287. The original historical image remains intact.
 
 Do not publish a Stable tag or image until a reproducible full working OS boot is documented and explicitly owner-approved. The current channel publisher refuses Stable.
 

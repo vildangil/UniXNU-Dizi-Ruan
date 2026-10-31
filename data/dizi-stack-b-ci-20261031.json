@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-31",
+  "variant": "stack-b",
+  "implementation_commit": "7b1e86caede5b1d1a60e9cb2ff3a4a0c51a2154c",
+  "run_id": 41205403802,
+  "run_url": "https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41205403802",
+  "conclusion": "success",
+  "build_test_artifact_publication_steps_verified_success": true,
+  "release_asset_url": "https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/download/dizi-xnu-latest-test/Mu-dizi-XNU-LATEST-TEST.img",
+  "release_bytes": 68800512,
+  "image_sha256": "0aa6bc8c0af4ae12e8010d691e92c5e9e6578a91b89cbfda27aa063dc664d7ed",
+  "release_download_sha256_verified": true,
+  "github_asset_digest_matches": true,
+  "artifact_id": 13043368686,
+  "artifact_url": "https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41205403802/artifacts/13043368686",
+  "artifact_name": "dizi-mmu-ab-stack-b-41205403802",
+  "artifact_expired": false,
+  "ci_archive_downloaded": false,
+  "local_stack_emulation_cases_passed": 240,
+  "hardware_tested": false
+}

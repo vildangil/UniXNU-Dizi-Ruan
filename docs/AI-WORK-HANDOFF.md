@@ -1,3 +1,29 @@
+## STACK-B successfully published — 2026-10-31
+
+[Actions #41205403802](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41205403802) succeeded on implementation
+`7b1e86caede5b1d1a60e9cb2ff3a4a0c51a2154c` in main, including all build/test/
+artifact/publication steps. Downloaded the release back: SHA `0aa6bc8c0af4ae12e8010d691e92c5e9e6578a91b89cbfda27aa063dc664d7ed`,
+68,800,512 bytes; matches local pin and GitHub asset digest. JSON/emulation
+artifact id 13043368686 exists (archive not separately downloaded). Evidence:
+data/dizi-stack-b-ci-20261031.json, docs/DIZI-STACK-B.md.
+
+No STACK-B hardware result. Next one temporary test: verify image SHA,
+`fastboot boot Mu-dizi-XNU-LATEST-TEST.img`, photograph **B/P/Q/D/M/L/R/S** and
+G MAP AUDIT. B=actual native SP, P/Q=terminal descriptors for B-8/B-384,
+D/M=root-global/physmap metadata pages. L has level nibbles and inherited RO
+bits; R is selected future stack root. S has four per-target status bytes.
+Status0 means a terminal was read (it can be invalid), nonzero means skipped.
+Compare resulting physical backing as well as permissions before a post-switch
+logger: a valid writable page with different physical contents is not safe.
+No alias repair/table edit, AT, post-switch access or CPU_ON was added.
+
+Local 240 comparisons exercise both roots and native phystokv with a separate
+host reference. Host decoder also refuses out-of-40-bit physical evidence and
+keeps effective translation/stack-content identity explicitly unverified.
+Native VM return, IRQs/scheduler, rootfs and userland remain unproven.
+
+---
+
 ## STACK-B prepared: active-SP/data future-root walk (2026-10-31)
 
 Owner asked to verify stack/data after LEAF-B code PTE capture. Read

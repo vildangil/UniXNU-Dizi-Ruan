@@ -1,3 +1,11 @@
+## 2026-10-31 — STACK-B successfully published
+
+- [Actions #41205403802](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41205403802) passed on main implementation 7b1e86ca.
+- Downloaded image SHA 0aa6bc8c0af4ae12e8010d691e92c5e9e6578a91b89cbfda27aa063dc664d7ed verified; GitHub asset digest agrees.
+- CI JSON/emulation artifact id 13043368686 recorded; STACK-B hardware test pending.
+- Decoder distinguishes descriptor permission evidence from effective access and
+  preservation of current stack backing; no such hardware claim was made.
+
 ## 2026-10-31 — STACK-B active-stack/data mapping probe
 
 - Captures actual SP, future translations for both frame endpoint pages and two

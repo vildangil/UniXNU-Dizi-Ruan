@@ -1,6 +1,10 @@
 # STACK-B — future active-stack and native-global mappings
 
-2026-10-31: locally built and emulated; CI pending. No hardware result.
+2026-10-31: **GitHub CI succeeded; STACK-B is published. No hardware result.**
+[Run #41205403802](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41205403802), implementation `7b1e86caede5b1d1a60e9cb2ff3a4a0c51a2154c`.
+[Download](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/download/dizi-xnu-latest-test/Mu-dizi-XNU-LATEST-TEST.img); actual downloaded bytes and GitHub asset digest match the SHA below.
+[CI JSON/emulation artifact](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41205403802/artifacts/13043368686).
+[Publication evidence](../data/dizi-stack-b-ci-20261031.json).
 LEAF-B established code-page readbacks, not live stack/data access after switching.
 STACK-B captures the **actual active SP**, without assuming it is the static intstack.
 
@@ -53,7 +57,12 @@ bounds while D/M completed. S=0 alone does not mean usable stack or valid mappin
 
 A 384-byte window is shorter than one page, so its endpoint pages cover the
 whole future frame even if it crosses a page boundary. It does not qualify
-arbitrarily larger logger frames. Snapshot usage is 192 bytes below the existing
+arbitrarily larger logger frames. Valid/writable descriptors also do not prove
+preservation of the current stack's physical backing: compare future physical
+addresses against the verified current mapping/reference once B is known.
+A different physical stack page could lose live frames despite valid permissions.
+Contiguous hints also require checking group consistency. No current-vs-future
+translation or frame-content identity is claimed by this probe. Snapshot usage is 192 bytes below the existing
 192-byte tracer, total **384 bytes**. x19..x30 are saved in that frame; common
 tracer preserves caller GPRs, SP/NZCV. Native phystokv uses integer callers only
 on accepted paths. No SIMD registers are changed by the probe.

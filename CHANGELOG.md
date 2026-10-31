@@ -1,3 +1,9 @@
+## 2026-10-31 — Stable definition corrected; DEV BETA only
+
+- Stable requires complete, working XNU OS boot/operation verified on actual hardware; it has not been achieved. The mistakenly released first NO-SP checkpoint must not be called Stable, and its duplicate Stable release/tag is retracted while original evidence is preserved.
+- DEV BETA is experimental, may fail and is available under dizi-xnu-dev-beta; owner-manual CI run #41218263533 published FB8-READBACK-B with SHA-256 a0ca687c085a56460ac4307e304d6025f909ac250e4b4b9201173fde902a8335.
+- Owner-only publishing code now refuses stable publication, no automatic push/PR/schedule triggers.
+
 ## 2026-10-31 — prepare FB8 runtime readback after hardware FBFAIL8
 
 - Real Redmi Pad Pro FB-BRIDGE-B reports `FBFAIL8`, leaving ambiguity between occupied new framebuffer L2[0x20] and changed code L2[0x39].

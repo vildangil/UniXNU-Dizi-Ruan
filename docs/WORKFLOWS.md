@@ -37,7 +37,7 @@ files can be recovered from git history if needed.
    - guard-b: read-only historical eight-check diagnosis, hardware-confirmed `FAIL STEP 4` due to the old MAIR guard expectation.
    - **deep-b (hardware-confirmed)**: native TPIDR and _arm_init CPU0 entry text on dizi; not a completed kernel initialization;
    - **arch-b (hardware-confirmed)**: verified CPU0 _arm_init entry, EL1, CNTFRQ=19.2MHz, MMU, TPIDR and MIDR; display ARCH REGS OK;
-   - **bootpath-b (new, opt-in)**: four progress checkpoints after native _cpu_data_init, CPU topology, _arm_vm_init+serial and _PE_init_cpu. [Exact addresses and limitations](DIZI-BOOTPATH-B.md).
+   - **bootpath-b (older, opt-in)**: four progress checkpoints after native _cpu_data_init, CPU topology, _arm_vm_init+serial and _PE_init_cpu. [Exact addresses and limitations](DIZI-BOOTPATH-B.md).
    - **flow-b (new, opt-in, not hardware-tested)**: eight ABI/NZCV-preserving independent lines inside _arm_init, from first prologue through TBI, kernel collection, CPU data, platform, timer, topology and thread bootstrap. [Stages and safety](DIZI-FLOW-B.md).
 3. Leave **publish_release=true** to replace the **one** image at
    https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-latest-test .
@@ -373,7 +373,7 @@ map or actual device driver probes.
 Detailed source restrictions and diagnostic results:
 [docs/DIZI-DEEP-SMP-PREFLIGHT.md](DIZI-DEEP-SMP-PREFLIGHT.md).
 
-## Hardware arch-b and new post-call bootpath-b (2026-10-31)
+## Hardware arch-b and historical four-point bootpath-b (2026-10-31)
 
 The physical tablet confirmed **`ARCH REGS OK`** for
 `arch-b` SHA-256
@@ -382,7 +382,7 @@ All six selected architecture checks therefore passed inside
 the first instrumented `_arm_init` entry on CPU0.
 No full XNU initialization or SMP is proven.
 
-The next manual `bootpath-b` starts from the exact arch-b
+The earlier manual `bootpath-b` starts from the exact arch-b
 image and replaces only 156 bytes of older diagnostic code,
 four fixed-length status strings, and seven native one-instruction
 sites (three restored to native plus four new progress branches).
@@ -405,6 +405,16 @@ may remap the diagnostic alias.
 - [Per-stage native hook addresses and risk notes](DIZI-BOOTPATH-B.md).
 
 ## Extended eight-stage _arm_init trace: flow-b
+
+**Current status:** `arch-b` remains the last
+hardware-confirmed image. `flow-b` is already source-verified
+and reproducibly built, but **still needs a physical device
+photograph before any of its eight internal stages can be
+marked successful**. The full source verification command is
+run automatically as part of the existing manual `flow-b`
+GitHub Actions selection.
+
+
 
 The physically verified `arch-b` image reached
 `ARCH REGS OK`. The new `flow-b` optional manual variant

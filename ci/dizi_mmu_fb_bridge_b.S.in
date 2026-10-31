@@ -1,0 +1,296 @@
+/* dizi FB-BRIDGE-B, read-only guard + one L2 descriptor transfer.
+   Copyright remains with source project. Temporary fastboot boot ONLY. */
+.section .text.trace,"ax",%progbits
+.p2align 2
+fb_hit_pre:
+  stp x12,x13,[sp,#-16]!
+  adr x12,fb_resume_pre
+  movz w13,#1
+  b fb_common
+fb_resume_pre:
+  ldp x12,x13,[sp],#16
+  .inst HOOK_PRE_ADRP
+  .inst HOOK_PRE_RETURN
+fb_hit_post:
+  stp x12,x13,[sp,#-16]!
+  adr x12,fb_resume_post
+  movz w13,#2
+  b fb_common
+fb_resume_post:
+  ldp x12,x13,[sp],#16
+  .inst HOOK_POST_ADRP
+  .inst HOOK_POST_RETURN
+
+fb_common:
+  sub sp,sp,#176
+  stp x0,x1,[sp,#0]
+  stp x2,x3,[sp,#16]
+  stp x4,x5,[sp,#32]
+  stp x6,x7,[sp,#48]
+  stp x8,x9,[sp,#64]
+  stp x10,x11,[sp,#80]
+  stp x12,x13,[sp,#96]
+  stp x14,x15,[sp,#112]
+  stp x16,x17,[sp,#128]
+  stp x18,x30,[sp,#144]
+  mrs x9,NZCV
+  str x9,[sp,#160]
+  cmp w13,#1
+  b.ne fb_after_switch
+  bl fb_install
+  cbnz w0,fb_refuse
+  mov w0,#1
+  bl fb_print
+  b fb_restore
+fb_refuse:
+  // x0=1..9; render unique failure digit and stop BEFORE native switch.
+  bl fb_error_print
+fb_refuse_loop:
+  wfe
+  b fb_refuse_loop
+fb_after_switch:
+  mrs x2,TTBR1_EL1
+  movz x3,#0x1000
+  movk x3,#0x0419,lsl#16
+  movk x3,#0x0008,lsl#32
+  cmp x2,x3
+  b.ne fb_after_refuse
+  mrs x2,SCTLR_EL1
+  tbz x2,#0,fb_after_refuse
+  mov w0,#2
+  bl fb_print
+  b fb_restore
+fb_after_refuse:
+  // Do not attempt framebuffer drawing under an unverified TTBR1.
+fb_after_refuse_loop:
+  wfe
+  b fb_after_refuse_loop
+fb_restore:
+  ldr x9,[sp,#160]
+  msr NZCV,x9
+  ldp x0,x1,[sp,#0]
+  ldp x2,x3,[sp,#16]
+  ldp x4,x5,[sp,#32]
+  ldp x6,x7,[sp,#48]
+  ldp x8,x9,[sp,#64]
+  ldp x10,x11,[sp,#80]
+  ldp x12,x13,[sp,#96]
+  ldp x14,x15,[sp,#112]
+  ldp x16,x17,[sp,#128]
+  ldp x18,x30,[sp,#144]
+  add sp,sp,#176
+  br x12
+
+/* Guard codes, all BEFORE any new page-table write:
+ 1=TCR 2=MAIR 3=SCTLR 4=old TTBR1 5=next-root identity
+ 6=next L1 geometry 7=phystokv returned wrong child VA
+ 8=next L2 slot nonzero or code table changed
+ 9=old live FB descriptor mismatch.
+ */
+fb_install:
+  stp x19,x30,[sp,#-16]!
+  mrs x4,TCR_EL1
+  movz x5,#0x251a
+  movk x5,#0xa51a,lsl#16
+  movk x5,#0x22,lsl#32
+  cmp x4,x5
+  b.ne fb_fail_1
+  mrs x4,MAIR_EL1
+  movz x5,#0x44ff
+  movk x5,#0x00bb,lsl#16
+  movk x5,#0x04ff,lsl#32
+  movk x5,#0x0c08,lsl#48
+  cmp x4,x5
+  b.ne fb_fail_2
+  mrs x4,SCTLR_EL1
+  tbz x4,#0,fb_fail_3
+  mrs x4,TTBR1_EL1
+  movz x5,#0xe000
+  movk x5,#0x02f6,lsl#16
+  movk x5,#0x0008,lsl#32
+  cmp x4,x5
+  b.ne fb_fail_4
+  movz x8,#0xabb0
+  movk x8,#0x0716,lsl#16
+  movk x8,#0xfff0,lsl#32
+  movk x8,#0xffff,lsl#48
+  ldp x6,x7,[x8]
+  movz x5,#0x1000
+  movk x5,#0x0419,lsl#16
+  movk x5,#0x0008,lsl#32
+  cmp x7,x5
+  b.ne fb_fail_5
+  movz x5,#0x1000
+  movk x5,#0x0839,lsl#16
+  movk x5,#0xfff0,lsl#32
+  movk x5,#0xffff,lsl#48
+  cmp x6,x5
+  b.ne fb_fail_5
+  ldr x4,[x6,#0x600]
+  movz x5,#0x2003
+  movk x5,#0x0419,lsl#16
+  movk x5,#0x0008,lsl#32
+  movk x5,#0x2000,lsl#48
+  cmp x4,x5
+  b.ne fb_fail_6
+  // Native helper only after exact runtime photographed PA/VA bounds.
+  movz x0,#0x2000
+  movk x0,#0x0419,lsl#16
+  movk x0,#0x0008,lsl#32
+  movz x16,#0x8784
+  movk x16,#0x073e,lsl#16
+  movk x16,#0xfff0,lsl#32
+  movk x16,#0xffff,lsl#48
+  blr x16
+  movz x5,#0x2000
+  movk x5,#0x0839,lsl#16
+  movk x5,#0xfff0,lsl#32
+  movk x5,#0xffff,lsl#48
+  cmp x0,x5
+  b.ne fb_fail_7
+  mov x19,x0  // preserve mapped destination L2 pointer
+  ldr x4,[x19,#0x100]
+  cbnz x4,fb_fail_8
+  ldr x4,[x19,#0x1c8]
+  movz x5,#0x3003
+  movk x5,#0x0419,lsl#16
+  movk x5,#0x0008,lsl#32
+  cmp x4,x5
+  b.ne fb_fail_8
+  // Verify that the old/live alias uses the exact known PA and attributes.
+  movz x0,#0x0000
+  movk x0,#0x02f7,lsl#16
+  movk x0,#0x0008,lsl#32
+  movz x16,#0x8784
+  movk x16,#0x073e,lsl#16
+  movk x16,#0xfff0,lsl#32
+  movk x16,#0xffff,lsl#48
+  blr x16
+  movz x5,#0x0000
+  movk x5,#0x0717,lsl#16
+  movk x5,#0xfff0,lsl#32
+  movk x5,#0xffff,lsl#48
+  cmp x0,x5
+  b.ne fb_fail_9
+  ldr x4,[x0,#0x100]
+  movz x5,#0x0c0d
+  movk x5,#0xb800,lsl#16
+  movk x5,#0x0060,lsl#48
+  cmp x4,x5
+  b.ne fb_fail_9
+  // Transfer ONE exact L2 block descriptor. No other PTE is modified.
+  str x5,[x19,#0x100]
+  dsb ishst
+  ldr x4,[x19,#0x100]
+  cmp x4,x5
+  b.ne fb_fail_9
+  mov w0,#0
+  b fb_install_done
+fb_fail_1: mov w0,#1
+  b fb_install_done
+fb_fail_2: mov w0,#2
+  b fb_install_done
+fb_fail_3: mov w0,#3
+  b fb_install_done
+fb_fail_4: mov w0,#4
+  b fb_install_done
+fb_fail_5: mov w0,#5
+  b fb_install_done
+fb_fail_6: mov w0,#6
+  b fb_install_done
+fb_fail_7: mov w0,#7
+  b fb_install_done
+fb_fail_8: mov w0,#8
+  b fb_install_done
+fb_fail_9: mov w0,#9
+fb_install_done:
+  ldp x19,x30,[sp],#16
+  ret
+
+// fb_print(w0): 1=pre-switch ready, 2=after native switch/TLBI.
+fb_print:
+  stp x19,x30,[sp,#-16]!
+  mov x19,x0
+  cmp w0,#2
+  b.ne fb_pre
+  adr x15,msg_after
+  movz x2,#218
+  b fb_draw
+fb_pre:
+  adr x15,msg_pre
+  movz x2,#184
+  b fb_draw
+fb_draw:
+  movz x7,#0
+  movk x7,#0x0400,lsl#16
+  movk x7,#0xfff0,lsl#32
+  movk x7,#0xffff,lsl#48
+  movz x3,#6400
+  madd x7,x2,x3,x7
+  add x7,x7,#80
+  movz w10,#0xf0ff
+  movk w10,#0xffe6,lsl#16
+  adr x17,font5_table
+fb_char:
+  ldrb w8,[x15],#1
+  cbz w8,fb_draw_end
+  sub w8,w8,#32
+  cmp w8,#95
+  b.hs fb_draw_end
+  lsl x5,x8,#3
+  sub x5,x5,x8
+  add x5,x17,x5
+  mov x2,x7
+  movz x4,#7
+fb_glyph_row:
+  ldrb w11,[x5],#1
+  mov x14,x2
+  movz x6,#5
+fb_glyph_bit:
+  tbz w11,#4,fb_blank
+  mov x9,x14
+  movz x8,#4
+fb_pixel_row:
+  stp w10,w10,[x9]
+  stp w10,w10,[x9,#8]
+  add x9,x9,x3
+  sub x8,x8,#1
+  cbnz x8,fb_pixel_row
+fb_blank:
+  add x14,x14,#16
+  lsl w11,w11,#1
+  sub x6,x6,#1
+  cbnz x6,fb_glyph_bit
+  add x2,x2,x3,lsl#2
+  sub x4,x4,#1
+  cbnz x4,fb_glyph_row
+  add x7,x7,#96
+  b fb_char
+fb_draw_end:
+  dsb sy
+  ldp x19,x30,[sp],#16
+  ret
+
+fb_error_print:
+  stp x19,x30,[sp,#-16]!
+  // Render a fixed 8-char message selected by failure step.
+  adr x15,msg_fail1
+  sub w0,w0,#1
+  add x15,x15,x0,lsl#3
+  movz x2,#184
+  b fb_draw
+
+.p2align 2
+font5_table:
+FONT_DATA
+msg_pre: .asciz "FB ALIAS READY"
+msg_after: .asciz "FB NEW TTBR OK"
+msg_fail1: .ascii "FBFAIL1\0"
+msg_fail2: .ascii "FBFAIL2\0"
+msg_fail3: .ascii "FBFAIL3\0"
+msg_fail4: .ascii "FBFAIL4\0"
+msg_fail5: .ascii "FBFAIL5\0"
+msg_fail6: .ascii "FBFAIL6\0"
+msg_fail7: .ascii "FBFAIL7\0"
+msg_fail8: .ascii "FBFAIL8\0"
+msg_fail9: .ascii "FBFAIL9\0"

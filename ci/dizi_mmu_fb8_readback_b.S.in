@@ -1,0 +1,256 @@
+/* Dizi FB8-READBACK-B: read-only future L2[0x20]/L2[0x39] diagnostic.
+ * Copies NO page-table entries. Intentionally stops before native TTBR switch.
+ * Temporary fastboot boot ONLY; NEVER flash.
+ */
+.section .text.trace,"ax",%progbits
+.p2align 2
+fb8_entry:
+    bl fb8_collect
+    cbnz w0,fb8_guard_failure
+    bl fb8_display
+fb8_halt:
+    wfe
+    b fb8_halt
+
+/* Preserve the FB-BRIDGE-B guards 1..7, but do not perform guard 8's
+ * comparison until AFTER reading both values. There is no PTE store.
+ * x20=actual new framebuffer slot; x21=actual code L2 descriptor.
+ */
+fb8_collect:
+    stp x19,x30,[sp,#-16]!
+    mrs x4,TCR_EL1
+    movz x5,#0x251a
+    movk x5,#0xa51a,lsl#16
+    movk x5,#0x22,lsl#32
+    cmp x4,x5
+    b.ne fb8_fail1
+    mrs x4,MAIR_EL1
+    movz x5,#0x44ff
+    movk x5,#0x00bb,lsl#16
+    movk x5,#0x04ff,lsl#32
+    movk x5,#0x0c08,lsl#48
+    cmp x4,x5
+    b.ne fb8_fail2
+    mrs x4,SCTLR_EL1
+    tbz x4,#0,fb8_fail3
+    mrs x4,TTBR1_EL1
+    movz x5,#0xe000
+    movk x5,#0x02f6,lsl#16
+    movk x5,#0x0008,lsl#32
+    cmp x4,x5
+    b.ne fb8_fail4
+    /* Native VM's prospective root PA / VA pair. */
+    movz x8,#0xabb0
+    movk x8,#0x0716,lsl#16
+    movk x8,#0xfff0,lsl#32
+    movk x8,#0xffff,lsl#48
+    ldp x6,x7,[x8]
+    movz x5,#0x1000
+    movk x5,#0x0419,lsl#16
+    movk x5,#0x0008,lsl#32
+    cmp x7,x5
+    b.ne fb8_fail5
+    movz x5,#0x1000
+    movk x5,#0x0839,lsl#16
+    movk x5,#0xfff0,lsl#32
+    movk x5,#0xffff,lsl#48
+    cmp x6,x5
+    b.ne fb8_fail5
+    ldr x4,[x6,#0x600]
+    movz x5,#0x2003
+    movk x5,#0x0419,lsl#16
+    movk x5,#0x0008,lsl#32
+    movk x5,#0x2000,lsl#48
+    cmp x4,x5
+    b.ne fb8_fail6
+    /* Call native _phystokv with exact photographed future L2 PA. */
+    movz x0,#0x2000
+    movk x0,#0x0419,lsl#16
+    movk x0,#0x0008,lsl#32
+    movz x16,#0x8784
+    movk x16,#0x073e,lsl#16
+    movk x16,#0xfff0,lsl#32
+    movk x16,#0xffff,lsl#48
+    blr x16
+    movz x5,#0x2000
+    movk x5,#0x0839,lsl#16
+    movk x5,#0xfff0,lsl#32
+    movk x5,#0xffff,lsl#48
+    cmp x0,x5
+    b.ne fb8_fail7
+    mov x19,x0
+    ldr x20,[x19,#0x100]  // L2[0x20]: framebuffer, old snapshot=0
+    ldr x21,[x19,#0x1c8]  // L2[0x39]: kernel code, old=0x804193003
+    mov w0,#0
+    b fb8_done
+fb8_fail1: mov w0,#1
+    b fb8_done
+fb8_fail2: mov w0,#2
+    b fb8_done
+fb8_fail3: mov w0,#3
+    b fb8_done
+fb8_fail4: mov w0,#4
+    b fb8_done
+fb8_fail5: mov w0,#5
+    b fb8_done
+fb8_fail6: mov w0,#6
+    b fb8_done
+fb8_fail7: mov w0,#7
+fb8_done:
+    ldp x19,x30,[sp],#16
+    ret
+
+fb8_guard_failure:
+    adr x15,msg_fail1
+    sub w0,w0,#1
+    add x15,x15,x0,lsl#3
+    mov x2,#184
+    bl fb8_text
+    b fb8_halt
+
+/* Display one label + 16 hexadecimal digits per descriptor. 1600 px:
+ * x80 + 15*96 + 80 = 1600. Last row y260+28 < 2 MiB/6400.
+ */
+fb8_display:
+    stp x19,x30,[sp,#-16]!
+    adr x15,msg_slot
+    mov x2,#100
+    bl fb8_text
+    mov x0,x20
+    mov x2,#132
+    bl fb8_hex
+    adr x15,msg_code
+    mov x2,#184
+    bl fb8_text
+    mov x0,x21
+    mov x2,#216
+    bl fb8_hex
+    /* Status is independently derived from BOTH readbacks. */
+    cbnz x20,fb8_slot_bad
+    movz x5,#0x3003
+    movk x5,#0x0419,lsl#16
+    movk x5,#0x0008,lsl#32
+    cmp x21,x5
+    b.ne fb8_code_bad
+    adr x15,msg_match
+    b fb8_status
+fb8_slot_bad:
+    movz x5,#0x3003
+    movk x5,#0x0419,lsl#16
+    movk x5,#0x0008,lsl#32
+    cmp x21,x5
+    b.ne fb8_both_bad
+    adr x15,msg_slot_bad
+    b fb8_status
+fb8_code_bad:
+    adr x15,msg_code_bad
+    b fb8_status
+fb8_both_bad:
+    adr x15,msg_both_bad
+fb8_status:
+    mov x2,#264
+    bl fb8_text
+    ldp x19,x30,[sp],#16
+    ret
+
+/* fb8_setup(row=x2) preserves x20/x21 for the readback. */
+fb8_setup:
+    movz x7,#0
+    movk x7,#0x0400,lsl#16
+    movk x7,#0xfff0,lsl#32
+    movk x7,#0xffff,lsl#48
+    movz x3,#6400
+    madd x7,x2,x3,x7
+    add x7,x7,#80
+    movz w10,#0xf0ff
+    movk w10,#0xffe6,lsl#16
+    adr x17,font5_table
+    ret
+
+fb8_text:
+    stp x30,x19,[sp,#-16]!
+    bl fb8_setup
+fb8_text_loop:
+    ldrb w8,[x15],#1
+    cbz w8,fb8_text_end
+    bl fb8_glyph
+    b fb8_text_loop
+fb8_text_end:
+    dsb sy
+    ldp x30,x19,[sp],#16
+    ret
+
+fb8_hex:
+    stp x30,x19,[sp,#-16]!
+    mov x23,x0
+    mov x24,#16
+    bl fb8_setup
+fb8_hex_loop:
+    lsr x8,x23,#60
+    cmp w8,#10
+    b.lo fb8_hex_digit
+    add w8,w8,#55
+    b fb8_hex_emit
+fb8_hex_digit:
+    add w8,w8,#48
+fb8_hex_emit:
+    bl fb8_glyph
+    lsl x23,x23,#4
+    subs x24,x24,#1
+    b.ne fb8_hex_loop
+    dsb sy
+    ldp x30,x19,[sp],#16
+    ret
+
+/* 5x7 font, 4x pixel scaling, 16 px per source column. */
+fb8_glyph:
+    sub w8,w8,#32
+    cmp w8,#95
+    b.hs fb8_glyph_end
+    lsl x5,x8,#3
+    sub x5,x5,x8
+    add x5,x17,x5
+    mov x2,x7
+    movz x4,#7
+fb8_glyph_row:
+    ldrb w11,[x5],#1
+    mov x14,x2
+    movz x6,#5
+fb8_glyph_bit:
+    tbz w11,#4,fb8_blank
+    mov x9,x14
+    movz x8,#4
+fb8_pixel_row:
+    stp w10,w10,[x9]
+    stp w10,w10,[x9,#8]
+    add x9,x9,x3
+    sub x8,x8,#1
+    cbnz x8,fb8_pixel_row
+fb8_blank:
+    add x14,x14,#16
+    lsl w11,w11,#1
+    sub x6,x6,#1
+    cbnz x6,fb8_glyph_bit
+    add x2,x2,x3,lsl#2
+    sub x4,x4,#1
+    cbnz x4,fb8_glyph_row
+    add x7,x7,#96
+fb8_glyph_end:
+    ret
+
+.p2align 2
+font5_table:
+FONT_DATA
+msg_slot: .asciz "SLOT L2 20"
+msg_code: .asciz "CODE L2 39"
+msg_match: .asciz "FB8 MATCH STOP"
+msg_slot_bad: .asciz "FB8 SLOT BUSY"
+msg_code_bad: .asciz "FB8 CODE DIFF"
+msg_both_bad: .asciz "FB8 BOTH DIFF"
+msg_fail1: .ascii "FBFAIL1\0"
+msg_fail2: .ascii "FBFAIL2\0"
+msg_fail3: .ascii "FBFAIL3\0"
+msg_fail4: .ascii "FBFAIL4\0"
+msg_fail5: .ascii "FBFAIL5\0"
+msg_fail6: .ascii "FBFAIL6\0"
+msg_fail7: .ascii "FBFAIL7\0"

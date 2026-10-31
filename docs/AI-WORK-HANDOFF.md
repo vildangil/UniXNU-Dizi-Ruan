@@ -1,3 +1,26 @@
+## SWITCH-B now published and SHA-verified — 2026-10-31
+
+Owner explicitly reauthorized publication. Implementation commit
+`a2b00cff7620e068c039ea6ee8f95af7bd571a2e` is in main, verified by ls-remote.
+Manual [Actions #41200797504](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41200797504) completed **successfully** and published
+[Mu-dizi-XNU-LATEST-TEST.img](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/download/dizi-xnu-latest-test/Mu-dizi-XNU-LATEST-TEST.img) to the existing one-image rolling release.
+The release was downloaded back and independently hashed:
+`b4e33fd8fc6064546e31083f589a691184c0e5fc52766ba32c05723597b31bc4`.
+GitHub asset digest agrees; size 68,800,512 bytes. Artifact id 13042621469 holds
+CI JSON/emulation reports. Log/artifact redirected storage hosts are blocked for
+local downloads, so do not claim those archives were inspected; successful run
+status, artifact metadata and actual release image bytes were verified.
+See data/dizi-switch-b-ci-20261031.json and docs/DIZI-SWITCH-B.md.
+
+**No SWITCH-B hardware result yet.** Next one physical test: verify image SHA,
+`fastboot boot Mu-dizi-XNU-LATEST-TEST.img`, photograph G plus complete N/O/T.
+N is original x8 before native root masking, O=current TTBR1, T=TCR. No
+post-switch writer/table edits were added. Native VM return, IRQs, scheduler,
+rootfs and userland remain unproven. Earlier unpublished/pause entries below
+are historical and superseded by this owner-authorized publication.
+
+---
+
 ## Publication resumed by owner — 2026-10-31
 
 The owner explicitly lifted the accidental publication pause and authorized

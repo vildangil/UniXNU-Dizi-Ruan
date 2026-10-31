@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-31",
+  "variant": "switch-b",
+  "implementation_commit": "a2b00cff7620e068c039ea6ee8f95af7bd571a2e",
+  "run_id": 41200797504,
+  "run_url": "https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41200797504",
+  "conclusion": "success",
+  "release_asset_url": "https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/download/dizi-xnu-latest-test/Mu-dizi-XNU-LATEST-TEST.img",
+  "release_image_bytes": 68800512,
+  "published_image_downloaded_and_sha256_verified": true,
+  "image_sha256": "b4e33fd8fc6064546e31083f589a691184c0e5fc52766ba32c05723597b31bc4",
+  "github_asset_digest_matches": true,
+  "artifact_id": 13042621469,
+  "artifact_name": "dizi-mmu-ab-switch-b-41200797504",
+  "artifact_url": "https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41200797504/artifacts/13042621469",
+  "hardware_tested": false,
+  "ci_artifact_downloaded": false,
+  "log_archive_downloaded": false,
+  "inspection_limitation": "Actions artifact/log redirected storage hosts are blocked by network policy; run conclusion and published image verified via accessible GitHub API/release. Local emulation JSON remains available in repository."
+}

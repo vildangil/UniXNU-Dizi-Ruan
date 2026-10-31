@@ -1,7 +1,16 @@
 # SWITCH-B: numeric evidence before TTBR1 replacement
 
-Status on 2026-10-31: locally built/emulated; owner has now authorized publication.
-CI/release results will be recorded after completion. This is not a post-switch logger.
+Status on 2026-10-31: **GitHub Actions successfully built and published** SWITCH-B:
+[run #41200797504](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41200797504), implementation commit
+`a2b00cff7620e068c039ea6ee8f95af7bd571a2e`. The release image was downloaded
+back and its SHA-256 matches the pinned local image. **Not hardware tested.**
+This is not a post-switch logger.
+
+[Download published image](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/download/dizi-xnu-latest-test/Mu-dizi-XNU-LATEST-TEST.img).
+[JSON audit/emulation artifact](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41200797504/artifacts/13042621469).
+Artifact/log archive downloads into this environment were blocked on redirected
+storage hosts; remote run status and actual release bytes were verified.
+[Publication evidence](../data/dizi-switch-b-ci-20261031.json).
 
 The new physical photo has clearly identifiable VM-B labels 9, A, B, C, D, F, G;
 E is not readable/present in the photo. The photo matches VM-B, but its exact
@@ -49,9 +58,9 @@ A missing numeric row does not isolate the underlying native fault.
 - The prior VM-B binary was rebuilt byte-for-byte after factoring optional
   assembler/build arguments; its output hash remains unchanged. VM-B's 64
   emulator state comparisons still pass.
-- Existing manual workflow has a draft switch-b option, with all rollback choices
-  and default slot-b retained. Its shell syntax is checked, but no remote Actions
-  run or full final workflow run is claimed in this session.
+- Existing manual workflow offers switch-b, retains default slot-b and rollback
+  choices. The full remote run #41200797504 completed successfully, including its
+  build/test/artifact/publication steps.
 - No device run of SWITCH-B has occurred.
 
 Boot SHA-256:
@@ -71,7 +80,7 @@ python3 ci/check_dizi_init_b_emulation.py --variant switch-b --input .cache/swit
 One next physical test after matching the SHA:
 
 ```sh
-fastboot boot switch-b.img
+fastboot boot Mu-dizi-XNU-LATEST-TEST.img
 ```
 
 Photograph G and the complete N/O/T values. Those values are prerequisites to

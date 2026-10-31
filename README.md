@@ -1,7 +1,7 @@
-**SWITCH-B update (2026-10-31):** VM-B device photo reaches `G VM SWITCH`
+**SWITCH-B published (2026-10-31):** VM-B device photo reaches `G VM SWITCH`
 before TTBR1 replacement. [SWITCH-B draft](docs/DIZI-SWITCH-B.md) collects numeric
 roots/TCR for safe continuation analysis. Native VM completion and OS boot remain
-unproven. The owner has authorized publication; CI/release status is tracked in the handoff.
+unproven. [Successful build](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41200797504); [download](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/download/dizi-xnu-latest-test/Mu-dizi-XNU-LATEST-TEST.img). SHA-256 `b4e33fd8fc6064546e31083f589a691184c0e5fc52766ba32c05723597b31bc4`, verified after downloading release. SWITCH-B is not hardware tested.
 
 **2026-10-31:** Owner confirms hardware INIT-B through `G VM CALL` (before arm_vm_init).
 New `vm-b` is locally built/emulated, with clean output and eight VM-internal

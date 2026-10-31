@@ -32,7 +32,7 @@ The tracer is 1308 bytes in a 2032-byte code cave; only the cave, restored earli
 
 ## Manual build
 
-Use existing workflow .github/workflows/xnu-mmu-ab-lab.yml with variant=fb8-readback-b and publish_release=false. Alternatively, an exact owner command /run-dizi-fb8-readback on the open control PR #1 launches the same workflow through issue_comment, with release publishing forcibly disabled. There is no push or pull_request trigger in the MMU workflow.
+Use existing workflow .github/workflows/xnu-mmu-ab-lab.yml with variant=fb8-readback-b and publish_release=true to publish a single DEV BETA asset. Alternatively, exact owner comment /run-dizi-fb8-readback on open control PR #1 builds and publishes the same DEV BETA release. publish_release=false is still available for Actions artifact-only builds. DEV BETA changes no STABLE or legacy tag. No push or pull_request trigger. Readback-only refers to memory writes, not release publishing.
 
 Source and negative tests: python3 ci/test_dizi_mmu_fb8_readback_b.py
 

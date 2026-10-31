@@ -1,3 +1,24 @@
+## LEAF-B published and verified — 2026-10-31
+
+[Actions #41203388717](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41203388717) succeeded on main implementation
+`685c6b7bca7b424426ce4a1cc6058c1c0d627d96`; all build/test/artifact/publication
+steps report success. Downloaded the actual rolling release image back:
+SHA `0b5e0f0cebfc10d5e39b8a8f4db316740ad455efd2e154604ff3a2e4ee2e932f`, 68,800,512 bytes, matches local pin and GitHub digest.
+CI JSON/emulation artifact id 13043741003 exists; archive not separately read.
+See docs/DIZI-LEAF-B.md and data/dizi-leaf-b-ci-20261031.json.
+
+No LEAF-B hardware result. Next one test: SHA-check the latest image, temporary
+`fastboot boot Mu-dizi-XNU-LATEST-TEST.img`, photograph **N/F/K/C/H/X/V/S** plus
+G MAP AUDIT. C=VM code leaf, H=TTBR helper leaf, X=tracer leaf, V=vector leaf.
+S=0 means all reads completed, not valid/executable mappings or successful boot.
+S=1..5 earlier refusals, 6=K not L3 table, 7=L3 allocation/RAM bounds,
+8=converted L3 pointer refused. No extra table writes or post-switch renderer.
+Keep cpus=1/example=true. Code leaves, stack/data mapping and attributes must be
+checked before a guarded alias repair/post-switch logger. The only hardware
+mapping result so far is TABLE-B's actual F=0, K=804193003, S=0.
+
+---
+
 ## TABLE-B hardware: missing framebuffer alias; LEAF-B prepared (2026-10-31)
 
 Latest photo reads N=804191000, V=FFFFFFF008391000, L=2000000804192003,

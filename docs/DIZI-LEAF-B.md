@@ -1,6 +1,10 @@
 # LEAF-B — kernel translation leaf evidence after TABLE-B result
 
-2026-10-31: locally built and emulated; CI pending. No LEAF-B hardware result.
+2026-10-31: **GitHub CI succeeded and LEAF-B is published. No hardware result.**
+[Run #41203388717](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41203388717), source `685c6b7bca7b424426ce4a1cc6058c1c0d627d96`.
+[Download](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/download/dizi-xnu-latest-test/Mu-dizi-XNU-LATEST-TEST.img); actual downloaded bytes and GitHub asset digest match SHA below.
+[CI JSON/emulation artifact](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41203388717/artifacts/13043741003).
+[Publication evidence](../data/dizi-leaf-b-ci-20261031.json).
 
 ## Actual TABLE-B device observation
 

@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-31",
+  "variant": "leaf-b",
+  "implementation_commit": "685c6b7bca7b424426ce4a1cc6058c1c0d627d96",
+  "run_id": 41203388717,
+  "run_url": "https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41203388717",
+  "conclusion": "success",
+  "build_test_artifact_publication_steps_verified_success": true,
+  "release_asset_url": "https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/download/dizi-xnu-latest-test/Mu-dizi-XNU-LATEST-TEST.img",
+  "release_bytes": 68800512,
+  "image_sha256": "0b5e0f0cebfc10d5e39b8a8f4db316740ad455efd2e154604ff3a2e4ee2e932f",
+  "release_download_sha256_verified": true,
+  "github_asset_digest_matches": true,
+  "artifact_id": 13043741003,
+  "artifact_url": "https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41203388717/artifacts/13043741003",
+  "artifact_name": "dizi-mmu-ab-leaf-b-41203388717",
+  "artifact_expired": false,
+  "ci_archive_downloaded": false,
+  "local_leaf_emulation_cases_passed": 240,
+  "local_table_regression_cases_passed": 160,
+  "hardware_tested": false
+}

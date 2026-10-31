@@ -1,3 +1,10 @@
+## 2026-10-31 — LEAF-B successfully published
+
+- [Actions #41203388717](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41203388717) passed on main source 685c6b7b.
+- Downloaded published image SHA 0b5e0f0cebfc10d5e39b8a8f4db316740ad455efd2e154604ff3a2e4ee2e932f matches pin and GitHub digest.
+- CI JSON/emulation artifact id 13043741003 recorded; no LEAF-B hardware result.
+- Next test collects N/F/K/C/H/X/V/S before changing any new mapping.
+
 ## 2026-10-31 — TABLE-B hardware descriptors and LEAF-B
 
 - Recorded full TABLE-B photo: actual absent framebuffer L2 entry with S=0;

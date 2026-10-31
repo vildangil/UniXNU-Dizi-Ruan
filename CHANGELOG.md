@@ -1,3 +1,10 @@
+## 2026-10-31 — TABLE-B published and release verified
+
+- [Actions #41202475579](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41202475579) succeeded; source commit 08f12cc3 is in main.
+- Downloaded release and GitHub asset digest match SHA 5479a94e36a2e3527131c9401ff98e1024bf3fc6f4356952a5e901cf720eb4e3.
+- JSON/emulation artifact id 13042913736 recorded; no TABLE-B device result yet.
+- Final probe is before physmap metadata replacement; no new mapping writes.
+
 ## 2026-10-31 — TABLE-B descriptor probe
 
 - Added bounded read-only native-root/L1/L2 capture with explicit refusal statuses.

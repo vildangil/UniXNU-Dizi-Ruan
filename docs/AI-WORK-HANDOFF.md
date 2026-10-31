@@ -1,3 +1,28 @@
+## TABLE-B published after successful CI — 2026-10-31
+
+Implementation `08f12cc3fab6577a0fb4d77404d052f274fee330` is in main.
+[Manual Actions #41202475579](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41202475579) succeeded and published the existing
+single-image rolling release. Downloaded actual release bytes and GitHub asset
+digest both match SHA `5479a94e36a2e3527131c9401ff98e1024bf3fc6f4356952a5e901cf720eb4e3` (68,800,512 bytes).
+CI artifact id 13042913736 contains JSON/emulation reports; archive contents
+were not separately downloaded. Evidence: data/dizi-table-b-ci-20261031.json.
+
+Read docs/DIZI-TABLE-B.md. Four VM hooks; final **G MAP AUDIT is now at 3EA0B0**,
+earlier than SWITCH-B's G, before gptov metadata is overwritten. This placement
+is essential: calling phystokv at old G could return a future-only VA before
+TTBR1 replacement. It was corrected before publishing; no unsafe prototype was
+published. Local 160-case emulation covers both native phystokv paths and guard
+refusals. Existing SWITCH-B remains byte-identical/selectable.
+
+No TABLE-B hardware result. Next single test: verify SHA, temporary
+`fastboot boot Mu-dizi-XNU-LATEST-TEST.img`, photograph all **N/V/L/P/F/K/S/T**
+rows plus G MAP AUDIT. S=0 means two L2 reads completed, not good mappings;
+nonzero S means some fields are placeholders. F/K may point to L3, so decode
+raw types/attributes and complete leaf proof before installing any mapping or
+post-switch writer. No new page-table writes/CPU_ON; cpus=1/example=true retained.
+
+---
+
 ## TABLE-B prepared: bounded descriptor reads (2026-10-31)
 
 See docs/DIZI-TABLE-B.md before the next test. TABLE-B starts from pinned FLOW-B,

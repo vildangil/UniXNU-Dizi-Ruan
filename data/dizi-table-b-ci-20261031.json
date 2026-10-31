@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-31",
+  "variant": "table-b",
+  "implementation_commit": "08f12cc3fab6577a0fb4d77404d052f274fee330",
+  "run_id": 41202475579,
+  "run_url": "https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41202475579",
+  "conclusion": "success",
+  "release_asset_url": "https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/download/dizi-xnu-latest-test/Mu-dizi-XNU-LATEST-TEST.img",
+  "release_bytes": 68800512,
+  "image_sha256": "5479a94e36a2e3527131c9401ff98e1024bf3fc6f4356952a5e901cf720eb4e3",
+  "release_download_sha256_verified": true,
+  "github_asset_digest_matches": true,
+  "artifact_id": 13042913736,
+  "artifact_url": "https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41202475579/artifacts/13042913736",
+  "artifact_name": "dizi-mmu-ab-table-b-41202475579",
+  "artifact_expired": false,
+  "ci_archive_downloaded": false,
+  "local_native_vs_hook_cases_passed": 160,
+  "hardware_tested": false,
+  "note": "GitHub run conclusion and actual release bytes verified; archive content not separately downloaded. Current G MAP AUDIT is before physmap metadata replacement, earlier than SWITCH-B G."
+}

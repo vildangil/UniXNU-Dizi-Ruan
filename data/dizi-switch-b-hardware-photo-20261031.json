@@ -31,5 +31,6 @@
     "kernel is halted",
     "scheduler/IRQ/rootfs/userland"
   ],
-  "photo_file_in_checkout": false
+  "photo_file_in_checkout": false,
+  "owner_display_observation": "Owner reported an upper-screen green flash after selection; timing is not instrumented, and the flash is not evidence of TTBR switch execution."
 }

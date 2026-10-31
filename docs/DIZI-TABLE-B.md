@@ -1,6 +1,10 @@
 # TABLE-B — bounded pre-switch L1/L2 evidence
 
-2026-10-31: locally built/emulated; pending GitHub CI. **No TABLE-B hardware test.**
+2026-10-31: **GitHub CI passed and the image is published. No TABLE-B hardware test.**
+[Successful run #41202475579](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41202475579), implementation `08f12cc3fab6577a0fb4d77404d052f274fee330`.
+[Download TABLE-B](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/download/dizi-xnu-latest-test/Mu-dizi-XNU-LATEST-TEST.img); downloaded release bytes match the pinned SHA below.
+[CI JSON/emulation artifact](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41202475579/artifacts/13042913736).
+[Publication verification](../data/dizi-table-b-ci-20261031.json).
 SWITCH-B's photo captured N=0x804191000, O=0x802F6E000, T=0x22A51A251A.
 TABLE-B now reads descriptor contents, without modifying the kernel's tables.
 

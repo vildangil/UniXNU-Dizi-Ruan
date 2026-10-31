@@ -1,3 +1,11 @@
+## 2026-10-31 — LEAF-B hardware PTE result
+
+- Recorded complete N/F/K/C/H/X/V/S photo; S=0 and F=0 confirmed again.
+- Decoded four valid L3 pages: expected physical code pages, AF1/AP2/PXN0/UXN1.
+- Added reproducible leaf decoder with PXN, invalid-page and skipped-read checks.
+- Kept effective translation and future stack/data proof separate; documented
+  stale-TLB risk for any checkpoint before native TLBI. No new image in this step.
+
 ## 2026-10-31 — LEAF-B successfully published
 
 - [Actions #41203388717](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41203388717) passed on main source 685c6b7b.

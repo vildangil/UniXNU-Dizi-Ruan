@@ -1,3 +1,51 @@
+## New physical-device result — 2026-10-31
+
+The owner supplied a clear LEAF-B photo:
+
+```text
+N 0000000804191000
+F 0000000000000000
+K 0000000804193003
+C 00500008031EA683
+H 00500008031F6683
+X 00500008031F1683
+V 00500008031ED683
+S 0000000000000000
+```
+
+[Photo record](../data/dizi-leaf-b-hardware-photo-20261031.json),
+[PTE decode](../data/dizi-leaf-b-pte-decode-20261031.json).
+The panel matches LEAF-B; exact device-image SHA has not separately been stated
+by the owner. The published download's SHA was independently verified earlier.
+
+S=0 establishes completion of all four leaf reads. Each is a valid L3 page with
+AF=1, AP=2 (privileged read-only), PXN=0, UXN=1, AttrIdx=0, SH=2, contiguous hint=1.
+Physical pages are C=0x8031EA000, H=0x8031F6000, X=0x8031F1000, V=0x8031ED000,
+matching the prior bootstrap mapping reference. These leaf bits permit EL1
+instruction execution, but this is not a test of effective post-switch execution.
+Parent table controls, SCTLR/MAIR and contiguous-group consistency also matter;
+not all 16 members of each hinted group were read.
+
+F=0 again confirms an absent framebuffer L2 entry in the prepared hierarchy.
+Once stale TLB entries are invalidated, an unconditional access through that
+alias would fault. In particular, text immediately after the first TTBR write
+could still use a cached old mapping: it must not be misreported as proving a
+new mapping. Native TLBI/DSB/ISB at 3EA124..12C is a meaningful later boundary.
+
+Before a guarded alias repair/post-switch renderer, verify future live-stack
+coverage (including the tracer frame), global data needed by the logger, mapping
+attributes and guards. Static intstack symbols in this Mach-O are ...7BB0000 to
+...7BB4000, but current SP was not captured; SP selection/boot-stack replacement
+means those symbols alone do not establish the active stack. Do not guess it.
+The exact native old/new physmap transition constraints in TABLE-B still apply.
+
+Host decoder ci/decode_dizi_leaf_snapshot.py validates photo fields, checks PXN/
+invalid/skipped cases, and explicitly leaves effective translation/stack proof
+false. No extra device test is needed merely to repeat these same leaf readings.
+Earlier pre-photo status below is historical.
+
+---
+
 # LEAF-B — kernel translation leaf evidence after TABLE-B result
 
 2026-10-31: **GitHub CI succeeded and LEAF-B is published. No hardware result.**

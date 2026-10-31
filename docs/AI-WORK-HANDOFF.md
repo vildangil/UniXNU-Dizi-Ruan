@@ -1,3 +1,30 @@
+## Latest hardware result: LEAF-B four code PTEs (2026-10-31)
+
+Photo matches LEAF-B: N=804191000, F=0, K=804193003,
+C=00500008031EA683, H=00500008031F6683, X=00500008031F1683,
+V=00500008031ED683, S=0. See data/dizi-leaf-b-hardware-photo-20261031.json,
+data/dizi-leaf-b-pte-decode-20261031.json and new section of docs/DIZI-LEAF-B.md.
+Device-image checksum is not separately owner-confirmed; release checksum was
+verified by downloading it. Existing no-hardware-result statements below are
+historical and superseded by this photo.
+
+All four raw leaves: type3 valid, AF1, AP2 privileged RO, PXN0/UXN1, AttrIdx0,
+SH2, contiguous hint1. Physical pages match prior bootstrap code/reference:
+8031EA000 (VM), 8031F6000 (TTBR helper), 8031F1000 (tracer), 8031ED000 (vectors).
+This supports EL1 execution permissions at the leaf, not effective post-switch
+execution. Contiguous groups/hierarchical controls and live stack/data coverage
+are not fully proven. F=0 is again an actual absent new framebuffer mapping.
+
+Next development: investigate active SP (not just static intstack symbols) and
+logger data mappings; design guarded alias preservation and a checkpoint after
+native TTBR writes AND TLBI/DSB/ISB at 3EA124..12C. A pre-TLBI text write may use
+an old cached alias and is not proof that the new root maps it. No new mapping
+writes or post-switch hook have yet been implemented in this documentation step.
+Host decoder ci/decode_dizi_leaf_snapshot.py passes actual-photo and PXN/invalid/
+skipped tests. Do not claim VM return, IRQs/scheduler, SMP, rootfs or userland.
+
+---
+
 ## LEAF-B published and verified — 2026-10-31
 
 [Actions #41203388717](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41203388717) succeeded on main implementation

@@ -1,0 +1,32 @@
+{
+  "date": "2026-10-31",
+  "source": "User-supplied physical-device photograph in this conversation",
+  "variant_identification": "LEAF-B distinct N/F/K/C/H/X/V/S panel matches requested test",
+  "expected_image_sha256": "0b5e0f0cebfc10d5e39b8a8f4db316740ad455efd2e154604ff3a2e4ee2e932f",
+  "image_sha256_separately_owner_confirmed": false,
+  "numeric_fields": {
+    "N": "0x0000000804191000",
+    "F": "0x0000000000000000",
+    "K": "0x0000000804193003",
+    "C": "0x00500008031EA683",
+    "H": "0x00500008031F6683",
+    "X": "0x00500008031F1683",
+    "V": "0x00500008031ED683",
+    "S": "0x0000000000000000"
+  },
+  "visible_markers": [
+    "9 VM ENTRY",
+    "D VM TABLES",
+    "F VM MAP READY",
+    "G MAP AUDIT"
+  ],
+  "probe_va": "0xFFFFFFF0073EA0B0",
+  "not_proven": [
+    "TTBR replacement executed",
+    "effective post-switch mappings work",
+    "stack/data mapping valid after switch",
+    "VM returned",
+    "IRQ/scheduler/rootfs/userland"
+  ],
+  "photo_file_in_checkout": false
+}

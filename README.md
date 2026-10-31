@@ -1,3 +1,8 @@
+**Latest hardware photo (2026-10-31):** LEAF-B captured four valid code-page PTEs
+with leaf permissions consistent with EL1 execution; the framebuffer L2 entry
+remains absent (`F=0`, `S=0`). [Readbacks and limits](docs/DIZI-LEAF-B.md).
+Effective post-switch execution, stack/data coverage and full boot remain unproven.
+
 **Latest device result (2026-10-31):** TABLE-B captured `S=0`, `F=0` and
 `K=0x804193003`: new framebuffer alias absent, kernel mapping continues via L3.
 [LEAF-B preparation and limits](docs/DIZI-LEAF-B.md). No switch/VM completion or

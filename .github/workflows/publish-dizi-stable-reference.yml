@@ -1,6 +1,6 @@
-name: Dizi STABLE reference (owner manual; immutable)
+name: Retract wrongly named STABLE reference (owner-only one-time)
 
-# No push, PR or schedule trigger; only explicit owner command on control PR #1.
+# One-time correction of the misleading STABLE label. No push or PR triggers.
 on:
   workflow_dispatch:
   issue_comment:
@@ -8,42 +8,56 @@ on:
 
 permissions:
   contents: write
-  actions: read
-
-concurrency:
-  group: dizi-stable-reference
-  cancel-in-progress: false
 
 jobs:
-  publish-stable:
+  retract-premature-stable:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.number == 1 &&
        github.event.issue.pull_request != null &&
        github.event.comment.user.login == 'vildangil' &&
-       github.event.comment.body == '/publish-dizi-stable-reference')
+       github.event.comment.body == '/retract-dizi-premature-stable')
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Fetch exact hardware-observed first NO-SP image
+      - name: Verify the exact mistaken release and preserve historical control
         env:
           GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
           set -euo pipefail
-          mkdir -p dist
-          gh release download dizi-xnu-mmu-first-nosp-40700727875-1 \
-            --repo "$GITHUB_REPOSITORY" \
-            --pattern 'Mu-dizi-XNU-MMU-FIRST-NOSP-HIGH-RISK.img' --dir dist
-          echo 'ceb970d09e05aeff9e09293528d6193a87bf760c96a6e222766df6e73e249620  dist/Mu-dizi-XNU-MMU-FIRST-NOSP-HIGH-RISK.img' | sha256sum --check
-      - name: Publish immutable STABLE reference release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          DIZI_SOURCE_RUN_ID: '40700727875'
-        run: |
-          set -euo pipefail
-          bash ci/publish_dizi_channel.sh stable dist/Mu-dizi-XNU-MMU-FIRST-NOSP-HIGH-RISK.img
-          echo "STABLE: https://github.com/$GITHUB_REPOSITORY/releases/tag/dizi-xnu-stable" >> "$GITHUB_STEP_SUMMARY"
+          [[ "$GITHUB_REPOSITORY" == "vildangil/UniXNU-Dizi-Ruan" ]]
+          tag=dizi-xnu-stable
+          old=dizi-xnu-mmu-first-nosp-40700727875-1
+          expected=ceb970d09e05aeff9e09293528d6193a87bf760c96a6e222766df6e73e249620
+          # Historical original is preserved as a separate release.
+          old_digest="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$old" --jq '.assets[] | select(.name=="Mu-dizi-XNU-MMU-FIRST-NOSP-HIGH-RISK.img") | .digest')"
+          [[ "$old_digest" == "sha256:$expected" ]]
+          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Misnamed STABLE is already absent; no deletion necessary."
+            exit 0
+          fi
+          release_id="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" --jq '.id')"
+          release_title="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" --jq '.name')"
+          assets="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" --jq '.assets | length')"
+          asset_name="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" --jq '.assets[0].name')"
+          asset_digest="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" --jq '.assets[0].digest')"
+          [[ "$release_id" == 430039136 ]]
+          [[ "$release_title" == "Dizi STABLE reference - first NO-SP checkpoint (NOT OS boot)" ]]
+          [[ "$assets" == 1 ]]
+          [[ "$asset_name" == "Mu-dizi-XNU-STABLE.img" ]]
+          [[ "$asset_digest" == "sha256:$expected" ]]
+          # Only the accidentally published duplicate is deleted, with its tag.
+          gh release delete "$tag" --yes --cleanup-tag --repo "$GITHUB_REPOSITORY"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Mistaken STABLE release remains" >&2
+            exit 1
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" >/dev/null 2>&1; then
+            echo "Mistaken STABLE Git tag remains" >&2
+            exit 1
+          fi
+          # Protected historical release must still exist.
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$old" --jq '.assets[] | select(.name=="Mu-dizi-XNU-MMU-FIRST-NOSP-HIGH-RISK.img") | .digest')" == "sha256:$expected" ]]
+          echo "Removed only mistakenly named STABLE release and its tag. Historical NO-SP remains." >> "$GITHUB_STEP_SUMMARY"

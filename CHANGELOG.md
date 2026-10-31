@@ -3,7 +3,7 @@
 - Real Redmi Pad Pro FB-BRIDGE-B reports `FBFAIL8`, leaving ambiguity between occupied new framebuffer L2[0x20] and changed code L2[0x39].
 - Added separate pinned, read-only `fb8-readback-b`: display both 64-bit runtime values, distinct statuses, deliberate pre-switch WFE; **no descriptor store or native TTBR switch**.
 - Wired existing manual MMU workflow plus owner-only `/run-dizi-fb8-readback` control-PR comment. No push/PR trigger; no automatic rolling release replacement. Published release is unchanged.
-- Local reproducible candidate SHA-256: `a0ca687c085a56460ac4307e304d6025f909ac250e4b4b9201173fde902a8335`. GitHub Actions / physical test status to be verified separately.
+- Local reproducible candidate SHA-256: `a0ca687c085a56460ac4307e304d6025f909ac250e4b4b9201173fde902a8335`. GitHub Actions #41215735588 **passed**, with FB8 source, negative cases, SHA and image tests; artifact ID 13047639826. Release publishing was skipped, and existing rolling SHA 4ff3a8f6... remains unchanged. Physical device test is still pending.
 
 ## 2026-10-31 — guarded native TTBR1 framebuffer bridge, CI preflight
 

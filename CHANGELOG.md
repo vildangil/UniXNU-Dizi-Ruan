@@ -1,3 +1,26 @@
+## 2026-10-31 — FB-BRIDGE-B guarded framebuffer alias repair prepared (NOT hardware-tested)
+
+- Confirmed from prior hardware data that prospective TTBR1 L2[0x20] was zero
+  while the previous high-VA framebuffer alias was present only in the old root.
+- Added `ci/dizi_mmu_fb_bridge_b.S.in` and SHA-pinned patcher.
+  Before native TTBR switch, nine guards validate TCR/MAIR, old/new roots,
+  both L2 descriptors and exact native `phystokv` results.
+  Only if all pass, the experiment installs a single 2-MiB Device
+  framebuffer L2 descriptor and verifies readback; otherwise displays
+  `FBFAIL1`..`FBFAIL9` and intentionally stops before switching.
+- Adds post-`TLBI VMALLE1IS; DSB ISH; ISB` hook at
+  `0xFFFFFFF0073EA130`: `FB NEW TTBR OK` would demonstrate
+  continued high-VA framebuffer output under the new root.
+- Rebuilt image twice locally byte-identically, verified only native
+  MMU/barrier instructions remain unchanged, mutation allowlist and
+  corrupt-input rejection. Full boot SHA-256:
+  `4ff3a8f6839bc3ba9f33a91356b9f55e4e8cd65d6fafaf30391ba41e5babd195`.
+- Added explicit `fb-bridge-b` option to the EXISTING manual workflow in
+  `main`; `slot-b` default, `stack-b` rollback, `cpus=1` untouched.
+- **Local build/test passed. CI dispatch/publication and device
+  hardware result still pending.**
+  [Detailed guard/status documentation](docs/DIZI-FB-BRIDGE-B.md).
+
 ## 2026-10-31 — STACK-B hardware stack/data result
 
 - Recorded B=FFFFFFF007BB3DD0, P/Q=00600008039B3603, D=0060000802F6A603,

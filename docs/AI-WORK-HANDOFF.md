@@ -1,3 +1,67 @@
+## Current framebuffer continuation — 31 October 2026
+
+**Work had already implemented FB-BRIDGE-B before this session.**
+This is now the NEXT experimental image to validate. Do not regenerate
+it blindly or mistake the rolling release's `STACK-B` asset for
+`FB-BRIDGE-B`.
+
+Hardware chain: `alias-b` proved a working high framebuffer
+VA `0xFFFFFFF004000000` → PA `0xB8000000` under the early TTBR1.
+TABLE-B/LEAF-B/STACK-B photographed the **new native VM root**
+`0x804191000`: L1[C0] `0x2000000804192003`, L2 table
+`0x804192000`, missing framebuffer L2[20] = ZERO, valid EL1
+executable kernel code/vector leaves, and read-write private
+stack/data leaves with physical backing matching bootstrap references.
+These are PRE-switch observations; true post-switch stack/code access
+and contents are not yet independently verified.
+
+`ci/dizi_mmu_fb_bridge_b.S.in` and
+`ci/patch_dizi_mmu_fb_bridge_b.py` already provide one **guarded**
+transfer of the exact Device-nGnRnE, PXN/UXN 2MiB alias descriptor
+`0x00600000B8000C0D` to the new L2 slot PA
+`0x804192100` BEFORE native TTBR1 replacement. The original
+native `TTBR0/TTBR1`, `TLBI`, `DSB`, `ISB` remain unchanged.
+The pre-hook displays `FB ALIAS READY` or `FBFAIL1..9` and refuses
+a wrong mapping; after native barriers a new hook should display
+`FB NEW TTBR OK` only after confirming root/MMU.
+
+Pinned locally reproduced FB-BRIDGE-B output boot SHA256:
+`4ff3a8f6839bc3ba9f33a91356b9f55e4e8cd65d6fafaf30391ba41e5babd195`
+(68,800,512 bytes); source `STACK-B` SHA256
+`0aa6bc8c0af4ae12e8010d691e92c5e9e6578a91b89cbfda27aa063dc664d7ed`.
+The latest rolling release WAS STILL STACK-B when inspected at
+2026-10-31 14:18 UTC. Verify digest again; **do not claim that
+FB-BRIDGE-B has been built in Actions or physically tested.**
+
+**New in the present continuation:** added
+`ci/check_dizi_fb_bridge_contract.py`, and integrated it with the
+existing manual `xnu-mmu-ab-lab.yml` `fb-bridge-b` selection and
+manual/PR `validate.yml`. It checks actual pre-switch snapshots,
+TTBR1 38-bit geometry, old/new roots, L2 entry, MAIR AttrIdx3,
+Device descriptor permissions, next code+vector PTEs and native
+stack/global page readbacks. It also examines assembler guard ordering,
+the single new L2 write, DSB/readback, lack of CPU_ON, and performs
+four deliberate negative tests. A separate JS audit directly over
+current GitHub sources/evidence passed; the Python preflight has **not
+yet passed a GitHub Actions run**. Any mismatch must fail closed.
+Neither this nor local build pinning substitutes for device execution.
+
+**Next single physical test once the manual GitHub Actions build
+succeeds:** choose `main`, `fb-bridge-b`, `publish_release=true`
+in the existing xnu-mmu-ab-lab.yml. Confirm final image SHA256 equals
+`4ff3a8f6839bc3ba9f33a91356b9f55e4e8cd65d6fafaf30391ba41e5babd195`.
+Only temporary `fastboot boot`. Send a photo of
+`FB ALIAS READY`, `FB NEW TTBR OK`, or `FBFAILn`. Do not
+try CPU_ON/other kernels or flash partitions. `FB NEW TTBR OK`
+would prove a usable framebuffer immediately post-TLBI but NOT
+full `_arm_vm_init` completion, driver readiness or OS boot.
+
+More: [FB-BRIDGE-B design](DIZI-FB-BRIDGE-B.md).
+The historical STACK-B / earlier text below remains useful but should
+not be treated as the latest implementation status.
+
+---
+
 ## Current experiment: FB-BRIDGE-B prepared in main (2026-10-31)
 
 Read [docs/DIZI-FB-BRIDGE-B.md](DIZI-FB-BRIDGE-B.md) first.

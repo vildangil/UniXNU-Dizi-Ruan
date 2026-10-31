@@ -39,7 +39,7 @@ at EL1, 19.2-MHz architectural timer frequency, MMU M bit,
 TPIDR zero, MIDR readable and CPU0 MPIDR affinity.
 It does **not** establish successful completion of `_arm_init`.
 
-**New optional `bootpath-b` diagnostic:** Based on the exact
+**Earlier optional `bootpath-b` diagnostic (retained for comparison):** Based on the exact
 hardware-confirmed `arch-b` boot, four one-instruction hooks
 display the last reached native call boundary in `_arm_init`:
 `CPU DATA OK`, `TOPO OK`, `VM SERIAL OK` or `CPU INIT OK`.
@@ -51,7 +51,8 @@ writes one guarded L2 descriptor, so this remains high risk.
 New full boot SHA-256:
 `332debe2cb36926e389c2519ea9b877b31b596761b6f462a80479f588f6dce2d`.
 Rebuilt twice locally; **not yet hardware-tested**.
-It is a choice in the existing single manual MMU workflow
+The newer eight-stage `flow-b` is the recommended next test.
+This older variant remains a choice in the existing single manual MMU workflow
 with safe default `slot-b`, no new branches or workflow files.
 [Exact stages and limits](docs/DIZI-BOOTPATH-B.md).
 Temporary `fastboot boot` only, never flash.

@@ -1,6 +1,6 @@
 # Dizi FB8-READBACK-B — guarded hardware readback after FBFAIL8
 
-**Status (2026-10-31):** built twice locally from the pinned STACK-B image; hashes, static guards and mutation checks passed. **Not yet hardware-tested.** Original FB-BRIDGE-B remains unchanged.
+**Status (2026-10-31):** built twice locally from the pinned STACK-B image; hashes, static guards and mutation checks passed. **GitHub Actions #41215735588 passed**: source checks, four negative cases, output hash and the image mutation allowlist; artifact ID 13047639826. **Not yet hardware-tested.** Original FB-BRIDGE-B remains unchanged.
 
 ## Background
 

@@ -38,6 +38,7 @@ files can be recovered from git history if needed.
    - **deep-b (hardware-confirmed)**: native TPIDR and _arm_init CPU0 entry text on dizi; not a completed kernel initialization;
    - **arch-b (hardware-confirmed)**: verified CPU0 _arm_init entry, EL1, CNTFRQ=19.2MHz, MMU, TPIDR and MIDR; display ARCH REGS OK;
    - **bootpath-b (new, opt-in)**: four progress checkpoints after native _cpu_data_init, CPU topology, _arm_vm_init+serial and _PE_init_cpu. [Exact addresses and limitations](DIZI-BOOTPATH-B.md).
+   - **flow-b (new, opt-in, not hardware-tested)**: eight ABI/NZCV-preserving independent lines inside _arm_init, from first prologue through TBI, kernel collection, CPU data, platform, timer, topology and thread bootstrap. [Stages and safety](DIZI-FLOW-B.md).
 3. Leave **publish_release=true** to replace the **one** image at
    https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-latest-test .
    With **publish_release=false** the output is only in **Actions Artifacts**.
@@ -402,6 +403,44 @@ may remap the diagnostic alias.
   inspected with `llvm-objdump`.
 - **Not hardware-tested**; select only explicitly.
 - [Per-stage native hook addresses and risk notes](DIZI-BOOTPATH-B.md).
+
+## Extended eight-stage _arm_init trace: flow-b
+
+The physically verified `arch-b` image reached
+`ARCH REGS OK`. The new `flow-b` optional manual variant
+does not remove that previous status, and instead draws **eight
+independent right-hand markers**, preserving `x0–x18`,
+`x30`, and `NZCV` around each instrumentation call:
+
+`1 PROLOGUE`, `2 TBI RETURN`, `3 KC REBASE`,
+`4 CPU DATA`, `5 PE PLATFORM`, `6 TIMER WFE`,
+`7 CPU TOPO`, `8 THREAD READY`.
+
+A SHA-verified 1,163-byte arm64 payload is placed in
+a previously empty 2,032-byte space at
+`0xFFFFFFF0073F1800` **after** the low exception-vector
+table; the entry vectors are untouched. The image has
+8 exact one-instruction hooks in `_arm_init`, all of whose
+native instructions are replayed. Compared with the SHA-pinned
+`arch-b` input, exactly 940 kernel bytes change.
+The workflow reassembles readable source and compares it
+byte-for-byte to the pinned payload before packaging.
+
+Full `flow-b` boot-v4 SHA-256:
+`3e587f8da8e3cf2e3de5ba04d3bcd19808c30dffc3ddcf8699ce52eb0261888c`.
+Mach-O SHA-256:
+`b740835898ca1be232e733c76af967a66fbe025c3b8e48f34c2febb8f889efc7`.
+The output was reproduced locally, but **not** tested on dizi.
+
+The older `bootpath-b` with four markers is preserved as an
+alternative; the safer single-core `slot-b` remains the
+workflow default. No secondary CPU, new GIC MMIO, or
+additional page table operation is introduced. Nevertheless
+these are executable native hooks, and later XNU VM changes
+could invalidate the existing high virtual framebuffer alias.
+Use temporary `fastboot boot` only, never flash.
+
+[Detailed conditions, exact addresses and source verification](DIZI-FLOW-B.md).
 
 ## Interpretation / limitations
 

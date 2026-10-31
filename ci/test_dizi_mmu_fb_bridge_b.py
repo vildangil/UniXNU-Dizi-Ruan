@@ -41,6 +41,17 @@ def main(src:Path,output:Path):
     assert words.count(0xd5033a9f)==1
     assert 0xd4000003 not in words # No SMC
     assert not any(w & 0xffe0001f==0xd5000000 for w in words) # no direct TTBR writes
+    # Independently decode BOTH relocated ADRPs and native return branches.
+    def adrp_target(pc:int,op:int)->int:
+        assert op & 0x9f000000 == 0x90000000
+        imm=((op>>29)&3)|(((op>>5)&0x7ffff)<<2)
+        if imm&(1<<20):imm-=1<<21
+        return (pc&~0xfff)+(imm<<12)
+    for local,origin in ((20,b.PRE),(48,b.POST)):
+        assert adrp_target(b.CAVE+local,struct.unpack_from('<I',cave,local)[0])==0xfffffff00716c000
+        assert struct.unpack_from('<I',cave,local+4)[0]==b.branch(b.CAVE+local+4,origin+4)
+    for msg in (b'FB ALIAS READY\x00',b'FB NEW TTBR OK\x00',b'FBFAIL1\x00',b'FBFAIL9\x00'):
+        assert msg in cave
     # Reject any wrong input, even a one-bit difference.
     with tempfile.TemporaryDirectory() as folder:
         root=Path(folder)

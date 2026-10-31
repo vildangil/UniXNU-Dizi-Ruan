@@ -1,10 +1,10 @@
-## Release channels (31 October 2026)
+## Release channels — corrected 31 October 2026
 
-**STABLE reference:** [dizi-xnu-stable](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-stable) — immutable SHA-pinned, hardware-observed first NO-SP checkpoint (SHA-256 `ceb970d09e05aeff9e09293528d6193a87bf760c96a6e222766df6e73e249620`). **This is NOT a complete/working XNU operating system.** Owner-created once using the manual [stable-reference workflow](.github/workflows/publish-dizi-stable-reference.yml) or the exact owner command `/publish-dizi-stable-reference` on control PR #1. It is never updated by DEV builds.
+**STABLE is not available:** no functioning UniXNU/XNU operating system has been fully verified on Redmi Pad Pro. Previous EL1/MMU/XNU-entry milestones do not qualify. The duplicate NO-SP image prematurely called Stable is being retracted; its historical source remains safe.
 
-**DEV BETA:** [dizi-xnu-dev-beta](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-dev-beta) — rolling, experimental **one-image release** for easy downloading on a second computer. It is replaced only by an owner-manual `xnu-mmu-ab-lab.yml` build with `publish_release=true` or the exact owner control-PR command `/run-dizi-fb8-readback`. That command now publishes FB8 readback to DEV BETA; the earlier `FB8 is readback-only: publish_release must be false` restriction is removed. **Readback-only means no page-table writes/device switch, not a ban on distributing the image.**
+**DEV BETA:** [latest experimental boot image](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-dev-beta). Development images may not work. FB8-READBACK-B is read-only, deliberately stopping before native TTBR1 replacement. Owner command `/run-dizi-fb8-readback` on control PR #1 or manual `variant=fb8-readback-b` with `publish_release=true` builds and publishes DEV BETA. `publish_release=false` keeps an Actions-only artifact. No push/PR/schedule build triggers.
 
-The old [dizi-xnu-latest-test](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-latest-test) remains an archival/legacy channel to avoid breaking old download links; new MMU work no longer publishes there. The pinned `dizi-xnu-five-nosp-base` source is retained. No push or PR-triggered builds. Both released IMG files remain HIGH RISK; only temporary `fastboot boot`, **never flash**. See [release policy](docs/DIZI-RELEASE-CHANNELS.md).
+Only temporary `fastboot boot`; NEVER flash. [Release policy](docs/DIZI-RELEASE-CHANNELS.md).
 
 ---
 

@@ -177,3 +177,5 @@ Recovery memory observations: 6,061 MiB vs old reference FDT 7,944 MiB, discrepa
 **Most recent owner preference:** Ask Work to implement and test as much as possible in one run; user can return to the older GPT chat after Work, and the older chat should resume by reading THIS file plus latest `data/` and GitHub Actions, without reasking previously supplied hardware details.
 
 Full existing workflow build step was subsequently executed locally from immutable fifth-NOSP through every predecessor to INIT-B, including FLOW-B source reproduction, emulator checks and final SHA256SUMS verification. It passed; corrupted FLOW-B input was rejected before producing output. This remains local execution, not a GitHub Actions run.
+
+Remote publication confirmation: implementation commit [49e37866e34bfc5a9bb7b1fa61578da987bbbc5e](https://github.com/vildangil/UniXNU-Dizi-Ruan/commit/49e37866e34bfc5a9bb7b1fa61578da987bbbc5e) was pushed directly to main; git ls-remote confirmed that SHA. Working tree was clean. No Actions dispatch, release replacement or physical test was performed.

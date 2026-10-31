@@ -100,5 +100,7 @@
   "rebuilt_from_immutable_fifth_nosp_sha256": "b2f22f83c9b55d5a89d60f7df42488486346754911153cc502256f686681371b",
   "remote_actions_run": null,
   "corrupt_source_rejected_before_output": true,
-  "read_only_psci_helper_aarch64_compile_passed": true
+  "read_only_psci_helper_aarch64_compile_passed": true,
+  "implementation_commit": "49e37866e34bfc5a9bb7b1fa61578da987bbbc5e",
+  "implementation_pushed_to_main_and_ls_remote_verified": true
 }

@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-31",
+  "device": "Xiaomi Redmi Pad Pro dizi",
+  "variant": "arch-b",
+  "source": "User-provided physical device photograph 2451.jpg; no OCR; visually inspected",
+  "expected_boot_v4_sha256": "58c612f6f09776747f2a2ccecad7e82a0fd7ee0fae632e55c5a1f56ae786772b",
+  "observed_messages": [
+    "XNU ENTRY",
+    "PRE ALIAS ARMED",
+    "POST SCTLR OK",
+    "GUARD PASSED",
+    "TPIDR DONE",
+    "ARCH REGS OK"
+  ],
+  "last_message": "ARCH REGS OK",
+  "checks_that_arch_b_source_requires": [
+    "MPIDR_EL1 Aff0:Aff2 equals 0",
+    "CurrentEL is EL1 (0x4)",
+    "CNTFRQ_EL0 equals 19200000",
+    "SCTLR_EL1.M equals 1",
+    "TPIDR_EL1 equals 0",
+    "MIDR_EL1 is not zero"
+  ],
+  "interpretation": "Hardware confirmation that the six compiled arch-b checks passed after reaching first instruction of _arm_init on CPU0; NOT completion of _arm_init.",
+  "limitations": [
+    "No XNU interrupts, memory allocations, timer IRQ, ADT, GICR, UART or UFS verified.",
+    "No secondary CPU was woken or sampled.",
+    "The UI background is leftover EDK2 framebuffer content, not proof UEFI resumed.",
+    "Result is inferred from image and source checks, not independently sampled runtime logs."
+  ],
+  "next_steps": "Instrument post-_arm_init checkpoints with preserved native register state and avoid unverified MMIO or PSCI CPU_ON.",
+  "safety": "temporary fastboot boot only"
+}

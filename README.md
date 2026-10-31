@@ -1,3 +1,5 @@
+**FBFAIL8 follow-up (2026-10-31, readback-only diagnostic staged):** The real dizi screen shows `FBFAIL8` in the guarded `fb-bridge-b` experiment. This proves guards 1–7 passed, but does not distinguish occupied new framebuffer L2[0x20] from changed code L2[0x39]. The new `fb8-readback-b` experiment prints both actual 64-bit descriptors, then deliberately stops before any page-table write or native TTBR1 switch. Existing manual `xnu-mmu-ab-lab.yml` now accepts variant `fb8-readback-b` with `publish_release=false`; exact owner comment `/run-dizi-fb8-readback` on control PR #1 also dispatches it without release publishing. No `push` or `pull_request` build trigger. The local image SHA-256 is `a0ca687c085a56460ac4307e304d6025f909ac250e4b4b9201173fde902a8335`. **GitHub Actions and device test pending; never flash.** [Readback documentation](docs/DIZI-FB8-READBACK-B.md).
+
 **FrameBuffer bridge ready for CI validation (2026-10-31):**
 The photographed prospective native XNU TTBR1 has **no** entry for
 the early 2-MiB framebuffer high-VA alias (new L2[0x20] = 0).

@@ -2,6 +2,31 @@
 
 Experimental [UniXNU](https://github.com/UniXNU/UniXNU) port for Xiaomi Redmi Pad Pro (`dizi`, Snapdragon SM7435). The `ruan` variant is not separately verified.
 
+**31 October 2026 — hardware arch-b passed all six EL1 register guards.**
+The dizi screen shows `XNU ENTRY`, `PRE ALIAS ARMED`,
+`POST SCTLR OK`, `GUARD PASSED`, `TPIDR DONE` and
+**`ARCH REGS OK`**. This verifies the `_arm_init` entry
+at EL1, 19.2-MHz architectural timer frequency, MMU M bit,
+TPIDR zero, MIDR readable and CPU0 MPIDR affinity.
+It does **not** establish successful completion of `_arm_init`.
+
+**New optional `bootpath-b` diagnostic:** Based on the exact
+hardware-confirmed `arch-b` boot, four one-instruction hooks
+display the last reached native call boundary in `_arm_init`:
+`CPU DATA OK`, `TOPO OK`, `VM SERIAL OK` or `CPU INIT OK`.
+The final status overwrites the previous one, so a single photo
+shows the furthest printed checkpoint. The test does **not**
+call PSCI CPU_ON, start another CPU, or change any additional
+page table entries. Its original MMU framebuffer alias still
+writes one guarded L2 descriptor, so this remains high risk.
+New full boot SHA-256:
+`332debe2cb36926e389c2519ea9b877b31b596761b6f462a80479f588f6dce2d`.
+Rebuilt twice locally; **not yet hardware-tested**.
+It is a choice in the existing single manual MMU workflow
+with safe default `slot-b`, no new branches or workflow files.
+[Exact stages and limits](docs/DIZI-BOOTPATH-B.md).
+Temporary `fastboot boot` only, never flash.
+
 **31 October 2026 — hardware deep-b reached `_arm_init CPU0`.**
 The user's physical dizi photo shows `DIZI XNU ENTRY`,
 `PRE ALIAS ARMED`, `POST SCTLR OK`, `GUARD PASSED`,
@@ -20,7 +45,8 @@ changes only the existing traced code cave and does not
 start any CPU, but **still inherits the earlier guarded
 framebuffer L2 alias write**. Full boot-v4 SHA-256:
 `58c612f6f09776747f2a2ccecad7e82a0fd7ee0fae632e55c5a1f56ae786772b`.
-Locally rebuilt twice; **not yet tested on device**.
+The `arch-b` variant has now been **hardware-tested** on dizi,
+showing `ARCH REGS OK` (see above).
 It is an explicit choice in the existing manual MMU workflow;
 `slot-b` remains the default.
 

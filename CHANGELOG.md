@@ -1,3 +1,29 @@
+## 2026-10-31 — guarded native TTBR1 framebuffer bridge, CI preflight
+
+- Physical TABLE-B/LEAF-B/STACK-B showed a **missing** new-root
+  L2[0x20] high-VA Device framebuffer mapping, valid code leaves,
+  and future EL1-writable stack/data pages backed by the expected
+  bootstrap physical pages. Effective post-switch access is unknown.
+- Existing `fb-bridge-b` code in `main` uses exact register and
+  table guards, transfers **one** 2-MiB Device-nGnRnE L2 block
+  descriptor, and prints pre-/post-native-switch text. The original
+  privileged TTBR/TLBI/DSB/ISB instructions are not altered.
+- Added `ci/check_dizi_fb_bridge_contract.py` to the same manual
+  `fb-bridge-b` workflow and existing device-profile `validate.yml`.
+  It audits photographed topology, permissions, source guard order,
+  the unique L2 write and DSB, plus four deliberate failure cases.
+- Independent inspection of current GitHub source/evidence passed.
+  The new Python preflight has **not yet completed GitHub Actions**
+  and the `fb-bridge-b` image has **not been physically tested**.
+  The previously published release still contains `stack-b`.
+- Bridge expected boot SHA256:
+  `4ff3a8f6839bc3ba9f33a91356b9f55e4e8cd65d6fafaf30391ba41e5babd195`.
+  [Bridge notes](docs/DIZI-FB-BRIDGE-B.md).
+- The next single owner-authorized physical test is `fb-bridge-b`
+  after successful manual Actions and exact image hash verification.
+  Do **not** claim a functioning framebuffer driver, VM return,
+  interrupts, SMP, rootfs or userland from this preflight.
+
 ## 2026-10-31 — FB-BRIDGE-B guarded framebuffer alias repair prepared (NOT hardware-tested)
 
 - Confirmed from prior hardware data that prospective TTBR1 L2[0x20] was zero

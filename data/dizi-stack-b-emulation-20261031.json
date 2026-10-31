@@ -1,0 +1,27 @@
+{
+  "emulator": "unicorn 2.1.4",
+  "native_vs_hook_cases_passed": 240,
+  "fixtures": [
+    "low_stack",
+    "high_stack",
+    "cross_page",
+    "stack_readonly",
+    "missing_stack",
+    "missing_data",
+    "ancestor_readonly",
+    "l2_block",
+    "root0_pointer",
+    "root1_pointer",
+    "bad_tcr",
+    "child_bounds",
+    "converted_pointer",
+    "noncanonical_stack",
+    "range_mapping"
+  ],
+  "real_native_phystokv_executed": true,
+  "independent_python_walk_reference": true,
+  "exact_numeric_rows_verified": true,
+  "table_writes_permitted": false,
+  "hardware_tested": false,
+  "limitations": "Synthetic roots/mappings; no effective hardware MMU/cache/IRQ validation"
+}

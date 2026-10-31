@@ -1,3 +1,7 @@
+**STACK-B prepared (2026-10-31):** [future active-stack/data walk](docs/DIZI-STACK-B.md)
+checks prospective TTBR0/TTBR1 without modifying them. Local 240 comparisons pass;
+CI pending, hardware result absent. Full VM/OS boot remains unproven.
+
 **Latest hardware photo (2026-10-31):** LEAF-B captured four valid code-page PTEs
 with leaf permissions consistent with EL1 execution; the framebuffer L2 entry
 remains absent (`F=0`, `S=0`). [Readbacks and limits](docs/DIZI-LEAF-B.md).

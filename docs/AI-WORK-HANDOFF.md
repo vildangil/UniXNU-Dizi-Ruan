@@ -1,3 +1,23 @@
+## STACK-B prepared: active-SP/data future-root walk (2026-10-31)
+
+Owner asked to verify stack/data after LEAF-B code PTE capture. Read
+ docs/DIZI-STACK-B.md. New read-only walker captures actual native SP and walks
+prospective TTBR0 or TTBR1 according to canonical target VA, before gptov swap.
+P/Q cover SP-8 and SP-384; D/M cover native root globals/physmap metadata.
+L packs terminal levels and ancestor RO, S packs individual statuses; R selects
+the root for SP-8. Four old VM checkpoints retained; no new table/alias edits,
+post-switch writer, AT or CPU_ON. Peak stack384; cpus=1/example=true retained.
+Local 240 comparisons pass against a separate Python walker, including actual
+native phystokv bytes, low/high/page-crossing stacks, missing/RO/block mappings,
+ancestor RO and refusal cases. Synthetic tests do not establish hardware access.
+
+SHA 0aa6bc8c0af4ae12e8010d691e92c5e9e6578a91b89cbfda27aa063dc664d7ed.
+CI/publication pending; no STACK-B hardware result. Next photo: B/P/Q/D/M/L/R/S
+plus G MAP AUDIT. Status0 can mean a real invalid descriptor; nonzero means a
+skipped terminal read, not a zero PTE. See decoder ci/decode_dizi_stack_snapshot.py.
+
+---
+
 ## Latest hardware result: LEAF-B four code PTEs (2026-10-31)
 
 Photo matches LEAF-B: N=804191000, F=0, K=804193003,

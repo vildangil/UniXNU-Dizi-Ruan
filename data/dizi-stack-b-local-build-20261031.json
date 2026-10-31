@@ -1,0 +1,50 @@
+{
+  "variant": "stack-b",
+  "hardware_tested": false,
+  "input_boot_sha256": "3e587f8da8e3cf2e3de5ba04d3bcd19808c30dffc3ddcf8699ce52eb0261888c",
+  "output_boot_sha256": "0aa6bc8c0af4ae12e8010d691e92c5e9e6578a91b89cbfda27aa063dc664d7ed",
+  "output_macho_sha256": "396b1c94f6024efbd534957ea9fc6708ab1178997d2ae7fcf6ba61d3afc59f3d",
+  "payload_sha256": "304d1702aba3ad8a87b9494f1142ee04a37ec185412958793a6b037a130d3d3a",
+  "payload_bytes": 1863,
+  "changed_kernel_bytes": 1582,
+  "hook_sites": [
+    {
+      "stage": "9 VM ENTRY",
+      "va": "0xfffffff0073e95dc",
+      "original_opcode": "0xaa0103fa"
+    },
+    {
+      "stage": "D VM TABLES",
+      "va": "0xfffffff0073e97f8",
+      "original_opcode": "0xf0ffec08"
+    },
+    {
+      "stage": "F VM MAP READY",
+      "va": "0xfffffff0073ea104",
+      "original_opcode": "0xf9400108"
+    },
+    {
+      "stage": "G MAP AUDIT",
+      "va": "0xfffffff0073ea0b0",
+      "original_opcode": "0xd0ffec08"
+    }
+  ],
+  "new_vector_handler": false,
+  "extra_page_table_writes": false,
+  "extra_psci_calls": false,
+  "cave_bytes": 2032,
+  "stack_bytes": 384,
+  "limitation": "Invalid terminal descriptors are real readbacks when status=0; nonzero status values denote skipped terminal reads. No effective post-switch access or alias fix.",
+  "safety": "Temporary fastboot boot only; cpus=1",
+  "numeric_fields": {
+    "B": "active native SP at probe",
+    "P": "terminal descriptor for SP-8",
+    "Q": "terminal descriptor for SP-384",
+    "D": "terminal descriptor for root-global page 0xFFFFFFF00716ABB8",
+    "M": "terminal descriptor for physmap metadata page 0xFFFFFFF00716C048",
+    "L": "P/Q/D/M terminal-level nibbles bits0..15, ancestor EL1-readonly bits16..19",
+    "R": "prospective root PA selected for SP-8 (TTBR0 or TTBR1)",
+    "S": "P/Q/D/M status bytes low to high: 0=terminal read, 1=TCR mismatch, 2=noncanonical target, 3=root rejected, 4=child bounds rejected, 5=converted VA rejected"
+  },
+  "walk_roots": "native prospective TTBR0 pair at ...716ABA0 and TTBR1 pair at ...716ABB0"
+}

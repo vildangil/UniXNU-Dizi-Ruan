@@ -1,3 +1,12 @@
+## 2026-10-31 — STACK-B active-stack/data mapping probe
+
+- Captures actual SP, future translations for both frame endpoint pages and two
+  kernel-global pages, selecting prospective TTBR0/TTBR1 by canonical VA.
+- Reports terminal level and inherited EL1 read-only restrictions per target;
+  distinguishes invalid readbacks from refused/placeholder values.
+- 240 actual-code comparisons pass against a separate host walker; no table writes.
+- Added stack-b to existing manual workflow; remote CI/hardware result pending.
+
 ## 2026-10-31 — LEAF-B hardware PTE result
 
 - Recorded complete N/F/K/C/H/X/V/S photo; S=0 and F=0 confirmed again.

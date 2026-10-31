@@ -1,6 +1,6 @@
 ## Correction: Stable is NOT available — 31 October 2026
 
-Stable requires a fully working OS verified on actual dizi hardware. None has been achieved. The formerly published first NO-SP reference is historical evidence, not a stable OS; the mistaken duplicate Stable release/tag is being retracted. Publishing code refuses new Stable until full-OS verification and owner approval.
+Stable requires a fully working OS verified on actual dizi hardware. None has been achieved. The formerly published first NO-SP reference is historical evidence, not a stable OS; the mistakenly named `dizi-xnu-stable` duplicate release and tag were removed in owner-only cleanup run #41218722287. Publishing code refuses new Stable until full-OS verification and owner approval.
 
 DEV BETA: https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-dev-beta. Owner command `/run-dizi-fb8-readback` publishes the diagnostic DEV BETA image; manual `workflow_dispatch` + `publish_release=true` does too. Run #41218263533 passed (FB8 image SHA a0ca687c085a56460ac4307e304d6025f909ac250e4b4b9201173fde902a8335), hardware testing remains pending. No push/PR triggers; temporary fastboot boot only. See docs/DIZI-RELEASE-CHANNELS.md.
 

@@ -95,7 +95,7 @@ jobs:
           VARIANT: ${{ inputs.variant }}
         run: |
           set -euo pipefail
-          python3 -m py_compile ci/build_dizi_mmu_variant.py ci/patch_dizi_post_mmu_b.py ci/patch_dizi_text_console_b.py ci/patch_dizi_mmu_registers_b.py ci/patch_dizi_mmu_walk_b.py ci/patch_dizi_mmu_fbwalk_b.py ci/patch_dizi_mmu_slot_b.py ci/patch_dizi_mmu_alias_b.py ci/patch_dizi_mmu_guard_b.py ci/patch_dizi_mmu_deep_b.py ci/patch_dizi_mmu_arch_b.py ci/patch_dizi_mmu_bootpath_b.py ci/patch_dizi_mmu_flow_b.py ci/check_dizi_flow_b_source.py ci/patch_dizi_mmu_fb_bridge_b.py ci/test_dizi_mmu_fb_bridge_b.py
+          python3 -m py_compile ci/build_dizi_mmu_variant.py ci/patch_dizi_post_mmu_b.py ci/patch_dizi_text_console_b.py ci/patch_dizi_mmu_registers_b.py ci/patch_dizi_mmu_walk_b.py ci/patch_dizi_mmu_fbwalk_b.py ci/patch_dizi_mmu_slot_b.py ci/patch_dizi_mmu_alias_b.py ci/patch_dizi_mmu_guard_b.py ci/patch_dizi_mmu_deep_b.py ci/patch_dizi_mmu_arch_b.py ci/patch_dizi_mmu_bootpath_b.py ci/patch_dizi_mmu_flow_b.py ci/check_dizi_flow_b_source.py ci/patch_dizi_mmu_fb_bridge_b.py ci/test_dizi_mmu_fb_bridge_b.py ci/check_dizi_fb_bridge_contract.py
           if [ "$VARIANT" = "postmmu-b" ] || [ "$VARIANT" = "text-b" ] || [ "$VARIANT" = "regs-b" ] || [ "$VARIANT" = "walk-b" ] || [ "$VARIANT" = "fbwalk-b" ] || [ "$VARIANT" = "slot-b" ] || [ "$VARIANT" = "alias-b" ] || [ "$VARIANT" = "guard-b" ] || [ "$VARIANT" = "deep-b" ] || [ "$VARIANT" = "arch-b" ] || [ "$VARIANT" = "bootpath-b" ] || [ "$VARIANT" = "flow-b" ] || [ "$VARIANT" = "init-b" ] || [ "$VARIANT" = "vm-b" ] || [ "$VARIANT" = "switch-b" ] || [ "$VARIANT" = "table-b" ] || [ "$VARIANT" = "leaf-b" ] || [ "$VARIANT" = "stack-b" ] || [ "$VARIANT" = "fb-bridge-b" ]; then
             # Both variants start at the SHA-pinned orange-b from the immutable
             # fifth-NOSP release. Reconstruct the exact prior post-SCTLR image.
@@ -232,6 +232,12 @@ jobs:
                                         # Guard-verified reuse of the existing Device
                                         # framebuffer block in the prospective TTBR1 root.
                                         # Fail closed; one L2 slot only, no CPU_ON.
+                                        # Verify measured old/new TTBR1 geometry,
+                                        # 2-MiB Device framebuffer attributes and
+                                        # source guard order BEFORE any image patch.
+                                        python3 ci/check_dizi_fb_bridge_contract.py \
+                                          --self-test \
+                                          --output dist/FB-BRIDGE-PRECHECK.json
                                         mv dist/Mu-dizi-XNU-STACK-B-HIGH-RISK.img intermediate/
                                         python3 ci/patch_dizi_mmu_fb_bridge_b.py \
                                           --input intermediate/Mu-dizi-XNU-STACK-B-HIGH-RISK.img \

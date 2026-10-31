@@ -1,3 +1,19 @@
+**FrameBuffer bridge ready for CI validation (2026-10-31):**
+The photographed prospective native XNU TTBR1 has **no** entry for
+the early 2-MiB framebuffer high-VA alias (new L2[0x20] = 0).
+The existing optional `fb-bridge-b` transfers one guarded
+Device-nGnRnE entry to the future L2 and prints `FB ALIAS READY`,
+then `FB NEW TTBR OK` only after the native TTBR/TLBI sequence.
+Expected image SHA-256:
+`4ff3a8f6839bc3ba9f33a91356b9f55e4e8cd65d6fafaf30391ba41e5babd195`.
+A new source-only, fail-closed preflight/negative-test suite runs in
+the same manual workflow and `validate.yml`.
+**Bridge-b itself is not yet GitHub Actions built or hardware-tested**;
+the rolling release was still `stack-b` when last verified.
+[Bridge design and risks](docs/DIZI-FB-BRIDGE-B.md) ·
+[Updated handoff](docs/AI-WORK-HANDOFF.md).
+Only temporary `fastboot boot`, never `fastboot flash`.
+
 **Next experimental framebuffer test (2026-10-31):** [FB-BRIDGE-B](docs/DIZI-FB-BRIDGE-B.md)
 tries to preserve the photographed missing framebuffer alias across the native
 TTBR1 replacement. One exact L2 descriptor is installed only after strict

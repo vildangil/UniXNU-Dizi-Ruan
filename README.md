@@ -1,3 +1,14 @@
+## Release channels (31 October 2026)
+
+**STABLE reference:** [dizi-xnu-stable](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-stable) — immutable SHA-pinned, hardware-observed first NO-SP checkpoint (SHA-256 `ceb970d09e05aeff9e09293528d6193a87bf760c96a6e222766df6e73e249620`). **This is NOT a complete/working XNU operating system.** Owner-created once using the manual [stable-reference workflow](.github/workflows/publish-dizi-stable-reference.yml) or the exact owner command `/publish-dizi-stable-reference` on control PR #1. It is never updated by DEV builds.
+
+**DEV BETA:** [dizi-xnu-dev-beta](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-dev-beta) — rolling, experimental **one-image release** for easy downloading on a second computer. It is replaced only by an owner-manual `xnu-mmu-ab-lab.yml` build with `publish_release=true` or the exact owner control-PR command `/run-dizi-fb8-readback`. That command now publishes FB8 readback to DEV BETA; the earlier `FB8 is readback-only: publish_release must be false` restriction is removed. **Readback-only means no page-table writes/device switch, not a ban on distributing the image.**
+
+The old [dizi-xnu-latest-test](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-latest-test) remains an archival/legacy channel to avoid breaking old download links; new MMU work no longer publishes there. The pinned `dizi-xnu-five-nosp-base` source is retained. No push or PR-triggered builds. Both released IMG files remain HIGH RISK; only temporary `fastboot boot`, **never flash**. See [release policy](docs/DIZI-RELEASE-CHANNELS.md).
+
+---
+
+
 **FBFAIL8 follow-up (2026-10-31, readback-only diagnostic staged):** The real dizi screen shows `FBFAIL8` in the guarded `fb-bridge-b` experiment. This proves guards 1–7 passed, but does not distinguish occupied new framebuffer L2[0x20] from changed code L2[0x39]. The new `fb8-readback-b` experiment prints both actual 64-bit descriptors, then deliberately stops before any page-table write or native TTBR1 switch. Existing manual `xnu-mmu-ab-lab.yml` now accepts variant `fb8-readback-b` with `publish_release=false`; exact owner comment `/run-dizi-fb8-readback` on control PR #1 also dispatches it without release publishing. No `push` or `pull_request` build trigger. The local image SHA-256 is `a0ca687c085a56460ac4307e304d6025f909ac250e4b4b9201173fde902a8335`. **GitHub Actions SUCCESS:** [run #41215735588](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41215735588), artifact `dizi-mmu-ab-fb8-readback-b-41215735588` (ID 13047639826), exact expected SHA verified. **Device test still pending; never flash.** [Readback documentation](docs/DIZI-FB8-READBACK-B.md).
 
 **FrameBuffer bridge ready for CI validation (2026-10-31):**

@@ -1,23 +1,7 @@
 name: Dizi device profile checks
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - "board.toml"
-      - "feeds.toml"
-      - "configs/**"
-      - "dts/**"
-      - "package/unixnu.toml"
-      - "porting.toml"
-      - "ci/check_sm7435_smp.py"
-      - "ci/check_dizi_memory_map.py"
-      - "ci/check_dizi_fb_bridge_contract.py"
-      - "ci/dizi_mmu_fb_bridge_b.S.in"
-      - "ci/patch_dizi_mmu_fb_bridge_b.py"
-      - "data/dizi-*.json"
-      - "config/dizi-hardware.json"
-      - "package/Sm7435PsciReadOnly.*"
-      - ".github/workflows/validate.yml"
+  # Manual source validation only; no PR/push triggers.
 
 permissions:
   contents: read

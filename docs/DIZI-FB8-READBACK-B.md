@@ -37,3 +37,7 @@ Use existing workflow .github/workflows/xnu-mmu-ab-lab.yml with variant=fb8-read
 Source and negative tests: python3 ci/test_dizi_mmu_fb8_readback_b.py
 
 **Safety:** temporary fastboot boot only, never fastboot flash. Back up the device and preserve recovery access. Photograph both hex values and status. CI success is NOT hardware validation.
+
+## Release classification correction
+
+FB8-READBACK-B belongs to **DEV BETA** and may fail. It is not hardware-validated and deliberately stops before a full OS boot. Current release: https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-dev-beta . **No stable release is available** because a full working XNU OS has not been demonstrated. Never flash.

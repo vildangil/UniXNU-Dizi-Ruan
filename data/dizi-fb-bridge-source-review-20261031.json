@@ -1,0 +1,52 @@
+{
+  "date": "2026-10-31",
+  "variant": "fb-bridge-b",
+  "review_scope": "Independent source/evidence preflight, NOT actual guest or physical execution",
+  "status": "source_readback_passed_ci_not_run_hardware_not_tested",
+  "input_boot_sha256": "0aa6bc8c0af4ae12e8010d691e92c5e9e6578a91b89cbfda27aa063dc664d7ed",
+  "expected_output_boot_sha256": "4ff3a8f6839bc3ba9f33a91356b9f55e4e8cd65d6fafaf30391ba41e5babd195",
+  "observed_hardware_evidence": {
+    "old_ttbr1_pa": "0x802F6E000",
+    "new_ttbr1_pa": "0x804191000",
+    "new_l1_c0_descriptor": "0x2000000804192003",
+    "new_l2_child_pa": "0x804192000",
+    "new_framebuffer_l2_20": "0x0000000000000000",
+    "new_code_l2_39": "0x0000000804193003",
+    "future_stack_global_L3": {
+      "P": "0x00600008039B3603",
+      "Q": "0x00600008039B3603",
+      "D": "0x0060000802F6A603",
+      "M": "0x0060000802F6C603"
+    },
+    "old_fb_alias_device_descriptor": "0x00600000B8000C0D",
+    "gop_fb_pa": "0xB8000000",
+    "gop_fb_va": "0xFFFFFFF004000000",
+    "mair_el1": "0x0C0804FF00BB44FF"
+  },
+  "static_checks": [
+    "TCR-derived TTBR1 4KiB, 38-bit VA, 40-bit PA, top L1 C0/L2 20",
+    "future framebuffer L2 slot absent in readback, not a refused read placeholder",
+    "kernel and exception-vector future L3 leaf evidence supports EL1 execution",
+    "future active stack/data P/Q/D/M L3 PTEs support EL1 RW and bootstrap PA matches",
+    "future physical access and independent old-vs-new contents NOT proven",
+    "Device-nGnRnE framebuffer descriptor exact, 2MiB aligned and within splash reserve",
+    "one guarded STR future L2 entry, followed by DSB ISHST and readback",
+    "post-switch hook checks TTBR1 root and SCTLR.M before drawing",
+    "no PSCI CPU_ON or new GIC MMIO in test"
+  ],
+  "artifacts_added": [
+    "ci/check_dizi_fb_bridge_contract.py",
+    "updated existing .github/workflows/xnu-mmu-ab-lab.yml",
+    "updated existing .github/workflows/validate.yml",
+    "docs/DIZI-FB-BRIDGE-B.md",
+    "docs/AI-WORK-HANDOFF.md"
+  ],
+  "build_checks": {
+    "original_bridge_b_locally_reproduced_by_prior_work": true,
+    "bridge_b_GitHub_Actions_current_turn": false,
+    "new_Python_contract_CI_current_turn": false,
+    "hardware_tested": false
+  },
+  "next_test": "Manual GitHub Actions fb-bridge-b; match SHA 4ff3a8...; then temporary fastboot boot and photograph FB ALIAS READY / FB NEW TTBR OK / FBFAILn.",
+  "safety": "Do not flash; do not infer full framebuffer driver, native VM return or SMP."
+}

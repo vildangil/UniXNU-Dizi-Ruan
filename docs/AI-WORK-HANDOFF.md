@@ -1,3 +1,26 @@
+## TABLE-B prepared: bounded descriptor reads (2026-10-31)
+
+See docs/DIZI-TABLE-B.md before the next test. TABLE-B starts from pinned FLOW-B,
+restores its eight old hooks and installs four VM hooks. At 0xFFFFFFF0073EA0B0 (G MAP AUDIT), before replacing gptov metadata, it captures native
+virtual root, L1[C0], then (only for a table and bounded native-allocated child)
+uses the exact read-only native phystokv and reads L2[20]/L2[39]. It never edits
+tables or prints after the switch. S status separates skipped reads from zeros.
+Numeric labels N/V/L/P/F/K/S/T; peak tracer stack 320 bytes. Old SWITCH-B remains
+byte-identical after optional shared-builder refactoring.
+
+Local boot SHA 5479a94e36a2e3527131c9401ff98e1024bf3fc6f4356952a5e901cf720eb4e3.
+160 native-vs-hook fixture comparisons pass, including actual phystokv execution,
+exact displayed hex values and no writes to tables/metadata. CI/publication is
+pending; do not claim TABLE-B hardware success. Existing manual workflow only,
+slot-b stays default. Next photo should include every numeric row and G.
+
+The green flash observation is recorded as an unspecific display change; it is
+not proof of TTBR switch execution. VM completion, IRQs/scheduler, SMP, rootfs
+and userland remain unverified. Do not add a post-switch writer or alias mapping
+until the new descriptors have been decoded and leaf/attribute checks completed.
+
+---
+
 ## Latest hardware photo: SWITCH-B numeric snapshot (2026-10-31)
 
 Read the new section of docs/DIZI-SWITCH-B.md and

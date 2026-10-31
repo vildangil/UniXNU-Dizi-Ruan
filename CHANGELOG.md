@@ -1,3 +1,11 @@
+## 2026-10-31 — TABLE-B descriptor probe
+
+- Added bounded read-only native-root/L1/L2 capture with explicit refusal statuses.
+- Uses exact native phystokv only for a page inside native allocation and RAM bounds.
+- Preserves historic SWITCH-B output SHA; four VM hooks replace eight old FLOW hooks.
+- 160 emulation cases pass with exact displayed descriptors/status and no table writes.
+- Extended existing manual workflow only; TABLE-B remote CI/hardware status pending.
+
 ## 2026-10-31 — SWITCH-B hardware numeric snapshot
 
 - Recorded photographed N=0x804191000, O=0x802F6E000, T=0x22A51A251A and G.

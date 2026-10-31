@@ -1,0 +1,50 @@
+{
+  "variant": "table-b",
+  "hardware_tested": false,
+  "input_boot_sha256": "3e587f8da8e3cf2e3de5ba04d3bcd19808c30dffc3ddcf8699ce52eb0261888c",
+  "output_boot_sha256": "5479a94e36a2e3527131c9401ff98e1024bf3fc6f4356952a5e901cf720eb4e3",
+  "output_macho_sha256": "0e501f962531c0143fb84727ec8c6370dc2cb61c30ec1ef0bdab927d1a63d1e5",
+  "payload_sha256": "71422ff1d68c8d87bd22bd9e956d0651ec750aa3ca9a69eb1ee5580ee9366dc9",
+  "payload_bytes": 1471,
+  "changed_kernel_bytes": 1341,
+  "hook_sites": [
+    {
+      "stage": "9 VM ENTRY",
+      "va": "0xfffffff0073e95dc",
+      "original_opcode": "0xaa0103fa"
+    },
+    {
+      "stage": "D VM TABLES",
+      "va": "0xfffffff0073e97f8",
+      "original_opcode": "0xf0ffec08"
+    },
+    {
+      "stage": "F VM MAP READY",
+      "va": "0xfffffff0073ea104",
+      "original_opcode": "0xf9400108"
+    },
+    {
+      "stage": "G MAP AUDIT",
+      "va": "0xfffffff0073ea0b0",
+      "original_opcode": "0xd0ffec08"
+    }
+  ],
+  "new_vector_handler": false,
+  "extra_page_table_writes": false,
+  "extra_psci_calls": false,
+  "cave_bytes": 2032,
+  "stack_bytes": 320,
+  "limitation": "Reads before physmap metadata replacement at 0xFFFFFFF0073EA0B0, before TTBR switch; F/K can be L3 table descriptors, so their validity alone does not prove final leaf translation. S=0 means reads completed, not a healthy mapping.",
+  "safety": "Temporary fastboot boot only; cpus=1",
+  "numeric_fields": {
+    "N": "prospective root PA from native global 0xFFFFFFF00716ABB8",
+    "V": "native virtual root pointer",
+    "L": "new L1[C0] descriptor",
+    "P": "child table PA",
+    "F": "new L2[20] framebuffer descriptor",
+    "K": "new L2[39] kernel descriptor",
+    "S": "status 0=read complete, 1=TCR mismatch, 2=root pointer rejected, 3=L1 not table, 4=child outside native allocation/RAM bounds, 5=converted pointer rejected",
+    "T": "TCR_EL1"
+  },
+  "native_helper_called": "phystokv, only for bounded native-allocated child page"
+}

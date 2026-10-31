@@ -1,3 +1,8 @@
+**Latest hardware photo (2026-10-31):** SWITCH-B captured prospective root
+`0x804191000`, current TTBR1 `0x802F6E000`, TCR `0x22A51A251A` before switching.
+[Interpretation and remaining checks](docs/DIZI-SWITCH-B.md). New table contents,
+VM completion and OS boot remain unverified.
+
 **SWITCH-B published (2026-10-31):** VM-B device photo reaches `G VM SWITCH`
 before TTBR1 replacement. [SWITCH-B](docs/DIZI-SWITCH-B.md) collects numeric
 roots/TCR for safe continuation analysis. Native VM completion and OS boot remain

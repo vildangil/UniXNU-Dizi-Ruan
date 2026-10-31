@@ -1,3 +1,31 @@
+## Latest hardware photo: SWITCH-B numeric snapshot (2026-10-31)
+
+Read the new section of docs/DIZI-SWITCH-B.md and
+ data/dizi-switch-b-hardware-photo-20261031.json. Photo clearly reports:
+N=0x0000000804191000, O=0x0000000802F6E000, T=0x00000022A51A251A.
+9/A/B/C/D/F/G are identifiable; E is not identified. Exact photo-image SHA is
+not separately owner-confirmed, although the released source image was hashed.
+The old statements below saying no SWITCH-B photo exists are superseded.
+
+TCR gives TTBR1 4KiB, 38-bit VA, 40-bit PA, initial L1 index width 8 bits.
+Framebuffer indices: L1 C0 / L2 20; code/vector: L1 C0 / L2 39.
+Calculated next-root L1 entry PA is 0x804191600; no entry content was captured.
+Host decoder ci/decode_dizi_switch_snapshot.py checks these indices and rejects
+invalid roots/granules; report in data/dizi-switch-b-root-decode-20261031.json.
+
+Native root virtual-pointer provenance was traced through 3E97D8..3E97F4 to
+virtual global 0xFFFFFFF00716ABB0 and physical global ...ABB8. Use this known
+native pointer to design a bounded read-only hierarchy probe, not an unchecked
+physical dereference. phystokv has metadata/range logic, so do not guess an
+universal physical-to-virtual offset. Do not inject mappings before capturing
+and checking descriptors. No new image is produced for this documentation step.
+
+The last confirmed point remains BEFORE native TTBR1 replacement. Numeric roots
+do not establish that either switch happened, that VM returned, or that missing
+later output means a halt. Native IRQs/scheduler/rootfs/userland remain unverified.
+
+---
+
 ## SWITCH-B now published and SHA-verified — 2026-10-31
 
 Owner explicitly reauthorized publication. Implementation commit

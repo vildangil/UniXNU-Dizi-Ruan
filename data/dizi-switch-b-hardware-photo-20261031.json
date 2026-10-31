@@ -1,0 +1,35 @@
+{
+  "date": "2026-10-31",
+  "variant_identification": "SWITCH-B: distinct N/O/T panel and VM labels match requested test",
+  "source": "Owner-attached photograph in this chat",
+  "expected_image_sha256": "b4e33fd8fc6064546e31083f589a691184c0e5fc52766ba32c05723597b31bc4",
+  "image_sha256_confirmed_by_owner": false,
+  "register_snapshot": {
+    "N_new_root_unmasked_x8": "0x0000000804191000",
+    "O_current_TTBR1_EL1": "0x0000000802F6E000",
+    "T_TCR_EL1": "0x00000022A51A251A"
+  },
+  "readable_markers": [
+    "9 VM ENTRY",
+    "A VM RAM",
+    "B VM PHYSMAP",
+    "C VM ENTROPY",
+    "D VM TABLES",
+    "F VM MAP READY",
+    "G VM SWITCH"
+  ],
+  "not_identified": [
+    "E VM SEGMENTS"
+  ],
+  "last_native_hook_va": "0xFFFFFFF0073EA108",
+  "confirmed": "Snapshot routine at pre-switch G completed its three numeric rows; candidate new root differs from current root, TCR matches earlier hardware measurements",
+  "not_proven": [
+    "new page-table descriptor contents",
+    "framebuffer alias present in new tables",
+    "native TTBR1/TTBR0 replacement completed",
+    "arm_vm_init returned",
+    "kernel is halted",
+    "scheduler/IRQ/rootfs/userland"
+  ],
+  "photo_file_in_checkout": false
+}

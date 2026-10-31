@@ -1,3 +1,11 @@
+## 2026-10-31 — SWITCH-B hardware numeric snapshot
+
+- Recorded photographed N=0x804191000, O=0x802F6E000, T=0x22A51A251A and G.
+- Added host TCR/root decoder: 38-bit VA, 4KiB granule, 8-bit initial L1 index;
+  calculated framebuffer and kernel indices without claiming descriptor readbacks.
+- Traced native virtual-root pointer provenance for the next bounded table probe.
+- No new image or post-switch/VM-completion claim.
+
 ## 2026-10-31 — SWITCH-B successfully published
 
 - Owner lifted the accidental pause; implementation a2b00cff is in main.

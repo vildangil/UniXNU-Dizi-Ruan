@@ -1,3 +1,51 @@
+## New device photograph — roots captured (2026-10-31)
+
+The supplied photograph matches SWITCH-B and clearly reads:
+
+```text
+N 0000000804191000
+O 0000000802F6E000
+T 00000022A51A251A
+```
+
+9/A/B/C/D/F/G are identifiable; E is not identified. The tested image's exact
+checksum has not separately been stated by the owner for this photo. The prior
+published image checksum remains independently verified at release download.
+
+The snapshot confirms a different prospective root, not installation of it.
+TCR decodes to TG1=2 (4KiB), T1SZ=26 (38-bit high VA), IPS=2 (40-bit PA), initial
+level L1 with **8 index bits**. Therefore framebuffer VA uses L1=0xC0, L2=0x20;
+tracer, native switch and vector VAs share L1=0xC0, L2=0x39. Applying an unconditional
+9-bit mask at L1 would incorrectly give 0x1C0 for these canonical high addresses.
+
+The new initial L1 descriptor address for both paths is **0x804191600**;
+old is 0x802F6E600. These are computed addresses, not descriptor readbacks.
+We still need the descriptor and subsequent L2 entries to establish that the
+new hierarchy retains the framebuffer and executable code mappings.
+
+The exact native source shows the virtual root pointer stored at
+0xFFFFFFF00716ABB0 (3E97D8), converted with kvtophys and its PA stored at
+0xFFFFFFF00716ABB8 (3E97E8), then the root page zeroed (3E97F4). Before switching,
+x27 points to the latter global (3EA100). This provides a source-backed candidate
+for a bounded future read-only probe through the native virtual root pointer;
+it does not authorize arbitrary dereferencing of the photographed PA.
+Native phystokv contains range selection through mapping metadata: do not replace
+it with a guessed constant virtual/physical offset for further levels.
+
+[Hardware photo record](../data/dizi-switch-b-hardware-photo-20261031.json),
+[decoded geometry](../data/dizi-switch-b-root-decode-20261031.json).
+Reproduce the host calculation:
+
+```sh
+python3 ci/decode_dizi_switch_snapshot.py --new 0x804191000 --old 0x802f6e000 --tcr 0x22a51a251a --output /tmp/root-decode.json
+```
+
+The host decoder passed known indices and invalid-root/granule rejection checks.
+No new boot image or extra hardware execution is implied by this analysis.
+Earlier pre-photo status follows as history.
+
+---
+
 # SWITCH-B: numeric evidence before TTBR1 replacement
 
 Status on 2026-10-31: **GitHub Actions successfully built and published** SWITCH-B:

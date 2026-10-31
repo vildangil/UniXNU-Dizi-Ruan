@@ -1,0 +1,65 @@
+{
+  "tcr_el1": "0x22a51a251a",
+  "ttbr1_va_bits": 38,
+  "ttbr1_granule_bytes": 4096,
+  "physical_address_bits": 40,
+  "start_level": 1,
+  "initial_table_index_bits": 8,
+  "roots": {
+    "new": {
+      "snapshot": "0x804191000",
+      "base_pa": "0x804191000"
+    },
+    "old": {
+      "snapshot": "0x802f6e000",
+      "base_pa": "0x802f6e000"
+    }
+  },
+  "roots_differ": true,
+  "targets": {
+    "framebuffer": {
+      "va": "0xfffffff004000000",
+      "indices": {
+        "L1": 192,
+        "L2": 32,
+        "L3": 0
+      },
+      "new_initial_entry_pa": "0x804191600",
+      "old_initial_entry_pa": "0x802f6e600"
+    },
+    "tracer": {
+      "va": "0xfffffff0073f1800",
+      "indices": {
+        "L1": 192,
+        "L2": 57,
+        "L3": 497
+      },
+      "new_initial_entry_pa": "0x804191600",
+      "old_initial_entry_pa": "0x802f6e600"
+    },
+    "native_switch": {
+      "va": "0xfffffff0073ea10c",
+      "indices": {
+        "L1": 192,
+        "L2": 57,
+        "L3": 490
+      },
+      "new_initial_entry_pa": "0x804191600",
+      "old_initial_entry_pa": "0x802f6e600"
+    },
+    "vectors": {
+      "va": "0xfffffff0073ed000",
+      "indices": {
+        "L1": 192,
+        "L2": 57,
+        "L3": 493
+      },
+      "new_initial_entry_pa": "0x804191600",
+      "old_initial_entry_pa": "0x802f6e600"
+    }
+  },
+  "table_descriptors_captured": false,
+  "alias_in_new_tables_verified": false,
+  "ttbr_switch_completed_verified": false,
+  "note": "Initial index is truncated to the configured top-level width, not unconditionally masked to 9 bits; entry addresses are calculations, not memory readbacks."
+}

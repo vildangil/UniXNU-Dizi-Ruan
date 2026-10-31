@@ -1,3 +1,8 @@
+**Latest device result (2026-10-31):** TABLE-B captured `S=0`, `F=0` and
+`K=0x804193003`: new framebuffer alias absent, kernel mapping continues via L3.
+[LEAF-B preparation and limits](docs/DIZI-LEAF-B.md). No switch/VM completion or
+full OS claim; LEAF-B is locally built/emulated, awaiting CI and device test.
+
 **TABLE-B published (2026-10-31):** [bounded read-only new-table probe](docs/DIZI-TABLE-B.md)
 collects L1/L2 descriptors before TTBR1 replacement. Local build and 160 emulation
 cases pass; [CI succeeded](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41202475579) and the [release image](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/download/dizi-xnu-latest-test/Mu-dizi-XNU-LATEST-TEST.img) was downloaded and SHA-verified. TABLE-B has no hardware result.

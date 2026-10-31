@@ -14,11 +14,12 @@ ROOT=0x804191000; CHILD=ROOT+0x1000; VIRT=0xfffffff00c191000
 META=0xfffffff00716c000;PHI=0xfffffff0073e8784;TCR=0x22a51a251a
 
 def run(kernel,site,op,traced,flags,case):
+    leaf=m.__name__=='patch_dizi_mmu_leaf_b'
     u=Uc(UC_ARCH_ARM64,UC_MODE_ARM)
     u.mem_map(f.CAVE&~0xfff,0x1000);u.mem_write(f.CAVE,kernel[f.off(kernel,f.CAVE):f.off(kernel,f.CAVE_END)])
     u.mem_map(site&~0xfff,0x2000);u.mem_write(site,kernel[f.off(kernel,site):f.off(kernel,site)+4] if traced else struct.pack('<I',op))
     u.mem_map(PHI&~0xfff,0x1000);u.mem_write(PHI,kernel[f.off(kernel,PHI):f.off(kernel,PHI)+0x194])
-    for addr,size in [(0x200000,0x40000),(0x300000,0x10000),(FB,0x200000),(META,0x1000),(META-0x2000,0x1000),(VIRT,0x2000)]:u.mem_map(addr,size)
+    for addr,size in [(0x200000,0x40000),(0x300000,0x10000),(FB,0x200000),(META,0x1000),(META-0x2000,0x1000),(VIRT,0x3000)]:u.mem_map(addr,size)
     u.mem_write(FB,b'\x33'*0x200000)
     for i,r in enumerate(REGS):u.reg_write(r,0x200000+i*0x1000)
     if site==m.SITES[-1][1]:u.reg_write(UC_ARM64_REG_X8,ROOT)
@@ -29,10 +30,14 @@ def run(kernel,site,op,traced,flags,case):
     fbdesc=0x00600000b8000c0d if case=='mapped_fb' else 0
     u.mem_write(0xfffffff00716abb0,struct.pack('<QQ',vptr,ROOT))
     u.mem_write(VIRT+0x600,struct.pack('<Q',desc))
-    u.mem_write(VIRT+0x1100,struct.pack('<Q',fbdesc));u.mem_write(VIRT+0x11c8,struct.pack('<Q',0x803000601))
+    kernel_desc=(0 if case=='invalid_kernel_l2' else 0x803000601 if case=='kernel_block' else (ROOT+0x4000)|3 if case=='l3_child_high' else (CHILD+0x1000)|3) if leaf else 0x803000601
+    leaves=[0 if case=='invalid_code_leaf' else 0x8031ea603,0x8031f6603,0x8031f1603,0x8031ed603]
+    for off,value in zip([0xf50,0xfb0,0xf88,0xf68],leaves):u.mem_write(VIRT+0x2000+off,struct.pack('<Q',value))
+    u.mem_write(VIRT+0x1100,struct.pack('<Q',fbdesc));u.mem_write(VIRT+0x11c8,struct.pack('<Q',kernel_desc))
     u.mem_write(META+0x108,struct.pack('<QQQ',0x800000000,0x10000000,0x200000 if case=='converted_pointer' else 0xfffffff008000000))
     u.mem_write(META+0x138,struct.pack('<Q',CHILD+0x2000))
     if case=='range_mapping':u.mem_write(META+0x48,struct.pack('<QQQ',ROOT,VIRT,0x4000))
+    if case=='l3_converted_pointer':u.mem_write(META+0x48,struct.pack('<QQQ',CHILD+0x1000,0x200000,0x1000))
     before=bytes(u.mem_read(0x200000,0x40000));lines=[];writes=[]
     def write(uc,access,address,size,value,data):
         assert FB<=address and address+size<=FB+0x200000 or 0x307ec0<=address and address+size<=0x308000,hex(address)
@@ -50,18 +55,29 @@ def run(kernel,site,op,traced,flags,case):
         if site==m.SITES[-1][1]:
             status={'tcr':1,'pointer':2,'invalid_l1':3,'block_l1':3,'child_low':4,'child_high':4,'converted_pointer':5}.get(case,0)
             vals=[ROOT,0 if status==1 else vptr,0 if status in (1,2) else desc,0 if status in (1,2,3) else desc&0xfffffffff000,fbdesc if status==0 else 0,0x803000601 if status==0 else 0,status,tcr]
-            expected=[f'{n} {v:016X}' for n,v in zip('NVLPFKST',vals)]
+            labels='NVLPFKST'
+            if leaf:
+                status={'invalid_kernel_l2':6,'kernel_block':6,'l3_child_high':7,'l3_converted_pointer':8}.get(case,status)
+                read_l2=status==0 or status>=6
+                vals=[ROOT,fbdesc if read_l2 else 0,kernel_desc if read_l2 else 0]+(leaves if status==0 else [0]*4)+[status]
+                labels='NFKCHXVS'
+            expected=[f'{n} {v:016X}' for n,v in zip(labels,vals)]
             assert lines==expected,(case,lines,expected)
     return state
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--input',type=Path,required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--input',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--variant',choices=['table-b','leaf-b'],default='table-b');a=p.parse_args()
+    global m
+    if a.variant=='leaf-b':
+        import patch_dizi_mmu_leaf_b as leaf
+        m=leaf
     b=a.input.read_bytes();assert f.sha(b)==m.OUTPUT_BOOT;k=b[f.MACHO_OFF:f.MACHO_OFF+f.MACHO_BYTES]
     count=0;cases=['absent_fb','mapped_fb','range_mapping','tcr','pointer','invalid_l1','block_l1','child_low','child_high','converted_pointer']
+    if a.variant=='leaf-b':cases+=['invalid_kernel_l2','kernel_block','l3_child_high','l3_converted_pointer','invalid_code_leaf']
     for case in cases:
         for _,site,op in m.SITES:
             for flags in [0,0xf0000000,0xa0000000,0x50000000]:
                 assert run(k,site,op,False,flags,case)==run(k,site,op,True,flags,case),(case,hex(site))
                 count+=1
-    r={'emulator':'unicorn 2.1.4','native_vs_hook_cases_passed':count,'fixtures':cases,'real_native_phystokv_executed':True,'descriptor_and_status_strings_checked':True,'page_table_writes_permitted':False,'hardware_tested':False,'limitations':'Synthetic memory/translation metadata; no real MMU/Device/cache/IRQ validation'};a.output.write_text(json.dumps(r,indent=2)+'\n');print('PASS:',count,'table probe comparisons with exact numeric strings and read-only memory bounds')
+    r={'emulator':'unicorn 2.1.4','native_vs_hook_cases_passed':count,'variant':a.variant,'fixtures':cases,'real_native_phystokv_executed':True,'descriptor_and_status_strings_checked':True,'page_table_writes_permitted':False,'hardware_tested':False,'limitations':'Synthetic memory/translation metadata; no real MMU/Device/cache/IRQ validation'};a.output.write_text(json.dumps(r,indent=2)+'\n');print('PASS:',count,'table probe comparisons with exact numeric strings and read-only memory bounds')
 if __name__=='__main__':main()

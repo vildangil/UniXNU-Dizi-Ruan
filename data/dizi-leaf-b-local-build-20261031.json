@@ -1,0 +1,50 @@
+{
+  "variant": "leaf-b",
+  "hardware_tested": false,
+  "input_boot_sha256": "3e587f8da8e3cf2e3de5ba04d3bcd19808c30dffc3ddcf8699ce52eb0261888c",
+  "output_boot_sha256": "0b5e0f0cebfc10d5e39b8a8f4db316740ad455efd2e154604ff3a2e4ee2e932f",
+  "output_macho_sha256": "46cf768c38147b32cfda45c4fc65c9dd014d3ce5832961aa1edf7d4ce3bae50c",
+  "payload_sha256": "30ee81359bfdb401157cec36a1f1e519b77fc8b9fcb1168f0c2829a6707ed25a",
+  "payload_bytes": 1619,
+  "changed_kernel_bytes": 1398,
+  "hook_sites": [
+    {
+      "stage": "9 VM ENTRY",
+      "va": "0xfffffff0073e95dc",
+      "original_opcode": "0xaa0103fa"
+    },
+    {
+      "stage": "D VM TABLES",
+      "va": "0xfffffff0073e97f8",
+      "original_opcode": "0xf0ffec08"
+    },
+    {
+      "stage": "F VM MAP READY",
+      "va": "0xfffffff0073ea104",
+      "original_opcode": "0xf9400108"
+    },
+    {
+      "stage": "G MAP AUDIT",
+      "va": "0xfffffff0073ea0b0",
+      "original_opcode": "0xd0ffec08"
+    }
+  ],
+  "new_vector_handler": false,
+  "extra_page_table_writes": false,
+  "extra_psci_calls": false,
+  "cave_bytes": 2032,
+  "stack_bytes": 320,
+  "limitation": "No alias fix or post-switch logger. S=0 is successful capture, not proof of executable valid leaves or kernel progress after switching.",
+  "safety": "Temporary fastboot boot only; cpus=1",
+  "numeric_fields": {
+    "N": "new root PA",
+    "F": "framebuffer L2 descriptor",
+    "K": "kernel L2 descriptor",
+    "C": "L3[1EA], native VM probe/return page",
+    "H": "L3[1F6], TTBR helper page",
+    "X": "L3[1F1], tracer page",
+    "V": "L3[1ED], vector page",
+    "S": "0=all leaf reads complete; 1..5=TABLE-B refusals; 6=K not L3 table; 7=L3 child outside bounds; 8=converted L3 VA rejected"
+  },
+  "native_helper": "exact native phystokv twice, only after bounds checks and before gptov replacement"
+}

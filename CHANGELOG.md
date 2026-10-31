@@ -1,3 +1,12 @@
+## 2026-10-31 — TABLE-B hardware descriptors and LEAF-B
+
+- Recorded full TABLE-B photo: actual absent framebuffer L2 entry with S=0;
+  kernel L2 points to L3 at 0x804193000.
+- Added host descriptor decoder that distinguishes skipped zeros and table/leaf types.
+- Prepared read-only LEAF-B capture of VM/helper/tracer/vector L3 PTEs before
+  physmap metadata replacement, without installing an alias or post-switch writer.
+- 240 emulator comparisons pass; remote LEAF-B CI/hardware pending.
+
 ## 2026-10-31 — TABLE-B published and release verified
 
 - [Actions #41202475579](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41202475579) succeeded; source commit 08f12cc3 is in main.

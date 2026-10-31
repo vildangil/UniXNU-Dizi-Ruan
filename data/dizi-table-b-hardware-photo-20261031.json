@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-31",
+  "source": "User-attached physical-device photograph in this conversation",
+  "variant_identification": "TABLE-B unique eight-row numeric panel matches requested test",
+  "expected_image_sha256": "5479a94e36a2e3527131c9401ff98e1024bf3fc6f4356952a5e901cf720eb4e3",
+  "image_sha256_separately_confirmed_by_owner": false,
+  "numeric_fields": {
+    "N": "0x0000000804191000",
+    "V": "0xFFFFFFF008391000",
+    "L": "0x2000000804192003",
+    "P": "0x0000000804192000",
+    "F": "0x0000000000000000",
+    "K": "0x0000000804193003",
+    "S": "0x0000000000000000",
+    "T": "0x00000022A51A251A"
+  },
+  "numeric_rows_complete": true,
+  "probe_site": "0xFFFFFFF0073EA0B0",
+  "status_zero_means": "Actual L1 and both L2 reads completed before native physmap metadata replacement",
+  "not_proven": [
+    "native TTBR1/TTBR0 switches completed",
+    "new kernel L3 leaves are valid/executable",
+    "arm_vm_init completed",
+    "kernel stopped",
+    "IRQ/scheduler/SMP/rootfs/userland"
+  ],
+  "original_photo_file_in_checkout": false
+}

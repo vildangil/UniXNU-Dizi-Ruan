@@ -1,3 +1,7 @@
+> New device result: S=0, F=0 (actual absent framebuffer L2 entry), K=0x804193003
+> (kernel L3 table). [Full transcription and next leaf probe](DIZI-LEAF-B.md).
+> Earlier no-hardware-result statements below describe the pre-photo state.
+
 # TABLE-B — bounded pre-switch L1/L2 evidence
 
 2026-10-31: **GitHub CI passed and the image is published. No TABLE-B hardware test.**

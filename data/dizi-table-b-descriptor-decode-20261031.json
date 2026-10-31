@@ -1,0 +1,55 @@
+{
+  "snapshot": {
+    "N": "0x804191000",
+    "V": "0xfffffff008391000",
+    "L": "0x2000000804192003",
+    "P": "0x804192000",
+    "F": "0x0",
+    "K": "0x804193003",
+    "S": "0x0",
+    "T": "0x22a51a251a"
+  },
+  "probe_status": 0,
+  "framebuffer_absent_at_captured_l2": true,
+  "kernel_leaf_mapping_verified": false,
+  "ttbr_switch_completed_verified": false,
+  "l1": {
+    "type": "table",
+    "child_pa": "0x804192000",
+    "ap_table": 1,
+    "pxn_table": false,
+    "uxn_table": false
+  },
+  "framebuffer_l2": {
+    "type": "invalid",
+    "raw": "0x0"
+  },
+  "kernel_l2": {
+    "type": "L3_table",
+    "raw": "0x804193003",
+    "child_pa": "0x804193000"
+  },
+  "next_kernel_l3_reads": {
+    "native_probe": {
+      "va": "0xfffffff0073ea0b0",
+      "index": 490,
+      "entry_pa": "0x804193f50"
+    },
+    "native_switch": {
+      "va": "0xfffffff0073ea10c",
+      "index": 490,
+      "entry_pa": "0x804193f50"
+    },
+    "vectors": {
+      "va": "0xfffffff0073ed000",
+      "index": 493,
+      "entry_pa": "0x804193f68"
+    },
+    "tracer": {
+      "va": "0xfffffff0073f1800",
+      "index": 497,
+      "entry_pa": "0x804193f88"
+    }
+  },
+  "interpretation": "Raw descriptor capture before TTBR replacement. An absent framebuffer entry prevents translation through that captured hierarchy; kernel execution still needs leaf/permission checks and a post-switch checkpoint."
+}

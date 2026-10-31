@@ -1,3 +1,25 @@
+## TABLE-B hardware: missing framebuffer alias; LEAF-B prepared (2026-10-31)
+
+Latest photo reads N=804191000, V=FFFFFFF008391000, L=2000000804192003,
+P=804192000, F=0, K=804193003, S=0, T=22A51A251A. See new hardware/decode
+JSON under data/dizi-table-b-* and docs/DIZI-LEAF-B.md. Exact photo image SHA
+is not separately owner-confirmed. S=0 makes F=0 an actual invalid L2 entry:
+the prospective hierarchy lacks the diagnostic alias, explaining why old-alias
+post-switch rendering is unsafe. This does not prove a native halt or switch.
+
+K points to L3 at 804193000, not a block. Parent L APTable=1 (EL0 restriction),
+PXNTable/UXNTable=0. Next proof needs VM/helper/tracer/vector PTEs. Prepared
+LEAF-B captures them at the same pre-gptov G MAP AUDIT, adding bounded L3
+conversion/reads, no mapping edits. Eight rows N/F/K/C/H/X/V/S; S=0 complete,
+S=1..5 old guards, 6=K not table, 7=L3 bounds, 8=L3 VA refused. Peak stack320.
+Local SHA 0b5e0f0cebfc10d5e39b8a8f4db316740ad455efd2e154604ff3a2e4ee2e932f.
+240 emulation cases pass using actual native phystokv for both levels.
+CI/publication pending; no LEAF-B hardware result. Next one photo should contain
+all eight rows and G. Code leaf proof is necessary but future stack/data mapping
+and memory attributes also matter before implementing post-switch logging.
+
+---
+
 ## TABLE-B published after successful CI — 2026-10-31
 
 Implementation `08f12cc3fab6577a0fb4d77404d052f274fee330` is in main.

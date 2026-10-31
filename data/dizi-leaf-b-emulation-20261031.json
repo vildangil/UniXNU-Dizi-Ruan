@@ -1,0 +1,27 @@
+{
+  "emulator": "unicorn 2.1.4",
+  "native_vs_hook_cases_passed": 240,
+  "variant": "leaf-b",
+  "fixtures": [
+    "absent_fb",
+    "mapped_fb",
+    "range_mapping",
+    "tcr",
+    "pointer",
+    "invalid_l1",
+    "block_l1",
+    "child_low",
+    "child_high",
+    "converted_pointer",
+    "invalid_kernel_l2",
+    "kernel_block",
+    "l3_child_high",
+    "l3_converted_pointer",
+    "invalid_code_leaf"
+  ],
+  "real_native_phystokv_executed": true,
+  "descriptor_and_status_strings_checked": true,
+  "page_table_writes_permitted": false,
+  "hardware_tested": false,
+  "limitations": "Synthetic memory/translation metadata; no real MMU/Device/cache/IRQ validation"
+}

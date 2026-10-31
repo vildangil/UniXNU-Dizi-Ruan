@@ -1,4 +1,12 @@
-## Unpublished — 2026-10-31
+## 2026-10-31 — SWITCH-B successfully published
+
+- Owner lifted the accidental pause; implementation a2b00cff is in main.
+- GitHub Actions run 41200797504 succeeded and published the existing single-image release.
+- Downloaded release SHA-256 verified: b4e33fd8fc6064546e31083f589a691184c0e5fc52766ba32c05723597b31bc4.
+- CI JSON/emulation artifact id 13042621469 exists; redirected artifact/log downloads
+  are blocked locally. No SWITCH-B hardware test is claimed.
+
+## Earlier local preparation — 2026-10-31
 
 - Recorded VM-B device photo through G (pre-switch), with E not identified.
 - Prepared SWITCH-B numeric pre-switch root/TCR snapshot; no new table edits or

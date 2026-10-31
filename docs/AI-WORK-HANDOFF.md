@@ -1,3 +1,29 @@
+## New physical-device photo received — 2026-10-31
+
+The owner supplied a photo matching INIT-B's two-column layout. Right-column
+1..8 are readable. New left-column stages 9..F are identifiable despite
+superimposed legacy diagnostic text. The final expected G VM CALL line appears
+present but is partly obscured: keep its transcription provisional. Conservatively,
+F PROCESSOR at 0xFFFFFFF0079B3AF0 means processor_bootstrap returned, conditional
+on the image matching the pinned implementation. Even a confirmed G is BEFORE
+arm_vm_init, never proof of its call/return or full VM initialization.
+
+See [structured photo evidence](../data/dizi-init-b-hardware-photo-20261031.json).
+The owner explicitly confirmed the full boot image checksum
+`f093fce1722245c097b6712169130cef63a2a40b7aaf9588aec1e11225af377b`.
+This is owner-confirmed provenance, not an independent assistant device-side hash.
+This new observation supersedes earlier statements that no INIT-B physical photo
+exists; earlier local build/CI reports retain their historical meaning.
+
+A confirmed instrumentation display defect: left-column foreground glyphs overlap
+legacy ENTRY/ALIAS/SCTLR/GUARD/TPIDR/ARCH messages. No background clear was added
+when moving these markers to x20. Fix readability in a subsequent variant, preserve
+the photographed INIT-B byte-for-byte, and do not interpret unreadability as a
+kernel fault. Next investigate the F-to-VM path and mapping-safe post-VM output.
+The photo alone cannot locate a hang, prove VM completion, IRQs, scheduler or SMP.
+
+---
+
 ## Continuation session 2026-10-31 — INIT-B locally verified
 
 Read [DIZI-INIT-B.md](DIZI-INIT-B.md) first for the new continuation analysis,

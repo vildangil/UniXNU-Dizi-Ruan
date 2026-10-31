@@ -1,3 +1,7 @@
+> Subsequent hardware update: a user photo matching INIT-B identifies new stages
+> through F PROCESSOR, with G VM CALL partly obscured. The owner confirmed the exact image checksum. See [photo record](../data/dizi-init-b-hardware-photo-20261031.json).
+> The local-only status below describes the earlier build session, before this photo.
+
 # INIT-B — native arm_init continuation (2026-10-31)
 
 Status: locally assembled and CPU-emulated; **not hardware tested**. GitHub

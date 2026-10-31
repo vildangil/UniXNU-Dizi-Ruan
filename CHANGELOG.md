@@ -1,3 +1,12 @@
+## 2026-10-31 — INIT-B device photo received
+
+- Recorded the supplied two-column photo: stages 1..8 and new 9..F identifiable;
+  final G partially obscured, exact image SHA explicitly confirmed by the owner.
+- Identified a tracer readability defect: foreground-only rendering overlaps
+  stale legacy diagnostics in the left column. Preserved the tested image.
+- Separated processor_bootstrap return evidence from unproven arm_vm_init execution,
+  VM completion, IRQ delivery, SMP and userland.
+
 ## 2026-10-31 — INIT-B continuation (local verification only)
 
 - Added init-b to existing manual MMU workflow; preserved defaults and rollback variants.

@@ -1,7 +1,10 @@
 <!-- INIT-B session status -->
 **2026-10-31:** Physical `flow-b` remains the latest hardware evidence (8 THREAD READY).
-New `init-b` adds eight continuation checkpoints; locally built and CPU-emulated,
-**not hardware tested or published**. [Exact hashes, analysis and test](docs/DIZI-INIT-B.md).
+New `init-b` adds eight continuation checkpoints; locally built and CPU-emulated.
+A new device photo identifies stages through `F PROCESSOR`; final `G VM CALL`
+is partly obscured by stale text, and the tested-image SHA was explicitly confirmed by the owner.
+No `arm_vm_init` completion is established. [Evidence and limits](data/dizi-init-b-hardware-photo-20261031.json).
+[Exact hashes, analysis and test](docs/DIZI-INIT-B.md).
 GitHub Actions dispatch currently blocked by environment API access.
 
 # UniXNU Dizi / Ruan

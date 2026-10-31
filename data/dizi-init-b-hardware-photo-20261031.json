@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-31",
+  "device": "Xiaomi Redmi Pad Pro dizi",
+  "source": "User-attached photograph in this conversation after INIT-B delivery; original photo file is not stored in checkout",
+  "variant_identification": "INIT-B stage layout matches; owner explicitly confirmed the exact SHA-256 in this conversation",
+  "expected_image_sha256": "f093fce1722245c097b6712169130cef63a2a40b7aaf9588aec1e11225af377b",
+  "image_sha256_independently_confirmed": false,
+  "right_column_readable": [
+    "1 PROLOGUE",
+    "2 TBI RETURN",
+    "3 KC REBASE",
+    "4 CPU DATA",
+    "5 PE PLATFORM",
+    "6 TIMER WFE",
+    "7 CPU TOPO",
+    "8 THREAD READY"
+  ],
+  "left_column_identifiable_despite_overlap": [
+    "9 CURRENT THREAD",
+    "A CPU BOOTSTRAP",
+    "B EARLY CLOCK",
+    "C STARTUP BOOT",
+    "D TIMER CALL",
+    "E CPU INIT",
+    "F PROCESSOR"
+  ],
+  "last_left_line": {
+    "expected_label": "G VM CALL",
+    "assessment": "Partially obscured by stale legacy diagnostic text; appears present, treated as provisional rather than an unambiguous transcription",
+    "candidate_hook_va": "0xFFFFFFF0079B3B74"
+  },
+  "last_conservatively_identified_hook_va": "0xFFFFFFF0079B3AF0",
+  "inference_if_matching_image": "processor_bootstrap returned before F; this includes returns from cpu_init, timer_call_init, kernel_startup_bootstrap and rtclock_early_init. G, if confirmed, is before the native mov x0,x19 and arm_vm_init call.",
+  "display_defect": "New left column overlaps old ENTRY/PRE ALIAS/POST SCTLR/GUARD/TPIDR/ARCH text. Tracer draws foreground glyph pixels without clearing stale background. Right column is readable.",
+  "not_proven": [
+    "precise stop or fault location",
+    "arm_vm_init call executed or returned",
+    "arm_init completed",
+    "timer IRQ delivery",
+    "scheduler operational",
+    "secondary CPU launched",
+    "rootfs or userland"
+  ],
+  "next_analysis": "Inspect native path F through memory-limit parsing, time conversion, PAN and arm_vm_init; prepare a mapping-safe continuation mechanism before adding a post-VM framebuffer writer. Fix stale-text overlap in the next diagnostic variant without altering the photographed baseline.",
+  "safety": "cpus=1; no CPU_ON; temporary fastboot boot only",
+  "image_sha256_confirmed_by_owner": true,
+  "image_sha256": "f093fce1722245c097b6712169130cef63a2a40b7aaf9588aec1e11225af377b",
+  "checksum_evidence": "Owner answered yes to the full f093fce1722245c097b6712169130cef63a2a40b7aaf9588aec1e11225af377b checksum; no separate device-side hash measurement by assistant"
+}

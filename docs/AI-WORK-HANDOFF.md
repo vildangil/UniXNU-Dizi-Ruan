@@ -1,6 +1,8 @@
-## Stable / Dev Beta release split — 31 October 2026
+## Correction: Stable is NOT available — 31 October 2026
 
-Owner request: easy cross-computer access, no new push/PR-triggered builds, keep stable reference separate from experimental development. `dizi-xnu-stable` is an immutable SHA-pinned first NO-SP hardware-confirmed checkpoint (SHA ceb970d0...), NOT a working operating system. `dizi-xnu-dev-beta` is one rolling experimental IMG, overwritten on explicit owner-manual publish. The owner command `/run-dizi-fb8-readback` now publishes FB8-READBACK-B into dev-beta after all checks; manual `publish_release=true` also targets dev-beta. Existing `dizi-xnu-latest-test` stays archival and unchanged. One-time stable publication: `/publish-dizi-stable-reference` on control PR #1, or manual dispatch of publish-dizi-stable-reference.yml. Both release workflows are restricted to manual or exact owner issue comments. No push or PR trigger. See docs/DIZI-RELEASE-CHANNELS.md.
+Stable requires a fully working OS verified on actual dizi hardware. None has been achieved. The formerly published first NO-SP reference is historical evidence, not a stable OS; the mistaken duplicate Stable release/tag is being retracted. Publishing code refuses new Stable until full-OS verification and owner approval.
+
+DEV BETA: https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-dev-beta. Owner command `/run-dizi-fb8-readback` publishes the diagnostic DEV BETA image; manual `workflow_dispatch` + `publish_release=true` does too. Run #41218263533 passed (FB8 image SHA a0ca687c085a56460ac4307e304d6025f909ac250e4b4b9201173fde902a8335), hardware testing remains pending. No push/PR triggers; temporary fastboot boot only. See docs/DIZI-RELEASE-CHANNELS.md.
 
 ---
 

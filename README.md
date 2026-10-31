@@ -1,3 +1,13 @@
+**Next experimental framebuffer test (2026-10-31):** [FB-BRIDGE-B](docs/DIZI-FB-BRIDGE-B.md)
+tries to preserve the photographed missing framebuffer alias across the native
+TTBR1 replacement. One exact L2 descriptor is installed only after strict
+guards; a checkpoint after native TLBI/DSB/ISB checks whether high-VA
+text remains writable. It was reproduced twice locally (boot SHA-256
+`4ff3a8f6839bc3ba9f33a91356b9f55e4e8cd65d6fafaf30391ba41e5babd195`).
+**NOT CI-run or hardware-tested yet. HIGH RISK:** explicit manual
+`fb-bridge-b` only, temporary `fastboot boot`, never flash.
+Existing `slot-b` default and `stack-b` rollback remain unchanged.
+
 **Latest device photo (2026-10-31):** STACK-B captured active SP in native intstack;
 all four future stack/data PTEs are private EL1 RW/NX, with no ancestor RO, and
 physical addresses match the bootstrap reference. [Readbacks and limits](docs/DIZI-STACK-B.md).

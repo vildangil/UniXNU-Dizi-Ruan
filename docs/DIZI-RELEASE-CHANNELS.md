@@ -1,33 +1,29 @@
-# Dizi release channels — owner-manual, 31 October 2026
+# Dizi release channels — corrected policy (31 October 2026)
 
-UniXNU on Redmi Pad Pro **does not boot as a complete operating system**. "STABLE" below means an immutable, previously hardware-observed *diagnostic recovery/reference checkpoint*, not a production OS.
+## STABLE — NOT AVAILABLE
 
-## Download links (same URL on both computers)
+Stable requires a **complete working UniXNU/XNU operating system** repeatedly validated on a physical Redmi Pad Pro (dizi), including native kernel VM, runtime, drivers, interrupts, storage, rootfs and userland. Successful CI, UEFI boot, XNU entry, MMU enablement or diagnostic checkpoints do NOT qualify.
 
-| Channel | GitHub release | Fixed asset | Purpose |
-| --- | --- | --- | --- |
-| STABLE reference | https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-stable | Mu-dizi-XNU-STABLE.img | Exact tested first NO-SP reference, not an OS |
-| DEV BETA | https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-dev-beta | Mu-dizi-XNU-DEV-BETA.img | Latest owner-authorized experimental diagnostic |
+The briefly published dizi-xnu-stable reference was a mistake: it duplicated the historic NO-SP entry experiment, not a functioning OS. Its duplicate release and tag are to be retired, while the original historical image remains intact.
 
-Stable boot-v4 SHA-256: ceb970d09e05aeff9e09293528d6193a87bf760c96a6e222766df6e73e249620.
-The immutable source is historic release dizi-xnu-mmu-first-nosp-40700727875-1, NOT an untested latest image.
+Do not publish a Stable tag or image until a reproducible full working OS boot is documented and explicitly owner-approved. The current channel publisher refuses Stable.
 
-Currently intended DEV BETA variant: fb8-readback-b, expected boot-v4 SHA-256: a0ca687c085a56460ac4307e304d6025f909ac250e4b4b9201173fde902a8335. It deliberately halts before native TTBR1 replacement and never writes an L2 entry. It has **not** been physically tested. The SHA changes when a *new* experimental build is explicitly published; always check the release notes and digest.
+## DEV BETA — experimental, may be broken
 
-## Manual/owner-only controls
+Release: https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-dev-beta
+Fixed downloadable asset: Mu-dizi-XNU-DEV-BETA.img (replaced only on owner-manual publication).
+FB8-READBACK-B expected SHA-256: a0ca687c085a56460ac4307e304d6025f909ac250e4b4b9201173fde902a8335. Built in GitHub Actions #41218263533; no physical execution proof. It intentionally halts and does not attempt full OS boot.
 
-- **DEV BETA:** Choose main, variant fb8-readback-b, publish_release=true in the existing manual xnu-mmu-ab-lab.yml workflow, or post the exact owner command /run-dizi-fb8-readback to the open control PR #1. That exact comment always builds and publishes DEV BETA. Setting publish_release=false in manual dispatch keeps a temporary Actions artifact only (30-day retention).
-- **STABLE:** Dispatch publish-dizi-stable-reference.yml manually, or post the exact owner command /publish-dizi-stable-reference on control PR #1. It verifies the old first NO-SP SHA and publishes dizi-xnu-stable **once**. It refuses to replace an existing stable release.
-- DEV BETA publisher never changes STABLE or legacy dizi-xnu-latest-test. STABLE publisher never touches DEV BETA. GitHub Actions uses only workflow_dispatch and an exact owner issue_comment, not push/pull_request. validate.yml is manual-only as requested.
-- Dev channels keep one .img per release and publish a SHA in the notes. Full CI build reports are attached to Actions runs.
-- Any hardware test requires verified bootloader/fastboot recovery, a backup, and **temporary fastboot boot only**. NEVER fastboot flash.
+Manual/owner-only publishing: choose variant fb8-readback-b and publish_release=true in xnu-mmu-ab-lab.yml, or post the exact owner comment /run-dizi-fb8-readback on open control PR #1. publish_release=false produces only the Actions artifact. No push, pull_request or schedule triggers.
 
-## Historical release/tag retention
+## Historical control images — NOT STABLE
 
-Eleven older GitHub Releases were present before the split. Among them, dizi-xnu-five-nosp-base is an immutable build input; dizi-xnu-mmu-first-nosp-40700727875-1 is the pinned recovery reference; dizi-xnu-source-40552223877 and the early EBS/UEFI/MMU variants document hard-won verified stages. The old dizi-xnu-latest-test tag is retained for earlier documentation links but is not updated by new MMU builds. No release is deleted solely because its title contains an old date.
+- First NO-SP hardware-observed reference (SHA-256 ceb970d09e05aeff9e09293528d6193a87bf760c96a6e222766df6e73e249620): https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-mmu-first-nosp-40700727875-1
+- Immutable SHA-pinned build input: https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-five-nosp-base
+- Legacy rolling diagnostic release, maintained for old links: https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/tag/dizi-xnu-latest-test
 
-The earlier one-time cleanup covered 23 *different* obsolete diagnostic tag names, archived by exact SHAs in docs/TAG_RETIREMENT_2026-10-29.md. The old cleanup code ci/cleanup_dizi_old_prereleases.sh has an explicit allowlist and protects nine historical releases. Do not run wildcard deletion or remove any release/tag needed by referenced images, pinned build inputs, or recovery.
+These old milestones are NOT a production OS; do not delete pinned build inputs, hardware evidence or recovery references. Earlier exact-SHA cleanup of 23 *other* obsolete tags is documented in docs/TAG_RETIREMENT_2026-10-29.md. Never delete releases by wildcard.
 
-## Current limitation
+## Safety
 
-No build pass proves the physical boot, native TTBR1 switch, OS kernel VM initialization, drivers, interrupts, storage, or userland. Stable means a repeatable diagnosed reference only.
+Experimental images can hang, reset or damage data. Back up first, verify recovery access, only temporary fastboot boot, NEVER fastboot flash.

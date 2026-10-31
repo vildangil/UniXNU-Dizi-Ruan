@@ -1,0 +1,145 @@
+{
+  "input_boot_sha256": "3e587f8da8e3cf2e3de5ba04d3bcd19808c30dffc3ddcf8699ce52eb0261888c",
+  "macho_sha256": "b740835898ca1be232e733c76af967a66fbe025c3b8e48f34c2febb8f889efc7",
+  "segment_count": 18,
+  "segment_file_bounds_and_virtual_nonoverlap_pass": true,
+  "segments": [
+    {
+      "name": "__TEXT",
+      "va": 18446744005107531776,
+      "vmsize": 1409024,
+      "fileoff": 0,
+      "filesize": 1409024
+    },
+    {
+      "name": "__DATA_CONST",
+      "va": 18446744005108940800,
+      "vmsize": 901120,
+      "fileoff": 1409024,
+      "filesize": 901120
+    },
+    {
+      "name": "__TEXT_EXEC",
+      "va": 18446744005109841920,
+      "vmsize": 8257536,
+      "fileoff": 2310144,
+      "filesize": 8257536
+    },
+    {
+      "name": "__KLD",
+      "va": 18446744005118099456,
+      "vmsize": 16384,
+      "fileoff": 10567680,
+      "filesize": 16384
+    },
+    {
+      "name": "__LASTDATA_CONST",
+      "va": 18446744005118115840,
+      "vmsize": 16384,
+      "fileoff": 10584064,
+      "filesize": 16384
+    },
+    {
+      "name": "__LAST",
+      "va": 18446744005118132224,
+      "vmsize": 0,
+      "fileoff": 0,
+      "filesize": 0
+    },
+    {
+      "name": "__KLDDATA",
+      "va": 18446744005118132224,
+      "vmsize": 16384,
+      "fileoff": 10600448,
+      "filesize": 16384
+    },
+    {
+      "name": "__DATA",
+      "va": 18446744005118148608,
+      "vmsize": 1130496,
+      "fileoff": 10616832,
+      "filesize": 262144
+    },
+    {
+      "name": "__BOOTDATA",
+      "va": 18446744005119279104,
+      "vmsize": 573440,
+      "fileoff": 10878976,
+      "filesize": 573440
+    },
+    {
+      "name": "__PRELINK_TEXT",
+      "va": 18446744005059788800,
+      "vmsize": 6963200,
+      "fileoff": 19099648,
+      "filesize": 6963200
+    },
+    {
+      "name": "__PRELINK_INFO",
+      "va": 18446744005127503872,
+      "vmsize": 483328,
+      "fileoff": 51458048,
+      "filesize": 483328
+    },
+    {
+      "name": "__PLK_TEXT_EXEC",
+      "va": 18446744005066752000,
+      "vmsize": 20447232,
+      "fileoff": 26062848,
+      "filesize": 20447232
+    },
+    {
+      "name": "__PRELINK_DATA",
+      "va": 18446744005102125056,
+      "vmsize": 1392640,
+      "fileoff": 50065408,
+      "filesize": 1392640
+    },
+    {
+      "name": "__PLK_DATA_CONST",
+      "va": 18446744005087199232,
+      "vmsize": 3555328,
+      "fileoff": 46510080,
+      "filesize": 3555328
+    },
+    {
+      "name": "__PLK_LLVM_COV",
+      "va": 18446744005119852544,
+      "vmsize": 0,
+      "fileoff": 11452416,
+      "filesize": 0
+    },
+    {
+      "name": "__PLK_LINKEDIT",
+      "va": 18446744005119852544,
+      "vmsize": 0,
+      "fileoff": 11452416,
+      "filesize": 0
+    },
+    {
+      "name": "__LINKINFO",
+      "va": 18446744005119852544,
+      "vmsize": 278528,
+      "fileoff": 11452416,
+      "filesize": 278528
+    },
+    {
+      "name": "__LINKEDIT",
+      "va": 18446744005120131072,
+      "vmsize": 7372800,
+      "fileoff": 11730944,
+      "filesize": 7365808
+    }
+  ],
+  "framebuffer_alias": "0xfffffff004000000",
+  "alias_bytes": 2097152,
+  "alias_collides_with_macho": false,
+  "gap_after_alias_before_next_segment_bytes": 507904,
+  "vm_switch_ttbr1_call": "0xFFFFFFF0073EA10C",
+  "vm_switch_ttbr0_call": "0xFFFFFFF0073EA120",
+  "runtime_boot_args_values_validated": false,
+  "runtime_efi_memory_ownership_validated": false,
+  "fixups_or_kext_runtime_qualified": false,
+  "new_tables_preserve_framebuffer_alias": null,
+  "limitation": "File layout checks do not establish valid live memory ownership, boot_args, relocations, platform drivers, or post-switch framebuffer mapping"
+}

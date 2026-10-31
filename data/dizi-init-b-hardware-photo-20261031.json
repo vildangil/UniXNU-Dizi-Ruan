@@ -26,11 +26,11 @@
   ],
   "last_left_line": {
     "expected_label": "G VM CALL",
-    "assessment": "Partially obscured by stale legacy diagnostic text; appears present, treated as provisional rather than an unambiguous transcription",
+    "assessment": "Confirmed by explicit owner observation and closer photograph; earlier partial-obscuration assessment retained in git history",
     "candidate_hook_va": "0xFFFFFFF0079B3B74"
   },
-  "last_conservatively_identified_hook_va": "0xFFFFFFF0079B3AF0",
-  "inference_if_matching_image": "processor_bootstrap returned before F; this includes returns from cpu_init, timer_call_init, kernel_startup_bootstrap and rtclock_early_init. G, if confirmed, is before the native mov x0,x19 and arm_vm_init call.",
+  "last_conservatively_identified_hook_va": "0xFFFFFFF0079B3B74",
+  "inference_if_matching_image": "Native arm_init reached G at 0xFFFFFFF0079B3B74, before displaced mov x0,x19 and BL arm_vm_init at 3B78; all A..F predecessor returns confirmed as code-path evidence.",
   "display_defect": "New left column overlaps old ENTRY/PRE ALIAS/POST SCTLR/GUARD/TPIDR/ARCH text. Tracer draws foreground glyph pixels without clearing stale background. Right column is readable.",
   "not_proven": [
     "precise stop or fault location",
@@ -45,5 +45,16 @@
   "safety": "cpus=1; no CPU_ON; temporary fastboot boot only",
   "image_sha256_confirmed_by_owner": true,
   "image_sha256": "f093fce1722245c097b6712169130cef63a2a40b7aaf9588aec1e11225af377b",
-  "checksum_evidence": "Owner answered yes to the full f093fce1722245c097b6712169130cef63a2a40b7aaf9588aec1e11225af377b checksum; no separate device-side hash measurement by assistant"
+  "checksum_evidence": "Owner answered yes to the full f093fce1722245c097b6712169130cef63a2a40b7aaf9588aec1e11225af377b checksum; no separate device-side hash measurement by assistant",
+  "owner_followup": "Owner explicitly confirms 9 CURRENT THREAD and every A..G stage, and supplied a closer photograph.",
+  "left_column_confirmed_by_owner": [
+    "9 CURRENT THREAD",
+    "A CPU BOOTSTRAP",
+    "B EARLY CLOCK",
+    "C STARTUP BOOT",
+    "D TIMER CALL",
+    "E CPU INIT",
+    "F PROCESSOR",
+    "G VM CALL"
+  ]
 }

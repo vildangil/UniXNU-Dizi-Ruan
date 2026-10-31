@@ -1,0 +1,88 @@
+{
+  "emulator": "unicorn 2.1.4",
+  "cases_passed": 64,
+  "hardware_tested": false,
+  "cases": [
+    {
+      "stage": "PROLOGUE",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "TBI RETURN",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "KC REBASE",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "CPU DATA",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "PE PLATFORM",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "TIMER WFE",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "CPU TOPO",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "THREAD READY",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "9 VM ENTRY",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "A VM RAM",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "B VM PHYSMAP",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "C VM ENTROPY",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "D VM TABLES",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "E VM SEGMENTS",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "F VM MAP READY",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    },
+    {
+      "stage": "G VM SWITCH",
+      "nzcv_patterns": 4,
+      "registers_sp_flags_native_store_and_return_match": true
+    }
+  ],
+  "limitations": "No hardware MMU/cache/IRQ/Device mapping validation; no native callee execution"
+}

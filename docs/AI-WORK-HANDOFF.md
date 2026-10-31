@@ -1,3 +1,32 @@
+## Latest: owner confirms INIT-B through G; VM-B prepared (2026-10-31)
+
+The owner explicitly confirms 9 CURRENT THREAD and **all A..G**, supplying a closer
+photo. SHA f093fce1…377b was already explicitly confirmed. G is now confirmed at
+0xFFFFFFF0079B3B74, not provisional; it is before the native mov x0,x19 and
+arm_vm_init call at 3B78. See updated hardware JSON. Earlier conservative photo
+transcriptions below are historical and superseded by this direct observation.
+
+Read [DIZI-VM-B.md](DIZI-VM-B.md) for the next implementation and actual VM analysis.
+VM-B is locally built/emulated only, with clean background and eight VM-internal
+stages before TTBR replacement. It starts from pinned FLOW-B; original INIT-B is
+unchanged. Existing manual workflow adds vm-b; no new workflow or automatic image
+trigger. Boot SHA: 7947442d0f41c55ba60104cf9d91a1ed5eb932c766dd5c228323845500850ed2.
+
+Important discovered boundary: at 0xFFFFFFF0073EA10C, set_mmu_ttb_alternate writes
+TTBR1, and at 0xFFFFFFF0073EA120 set_mmu_ttb writes TTBR0. VM-B's G is just BEFORE
+the first replacement. Never add an unconditional framebuffer writer afterwards.
+18-segment layout checks pass, including alias separation from PRELINK_TEXT;
+live boot_args/EFI map ownership and post-switch mappings are still unvalidated.
+No speculative driver/VM guard bypass was made. cpus=1 and example=true remain.
+
+64 VM-B emulation cases and 64 unchanged INIT-B cases pass; full workflow build
+step locally reproduced from fifth-NOSP and verified final SHA. Remote API still
+CONNECT 403; no GitHub Actions run, release publication or VM-B hardware test.
+Data JSON distinguishes hardware INIT-B from locally built VM-B. Next physical
+test is one checksum-verified VM-B temporary fastboot boot; collect last VM stage.
+
+---
+
 ## New physical-device photo received — 2026-10-31
 
 The owner supplied a photo matching INIT-B's two-column layout. Right-column

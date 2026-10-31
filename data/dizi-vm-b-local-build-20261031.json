@@ -1,0 +1,107 @@
+{
+  "variant": "vm-b",
+  "hardware_tested": false,
+  "input_boot_sha256": "3e587f8da8e3cf2e3de5ba04d3bcd19808c30dffc3ddcf8699ce52eb0261888c",
+  "output_boot_sha256": "7947442d0f41c55ba60104cf9d91a1ed5eb932c766dd5c228323845500850ed2",
+  "output_macho_sha256": "dd69bc6d1a34e99a25a9e4792d36fe08b43796e3f7220b5be063cc40a78ab929",
+  "payload_sha256": "c9a088ddf0d25e872ce239061633eb3ab55e712b1bba7b5c6579cffe9ae53329",
+  "payload_bytes": 1671,
+  "changed_kernel_bytes": 1364,
+  "hook_sites": [
+    {
+      "stage": "PROLOGUE",
+      "va": "0xfffffff0079b3424",
+      "original_opcode": "0xaa0003f3"
+    },
+    {
+      "stage": "TBI RETURN",
+      "va": "0xfffffff0079b3448",
+      "original_opcode": "0x91000108"
+    },
+    {
+      "stage": "KC REBASE",
+      "va": "0xfffffff0079b3984",
+      "original_opcode": "0xaa1403e0"
+    },
+    {
+      "stage": "CPU DATA",
+      "va": "0xfffffff0079b39a4",
+      "original_opcode": "0xaa1303e0"
+    },
+    {
+      "stage": "PE PLATFORM",
+      "va": "0xfffffff0079b39b0",
+      "original_opcode": "0xaa1403e1"
+    },
+    {
+      "stage": "TIMER WFE",
+      "va": "0xfffffff0079b39c8",
+      "original_opcode": "0x52800020"
+    },
+    {
+      "stage": "CPU TOPO",
+      "va": "0xfffffff0079b3a78",
+      "original_opcode": "0x79000268"
+    },
+    {
+      "stage": "THREAD READY",
+      "va": "0xfffffff0079b3abc",
+      "original_opcode": "0xaa0003f4"
+    },
+    {
+      "stage": "9 VM ENTRY",
+      "va": "0xfffffff0073e95dc",
+      "original_opcode": "0xaa0103fa"
+    },
+    {
+      "stage": "A VM RAM",
+      "va": "0xfffffff0073e9644",
+      "original_opcode": "0xf0ffec09"
+    },
+    {
+      "stage": "B VM PHYSMAP",
+      "va": "0xfffffff0073e9698",
+      "original_opcode": "0xf0ffec13"
+    },
+    {
+      "stage": "C VM ENTROPY",
+      "va": "0xfffffff0073e96a4",
+      "original_opcode": "0x92407415"
+    },
+    {
+      "stage": "D VM TABLES",
+      "va": "0xfffffff0073e97f8",
+      "original_opcode": "0xf0ffec08"
+    },
+    {
+      "stage": "E VM SEGMENTS",
+      "va": "0xfffffff0073e9cd4",
+      "original_opcode": "0xf0ffec13"
+    },
+    {
+      "stage": "F VM MAP READY",
+      "va": "0xfffffff0073ea104",
+      "original_opcode": "0xf9400108"
+    },
+    {
+      "stage": "G VM SWITCH",
+      "va": "0xfffffff0073ea108",
+      "original_opcode": "0x9240bd00"
+    }
+  ],
+  "new_vector_handler": false,
+  "extra_page_table_writes": false,
+  "extra_psci_calls": false,
+  "cave_bytes": 2032,
+  "stack_bytes": 192,
+  "limitation": "G precedes native TTBR0/TTBR1 replacement; no post-switch framebuffer writes added; native VM can continue without further output",
+  "safety": "Temporary fastboot boot only; cpus=1",
+  "full_workflow_build_step_locally_passed": true,
+  "base_fifth_nosp_sha256": "b2f22f83c9b55d5a89d60f7df42488486346754911153cc502256f686681371b",
+  "layout_audit_passed": true,
+  "vm_emulation_cases_passed": 64,
+  "init_regression_cases_passed": 64,
+  "remote_actions_run": null,
+  "release_published": false,
+  "api_status": "proxy CONNECT 403"
+}

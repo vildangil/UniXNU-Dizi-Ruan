@@ -1,3 +1,7 @@
+> Latest owner clarification: all 9/A..G markers are explicitly confirmed, with a
+> closer photo. G at 0xFFFFFFF0079B3B74 remains a **pre-VM-call** marker. See
+> [VM continuation work](DIZI-VM-B.md). Earlier partial-G assessments are historical.
+
 > Subsequent hardware update: a user photo matching INIT-B identifies new stages
 > through F PROCESSOR, with G VM CALL partly obscured. The owner confirmed the exact image checksum. See [photo record](../data/dizi-init-b-hardware-photo-20261031.json).
 > The local-only status below describes the earlier build session, before this photo.

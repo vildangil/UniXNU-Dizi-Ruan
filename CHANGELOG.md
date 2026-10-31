@@ -1,3 +1,13 @@
+## 2026-10-31 — VM-B and confirmed INIT-B G
+
+- Owner confirms 9 and every A..G on the closer INIT-B photo; G precedes arm_vm_init.
+- Disassembled native VM path and confirmed TTBR1 switches before TTBR0.
+- Added vm-b in the existing manual workflow: eight VM-internal stages before the
+  switch, plus bounded clearing of stale diagnostic text; INIT-B remains unchanged.
+- Added pinned 18-segment Mach-O bounds/overlap and framebuffer-alias audit.
+- Local full predecessor build and 64 VM-B + 64 INIT-B emulator comparisons pass.
+- No VM-B hardware test, remote Actions run or release publication; API CONNECT 403 persists.
+
 ## 2026-10-31 — INIT-B device photo received
 
 - Recorded the supplied two-column photo: stages 1..8 and new 9..F identifiable;

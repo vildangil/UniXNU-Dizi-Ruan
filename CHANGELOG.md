@@ -8,6 +8,21 @@ run alone never upgrades an experiment to hardware-confirmed.
 
 ### Hardware-confirmed on Xiaomi Redmi Pad Pro (`dizi`)
 
+- **`flow-b`: all 8 `_arm_init` checkpoints photographed.**
+  The device displayed the earlier `ARCH REGS OK` plus
+  `1 PROLOGUE`, `2 TBI RETURN`, `3 KC REBASE`,
+  `4 CPU DATA`, `5 PE PLATFORM`, `6 TIMER WFE`,
+  `7 CPU TOPO` and **`8 THREAD READY`**.
+  The final native hook is `0xFFFFFFF0079B3ABC`, after
+  `_thread_bootstrap` returned but before the displaced
+  `mov x20,x0`. Not proof of a working scheduler,
+  `_arm_init` completion or additional CPUs.
+  Boot SHA-256:
+  `3e587f8da8e3cf2e3de5ba04d3bcd19808c30dffc3ddcf8699ce52eb0261888c`.
+  [Hardware evidence](data/dizi-flow-b-eight-markers-hardware-20261031.json) ·
+  [Work handoff](docs/AI-WORK-HANDOFF.md).
+
+
 - **`arch-b`: passed the six architecture-register checks.**
   The device displayed `XNU ENTRY`, `PRE ALIAS ARMED`,
   `POST SCTLR OK`, `GUARD PASSED`, `TPIDR DONE`, and
@@ -40,14 +55,6 @@ run alone never upgrades an experiment to hardware-confirmed.
 
 ### Built and source-verified, **not hardware-tested**
 
-- **`flow-b`** adds eight distinct `_arm_init` progress
-  checkpoints, preserving general-purpose register state and
-  NZCV while replaying the displaced native instructions.
-  Boot SHA-256:
-  `3e587f8da8e3cf2e3de5ba04d3bcd19808c30dffc3ddcf8699ce52eb0261888c`.
-  The readable Arm64 source has been reassembled and compared
-  byte-for-byte to the pinned payload. Two local rebuilds
-  matched. [Milestones, risks and test steps](docs/DIZI-FLOW-B.md).
 - **`bootpath-b`**: an earlier alternative four-stage
   `_arm_init` trace. Retained for comparison; its last
   marker overwrites earlier ones. Not validated on device.
@@ -83,8 +90,8 @@ The `ruan` variant has not been verified separately.
 - Only the **existing manually dispatched**
   [MMU A/B workflow](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/workflows/xnu-mmu-ab-lab.yml)
   builds and publishes hardware-test variants.
-- Latest **hardware-confirmed** variant: `arch-b`.
-- Next **hardware-untested** variant: `flow-b`.
+- Latest **hardware-confirmed** variant: `flow-b`.
+- Next **hardware-untested** variant: to be selected by disassembling the post-`8 THREAD READY` call path.
 - No test is considered hardware-confirmed without a
   device photograph/log showing the exact checkpoint.
 - Do **not** turn on secondary CPUs merely because

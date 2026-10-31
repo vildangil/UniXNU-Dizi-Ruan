@@ -1,0 +1,25 @@
+{
+  "date": "2026-10-31",
+  "source": "User-attached rotated physical-device photograph in this chat",
+  "variant_identification": "STACK-B distinct B/P/Q/D/M/L/R/S panel matches requested test",
+  "expected_image_sha256": "0aa6bc8c0af4ae12e8010d691e92c5e9e6578a91b89cbfda27aa063dc664d7ed",
+  "image_sha256_separately_owner_confirmed": false,
+  "numeric_fields": {
+    "B": "0xFFFFFFF007BB3DD0",
+    "P": "0x00600008039B3603",
+    "Q": "0x00600008039B3603",
+    "D": "0x0060000802F6A603",
+    "M": "0x0060000802F6C603",
+    "L": "0x0000000000003333",
+    "R": "0x0000000804191000",
+    "S": "0x0000000000000000"
+  },
+  "not_proven": [
+    "old live table entries independently read",
+    "old/new stack contents compared",
+    "actual TTBR replacement completed",
+    "effective post-switch stack/global access",
+    "VM/IRQ/scheduler/rootfs/userland"
+  ],
+  "photo_file_in_checkout": false
+}

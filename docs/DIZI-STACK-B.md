@@ -1,3 +1,65 @@
+## New hardware photo — active stack/data captured (2026-10-31)
+
+The supplied rotated image matches STACK-B and reads:
+
+```text
+B FFFFFFF007BB3DD0
+P 00600008039B3603
+Q 00600008039B3603
+D 0060000802F6A603
+M 0060000802F6C603
+L 0000000000003333
+R 0000000804191000
+S 0000000000000000
+```
+
+[Photo record](../data/dizi-stack-b-hardware-photo-20261031.json),
+[decode/reference comparison](../data/dizi-stack-b-hardware-decode-20261031.json).
+The owner has not separately stated the tested image checksum for this photo;
+the published image bytes were independently SHA-verified before testing.
+
+All four terminal reads completed at L3; no ancestor EL1 read-only flags are set.
+P/Q/D/M have AF1, AP0 (private EL1 RW), AttrIdx0, PXN1/UXN1 and no contiguous hint.
+The frame [B-384,B) lies within one page, 0xFFFFFFF007BB3000, translated to physical
+0x8039B3000. Root-global page ...716A000 maps to 0x802F6A000 and metadata page
+...716C000 maps to 0x802F6C000. All match the bootstrap linear reference using
+previously photographed bases PA=0x802E04000, VA=0xFFFFFFF007004000.
+
+B is inside the Mach-O static intstack range ...7BB0000..7BB4000 and exactly
+intstack_top - 0xD0 (_arm_init frame) - 0x160 (arm_vm_init frame). Thus the
+current SP is consistent with native bootstrap frames, rather than an assumed
+firmware stack. This is a source/reference comparison, **not** an independent
+old-root PTE walk or memory-content comparison. No effective post-switch access
+or native TTBR execution is proven by this photograph.
+
+## Next implementation requirements, not yet implemented
+
+The code PTEs from LEAF-B and stack/data PTEs now provide concrete guard values.
+A guarded diagnostic alias repair may target only the observed empty new L2[20],
+with exact TCR/MAIR, hierarchy/ownership and framebuffer-reservation checks.
+Before any write, compare current/prospective backing at runtime where needed;
+do not silently turn agreement with a reference into a live old-table readback.
+Validate the full hinted code PTE groups and sufficient stack/data pages.
+
+Any failure must not leave an unconditional post-switch framebuffer hook active
+without its mapping. One possible explicit diagnostic design is a reported,
+intentional refusal before switching when guards fail; document that as a tracer
+stop, not a native kernel hang. Preserve native opcodes/arguments on the success
+path, and keep this read-only STACK-B selectable for rollback.
+
+The first useful success checkpoint should be at ...73EA130, **after** native
+TTBR1/TTBR0 writes and TLBI/DSB/ISB, with root-register readback verification.
+Between the pre-gptov probe and that point, the inspected native straight-line
+code writes metadata/root registers, not the installed alias PTE. Avoid adding
+an unconditional VM-return renderer: pmap_bootstrap/later VM activity still need
+review. Post-switch phystokv would use new metadata, but its returned root VA
+must itself be mapped; do not introduce unchecked reads merely to test that.
+
+No new image was produced for this photo analysis. Earlier pending-hardware
+statements below are historical and superseded by the readbacks above.
+
+---
+
 # STACK-B — future active-stack and native-global mappings
 
 2026-10-31: **GitHub CI succeeded; STACK-B is published. No hardware result.**

@@ -1,3 +1,13 @@
+## 2026-10-31 — STACK-B hardware stack/data result
+
+- Recorded B=FFFFFFF007BB3DD0, P/Q=00600008039B3603, D=0060000802F6A603,
+  M=0060000802F6C603, L=3333, R=804191000, S=0.
+- Four actual L3 readbacks show private EL1 RW/NX and match bootstrap physical
+  reference; SP matches native arm_init + arm_vm_init frames inside intstack.
+- Kept old-table/content comparison and effective switch/access unverified.
+- Documented prerequisites for a guarded alias repair and post-TLBI checkpoint;
+  no new mapping write or image in this analysis step.
+
 ## 2026-10-31 — STACK-B successfully published
 
 - [Actions #41205403802](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41205403802) passed on main implementation 7b1e86ca.

@@ -1,0 +1,123 @@
+{
+  "native_sp": "0xfffffff007bb3dd0",
+  "selected_stack_root_pa": "0x804191000",
+  "targets": {
+    "P": {
+      "va": "0xfffffff007bb3dc8",
+      "status": 0,
+      "terminal_level": 3,
+      "ancestor_el1_readonly": false,
+      "raw": "0x600008039b3603",
+      "readback": true,
+      "valid_terminal_descriptor": true,
+      "physical_address": "0x8039b3dc8",
+      "ap": 0,
+      "access_flag": true,
+      "attr_index": 0,
+      "pxn": true,
+      "uxn": true,
+      "physical_address_fits_40bit": true,
+      "contiguous_hint": false,
+      "writable_by_descriptor_and_ancestor_ap": true,
+      "kernel_only_writable_evidence": true
+    },
+    "Q": {
+      "va": "0xfffffff007bb3c50",
+      "status": 0,
+      "terminal_level": 3,
+      "ancestor_el1_readonly": false,
+      "raw": "0x600008039b3603",
+      "readback": true,
+      "valid_terminal_descriptor": true,
+      "physical_address": "0x8039b3c50",
+      "ap": 0,
+      "access_flag": true,
+      "attr_index": 0,
+      "pxn": true,
+      "uxn": true,
+      "physical_address_fits_40bit": true,
+      "contiguous_hint": false,
+      "writable_by_descriptor_and_ancestor_ap": true,
+      "kernel_only_writable_evidence": true
+    },
+    "D": {
+      "va": "0xfffffff00716abb8",
+      "status": 0,
+      "terminal_level": 3,
+      "ancestor_el1_readonly": false,
+      "raw": "0x60000802f6a603",
+      "readback": true,
+      "valid_terminal_descriptor": true,
+      "physical_address": "0x802f6abb8",
+      "ap": 0,
+      "access_flag": true,
+      "attr_index": 0,
+      "pxn": true,
+      "uxn": true,
+      "physical_address_fits_40bit": true,
+      "contiguous_hint": false,
+      "writable_by_descriptor_and_ancestor_ap": true,
+      "kernel_only_writable_evidence": true
+    },
+    "M": {
+      "va": "0xfffffff00716c048",
+      "status": 0,
+      "terminal_level": 3,
+      "ancestor_el1_readonly": false,
+      "raw": "0x60000802f6c603",
+      "readback": true,
+      "valid_terminal_descriptor": true,
+      "physical_address": "0x802f6c048",
+      "ap": 0,
+      "access_flag": true,
+      "attr_index": 0,
+      "pxn": true,
+      "uxn": true,
+      "physical_address_fits_40bit": true,
+      "contiguous_hint": false,
+      "writable_by_descriptor_and_ancestor_ap": true,
+      "kernel_only_writable_evidence": true
+    }
+  },
+  "effective_post_switch_access_verified": false,
+  "same_physical_backing_as_current_stack_verified": false,
+  "note": "Status 0 can report an actual invalid descriptor. Nonzero status means terminal read skipped. AF/AP and ancestor RO do not prove effective access: MAIR, PAN, contiguous-group consistency and other controls still matter. Valid future mappings do not prove preservation of the current physical stack backing.",
+  "bootstrap_reference_comparison": {
+    "P": {
+      "reference_physical_address": "0x8039b3dc8",
+      "observed_future_physical_address": "0x8039b3dc8",
+      "matches_reference": true
+    },
+    "Q": {
+      "reference_physical_address": "0x8039b3c50",
+      "observed_future_physical_address": "0x8039b3c50",
+      "matches_reference": true
+    },
+    "D": {
+      "reference_physical_address": "0x802f6abb8",
+      "observed_future_physical_address": "0x802f6abb8",
+      "matches_reference": true
+    },
+    "M": {
+      "reference_physical_address": "0x802f6c048",
+      "observed_future_physical_address": "0x802f6c048",
+      "matches_reference": true
+    }
+  },
+  "reference_bases": {
+    "physical": "0x802E04000",
+    "virtual": "0xFFFFFFF007004000",
+    "source": "Earlier hardware bootstrap base observations; not newly measured by STACK-B"
+  },
+  "static_intstack": {
+    "begin": "0xFFFFFFF007BB0000",
+    "end": "0xFFFFFFF007BB4000",
+    "current_frame_window_within_stack": true,
+    "sp_matches_top_minus_native_arm_init_and_vm_frames": true,
+    "native_frames_bytes": [
+      208,
+      352
+    ]
+  },
+  "reference_agreement_is_not_independent_old_page_table_or_content_comparison": true
+}

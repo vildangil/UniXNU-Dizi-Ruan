@@ -1,3 +1,8 @@
+**Latest device photo (2026-10-31):** STACK-B captured active SP in native intstack;
+all four future stack/data PTEs are private EL1 RW/NX, with no ancestor RO, and
+physical addresses match the bootstrap reference. [Readbacks and limits](docs/DIZI-STACK-B.md).
+Native TTBR switch/VM completion and full OS boot remain unproven.
+
 **STACK-B published (2026-10-31):** [future active-stack/data walk](docs/DIZI-STACK-B.md)
 checks prospective TTBR0/TTBR1 without modifying them. Local 240 comparisons pass;
 [CI passed](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41205403802) and the [release](https://github.com/vildangil/UniXNU-Dizi-Ruan/releases/download/dizi-xnu-latest-test/Mu-dizi-XNU-LATEST-TEST.img) was downloaded and SHA-verified. Hardware result absent; full VM/OS boot remains unproven.

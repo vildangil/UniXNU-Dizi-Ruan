@@ -1,3 +1,30 @@
+## Latest hardware: STACK-B active SP/data PTEs (2026-10-31)
+
+Photo reads B=FFFFFFF007BB3DD0, P=00600008039B3603, Q=same,
+D=0060000802F6A603, M=0060000802F6C603, L=3333, R=804191000, S=0.
+See data/dizi-stack-b-hardware-photo-20261031.json and
+ data/dizi-stack-b-hardware-decode-20261031.json, docs/DIZI-STACK-B.md.
+Photo-image SHA is not separately owner-stated; published image SHA was verified.
+Earlier no-STACK-hardware-result entries below are historical.
+
+All four L3 reads completed: AF1/AP0 private EL1 RW, PXN1/UXN1, no ancestor RO,
+no contiguous hint. Future stack page PA=8039B3000; root-global page=802F6A000;
+metadata page=802F6C000. They match previous bootstrap PA/VA reference bases.
+SP is intstack_top - D0 - 160, inside static 7BB0000..7BB4000. This supports
+native-stack and backing consistency, not independent old-root/current-content
+comparison or effective post-switch access. Do not overstate that distinction.
+
+Next: design guarded preservation of the observed missing FB alias in new L2[20]
+and a checkpoint after native TLBI/DSB/ISB at 73EA130. Validate current/prospective
+backing and exact code/stack/data permissions/groups before any table write.
+Guard refusal must not let an unconditional unmapped post-hook run: a clearly
+reported diagnostic stop before switching is one possible fail-closed design.
+No such repair/post-hook is implemented yet. Read design limits in STACK-B doc.
+Do not walk post-switch physmap blindly, nor add unconditional VM-return text.
+Native switch completion, VM return, IRQ/scheduler/SMP/rootfs/userland unproven.
+
+---
+
 ## STACK-B successfully published — 2026-10-31
 
 [Actions #41205403802](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/runs/41205403802) succeeded on implementation

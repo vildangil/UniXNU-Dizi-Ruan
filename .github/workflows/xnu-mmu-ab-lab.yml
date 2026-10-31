@@ -88,7 +88,7 @@ jobs:
           VARIANT: ${{ inputs.variant }}
         run: |
           set -euo pipefail
-          python3 -m py_compile ci/build_dizi_mmu_variant.py ci/patch_dizi_post_mmu_b.py ci/patch_dizi_text_console_b.py ci/patch_dizi_mmu_registers_b.py ci/patch_dizi_mmu_walk_b.py ci/patch_dizi_mmu_fbwalk_b.py ci/patch_dizi_mmu_slot_b.py ci/patch_dizi_mmu_alias_b.py ci/patch_dizi_mmu_guard_b.py ci/patch_dizi_mmu_deep_b.py ci/patch_dizi_mmu_arch_b.py ci/patch_dizi_mmu_bootpath_b.py ci/patch_dizi_mmu_flow_b.py
+          python3 -m py_compile ci/build_dizi_mmu_variant.py ci/patch_dizi_post_mmu_b.py ci/patch_dizi_text_console_b.py ci/patch_dizi_mmu_registers_b.py ci/patch_dizi_mmu_walk_b.py ci/patch_dizi_mmu_fbwalk_b.py ci/patch_dizi_mmu_slot_b.py ci/patch_dizi_mmu_alias_b.py ci/patch_dizi_mmu_guard_b.py ci/patch_dizi_mmu_deep_b.py ci/patch_dizi_mmu_arch_b.py ci/patch_dizi_mmu_bootpath_b.py ci/patch_dizi_mmu_flow_b.py ci/check_dizi_flow_b_source.py
           if [ "$VARIANT" = "postmmu-b" ] || [ "$VARIANT" = "text-b" ] || [ "$VARIANT" = "regs-b" ] || [ "$VARIANT" = "walk-b" ] || [ "$VARIANT" = "fbwalk-b" ] || [ "$VARIANT" = "slot-b" ] || [ "$VARIANT" = "alias-b" ] || [ "$VARIANT" = "guard-b" ] || [ "$VARIANT" = "deep-b" ] || [ "$VARIANT" = "arch-b" ] || [ "$VARIANT" = "bootpath-b" ] || [ "$VARIANT" = "flow-b" ]; then
             # Both variants start at the SHA-pinned orange-b from the immutable
             # fifth-NOSP release. Reconstruct the exact prior post-SCTLR image.
@@ -143,6 +143,10 @@ jobs:
                           # register/NZCV preservation. Uses untouched
                           # zero padding after exception vectors.
                           # No CPU_ON, no added page-table or GIC MMIO.
+                          # Verify the readable AArch64 source reassembles
+                          # to the exact SHA-256-pinned tracing payload.
+                          python3 ci/check_dizi_flow_b_source.py \
+                            --input intermediate/Mu-dizi-XNU-ARCH-B-HIGH-RISK.img
                           python3 ci/patch_dizi_mmu_flow_b.py \
                             --input intermediate/Mu-dizi-XNU-ARCH-B-HIGH-RISK.img \
                             --output dist/Mu-dizi-XNU-FLOW-B-HIGH-RISK.img \

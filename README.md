@@ -2,21 +2,31 @@
 
 Experimental [UniXNU](https://github.com/UniXNU/UniXNU) port for Xiaomi Redmi Pad Pro (`dizi`, Snapdragon SM7435). The `ruan` variant is not separately verified.
 
+**Latest photographed milestone (2026-10-31):** `flow-b` reached
+all **8 distinct `_arm_init` checkpoints**; the final
+`8 THREAD READY` marker is at `0xFFFFFFF0079B3ABC`,
+immediately after `_thread_bootstrap` returned. This is **not**
+proof of a running scheduler, a completed `_arm_init`, SMP,
+drivers, rootfs or userland. Next: independently verify the
+following native call sequence and add a non-destructive,
+multi-stage follow-on diagnostic. Full instructions for the
+next Work session are in [**AI-WORK-HANDOFF.md**](docs/AI-WORK-HANDOFF.md).
+
 ## Current state (confirmed vs experimental)
 
 | Category | Latest result | Status |
 | --- | --- | --- |
 | Real dizi boot | Native XNU MMU enabled; `_arm_init` entry reached at EL1 | **Hardware-confirmed** |
 | Architecture checks | `arch-b` showed `ARCH REGS OK`: CPU0 MPIDR, EL1, timer frequency, SCTLR.M, TPIDR and MIDR | **Hardware-confirmed** |
-| Next diagnostic | `flow-b`: 8 independent `_arm_init` checkpoints through early CPU/thread setup | **Built and source-verified; hardware untested** |
+| Latest real-device progress | `flow-b`: all 8 `_arm_init` checkpoints visible, through return from `_thread_bootstrap` | **Hardware-confirmed through marker 8** |
 | Multiple CPUs | Eight SM7435 CPU nodes + Aff1-aware source patch, PSCI read-only helper | **Source preflight only; CPU1–CPU7 not started** |
 | OS boot | Kernel VM, interrupts, rootfs, drivers and userland | **Not verified** |
 
-**Next image:** `flow-b` (manual choice in the existing
+**Latest on-device image:** `flow-b` (manual choice in the existing
 [MMU A/B GitHub Actions workflow](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/workflows/xnu-mmu-ab-lab.yml)).
 Expected boot-v4 SHA-256:
 `3e587f8da8e3cf2e3de5ba04d3bcd19808c30dffc3ddcf8699ce52eb0261888c`.
-Its earlier `arch-b` parent is the last **hardware-confirmed** image
+Its earlier `arch-b` parent is also **hardware-confirmed**
 (SHA-256 `58c612f6f09776747f2a2ccecad7e82a0fd7ee0fae632e55c5a1f56ae786772b`).
 
 Full evidence and test instructions:

@@ -2,6 +2,35 @@
 
 Experimental [UniXNU](https://github.com/UniXNU/UniXNU) port for Xiaomi Redmi Pad Pro (`dizi`, Snapdragon SM7435). The `ruan` variant is not separately verified.
 
+## Current state (confirmed vs experimental)
+
+| Category | Latest result | Status |
+| --- | --- | --- |
+| Real dizi boot | Native XNU MMU enabled; `_arm_init` entry reached at EL1 | **Hardware-confirmed** |
+| Architecture checks | `arch-b` showed `ARCH REGS OK`: CPU0 MPIDR, EL1, timer frequency, SCTLR.M, TPIDR and MIDR | **Hardware-confirmed** |
+| Next diagnostic | `flow-b`: 8 independent `_arm_init` checkpoints through early CPU/thread setup | **Built and source-verified; hardware untested** |
+| Multiple CPUs | Eight SM7435 CPU nodes + Aff1-aware source patch, PSCI read-only helper | **Source preflight only; CPU1–CPU7 not started** |
+| OS boot | Kernel VM, interrupts, rootfs, drivers and userland | **Not verified** |
+
+**Next image:** `flow-b` (manual choice in the existing
+[MMU A/B GitHub Actions workflow](https://github.com/vildangil/UniXNU-Dizi-Ruan/actions/workflows/xnu-mmu-ab-lab.yml)).
+Expected boot-v4 SHA-256:
+`3e587f8da8e3cf2e3de5ba04d3bcd19808c30dffc3ddcf8699ce52eb0261888c`.
+Its earlier `arch-b` parent is the last **hardware-confirmed** image
+(SHA-256 `58c612f6f09776747f2a2ccecad7e82a0fd7ee0fae632e55c5a1f56ae786772b`).
+
+Full evidence and test instructions:
+[8-stage flow diagnostic](docs/DIZI-FLOW-B.md) ·
+[CPU/SMP prerequisites](docs/DIZI-DEEP-SMP-PREFLIGHT.md) ·
+[chronological changelog](CHANGELOG.md).
+
+**Safety:** never `fastboot flash` an experimental build.
+Use temporary `fastboot boot` only, with recovery/fastboot access
+already verified. Do not enable multi-CPU testing based solely
+on the `CPU TOPO` text milestone.
+
+---
+
 **31 October 2026 — hardware arch-b passed all six EL1 register guards.**
 The dizi screen shows `XNU ENTRY`, `PRE ALIAS ARMED`,
 `POST SCTLR OK`, `GUARD PASSED`, `TPIDR DONE` and

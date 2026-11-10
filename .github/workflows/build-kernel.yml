@@ -1,0 +1,84 @@
+name: Build dizi kernel
+
+on:
+  workflow_dispatch:
+    inputs:
+      defconfig:
+        description: 'Kernel defconfig'
+        required: true
+        default: 'dizi_defconfig'
+      steps:
+        description: 'Build steps'
+        required: true
+        default: 'bootstrap kernel prelink'
+      publish_release:
+        description: 'Publish as release'
+        type: boolean
+        default: false
+
+env:
+  UNIXNU_REPO: https://github.com/UniXNU/UniXNU
+  DEVICE_REPO: https://github.com/vildangil/UniXNU-Dizi-Ruan
+  DEVICE_DIR: UniXNU-Dizi-Ruan
+  UNIXNU_DIR: UniXNU
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout UniXNU
+        uses: actions/checkout@v4
+        with:
+          repository: UniXNU/UniXNU
+          path: ${{ env.UNIXNU_DIR }}
+          submodules: recursive
+
+      - name: Checkout device repository
+        uses: actions/checkout@v4
+        with:
+          repository: vildangil/UniXNU-Dizi-Ruan
+          path: ${{ env.DEVICE_DIR }}
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          brew install llvm lld dtc mtools
+          pip install --upgrade pip
+          pip install -r ${{ env.UNIXNU_DIR }}/requirements.txt
+
+      - name: Generate defconfig
+        working-directory: ${{ env.UNIXNU_DIR }}
+        run: |
+          ./unixnu defconfig ${{ github.event.inputs.defconfig }} -D ../${{ env.DEVICE_DIR }}
+          ./unixnu status --json -D ../${{ env.DEVICE_DIR }}
+
+      - name: Fetch sources
+        working-directory: ${{ env.UNIXNU_DIR }}
+        run: |
+          ./unixnu fetch -D ../${{ env.DEVICE_DIR }}
+
+      - name: Build kernel
+        working-directory: ${{ env.UNIXNU_DIR }}
+        run: |
+          ./unixnu build kernel -D ../${{ env.DEVICE_DIR }} --steps ${{ github.event.inputs.steps }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dizi-kernel
+          path: ${{ env.UNIXNU_DIR }}/out/dizi/kernel/
+          if-no-files-found: error
+
+      - name: Publish release
+        if: ${{ github.event.inputs.publish_release == 'true' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.UNIXNU_DIR }}/out/dizi/kernel/*
+          tag_name: dizi-kernel-${{ github.run_number }}
+          name: Dizi kernel build ${{ github.run_number }}
+          draft: true

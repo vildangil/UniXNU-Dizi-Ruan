@@ -24,7 +24,7 @@ env:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - name: Checkout UniXNU
         uses: actions/checkout@v4

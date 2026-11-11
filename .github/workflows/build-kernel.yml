@@ -56,6 +56,14 @@ jobs:
           ./unixnu defconfig ${{ github.event.inputs.defconfig }} -D ../${{ env.DEVICE_DIR }}
           ./unixnu status --json -D ../${{ env.DEVICE_DIR }}
 
+     - name: Cache XNU Source Headers
+       uses: actions/cache@v4
+       with:
+        path: ${{ env.UNIXNU_DIR }}/out/feeds
+        key: ${{ runner.os }}-xnu-feeds-${{ hashFiles('**/UniXNU/feeds.toml') }}
+        restore-keys: |
+      ${{ runner.os }}-xnu-feeds-
+
       - name: Fetch sources
         working-directory: ${{ env.UNIXNU_DIR }}
         run: |

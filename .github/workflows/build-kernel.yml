@@ -7,10 +7,6 @@ on:
         description: 'Kernel defconfig'
         required: true
         default: 'dizi_defconfig'
-      steps:
-        description: 'Build steps'
-        required: true
-        default: 'bootstrap kernel prelink'
       publish_release:
         description: 'Publish as release'
         type: boolean
@@ -24,7 +20,7 @@ env:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-15
     steps:
       - name: Checkout UniXNU
         uses: actions/checkout@v4
@@ -50,19 +46,21 @@ jobs:
           brew install llvm lld dtc mtools
           pip install --upgrade pip
 
+      - name: Cache XNU Sources
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.UNIXNU_DIR }}/out/feeds
+            ${{ env.UNIXNU_DIR }}/out/dizi/ipados-17.7.11-21H461/dizi/tree/.cache
+          key: ${{ runner.os }}-xnu-feeds-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-xnu-feeds-
+
       - name: Generate defconfig
         working-directory: ${{ env.UNIXNU_DIR }}
         run: |
           ./unixnu defconfig ${{ github.event.inputs.defconfig }} -D ../${{ env.DEVICE_DIR }}
           ./unixnu status --json -D ../${{ env.DEVICE_DIR }}
-
-     - name: Cache XNU Source Headers
-       uses: actions/cache@v4
-       with:
-         path: ${{ env.UNIXNU_DIR }}/out/feeds
-         key: ${{ runner.os }}-xnu-feeds-${{ hashFiles('**/UniXNU/feeds.toml') }}
-         restore-keys: |
-      ${{ runner.os }}-xnu-feeds-
 
       - name: Fetch sources
         working-directory: ${{ env.UNIXNU_DIR }}

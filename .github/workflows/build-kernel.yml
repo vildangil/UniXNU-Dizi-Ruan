@@ -60,7 +60,18 @@ jobs:
           echo "/usr/local/Homebrew/sbin" >> $GITHUB_PATH
           echo "/opt/homebrew/bin" >> $GITHUB_PATH
           echo "/opt/homebrew/sbin" >> $GITHUB_PATH
-      
+
+      - name: Install Xcode Command Line Tools
+        if: ${{ inputs.runner == 'self-hosted' }}
+        run: |
+          if ! xcode-select -p &>/dev/null; then
+            sudo touch /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
+            PROD=$(softwareupdate -l 2>/dev/null | grep -o '.*Command Line Tools.*' | head -1 | sed 's/^[* ]*//')
+            sudo softwareupdate -i "$PROD" --verbose
+            sudo rm -f /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
+          fi
+          xcode-select -p
+          
       - name: Install dependencies
         run: |
           brew install llvm lld dtc mtools

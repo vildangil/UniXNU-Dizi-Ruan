@@ -12,11 +12,7 @@ kit = "dizi"
 include = [
     "ArmDTPlatform",
     "ArmCpu",
-    "ArmVirtPlatform",
     "SoftwareAES",
-    "RamBlock",
-    "VirtioMmioBlock",
-    "VirtioMmioConsole",
     "GopFramebuffer",
     "QcomGeniSpi",
     "XnuPrelink",

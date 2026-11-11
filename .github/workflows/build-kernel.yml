@@ -3,6 +3,17 @@ name: Build dizi kernel
 on:
   workflow_dispatch:
     inputs:
+      runner:
+        description: 'Choose the runner'
+        required: true
+        type: choice
+        default: 'self-hosted'
+        options:
+          - 'macos-13'
+          - 'macos-14'
+          - 'macos-15'
+          - 'macos-26'
+          - 'self-hosted'
       defconfig:
         description: 'Kernel defconfig'
         required: true
@@ -20,7 +31,7 @@ env:
 
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: ${{ inputs.runner }}
     steps:
       - name: Checkout UniXNU
         uses: actions/checkout@v4
@@ -59,7 +70,7 @@ jobs:
       - name: Generate defconfig
         working-directory: ${{ env.UNIXNU_DIR }}
         run: |
-          ./unixnu defconfig ${{ github.event.inputs.defconfig }} -D ../${{ env.DEVICE_DIR }}
+          ./unixnu defconfig ${{ inputs.defconfig }} -D ../${{ env.DEVICE_DIR }}
           ./unixnu status --json -D ../${{ env.DEVICE_DIR }}
 
       - name: Fetch sources
@@ -80,7 +91,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish release
-        if: ${{ github.event.inputs.publish_release == 'true' }}
+        if: ${{ inputs.publish_release == 'true' }}
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ env.UNIXNU_DIR }}/out/dizi/kernel/*

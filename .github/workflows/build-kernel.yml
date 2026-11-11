@@ -53,6 +53,14 @@ jobs:
           python-version: '3.11'
           tool-cache-path: ${{ github.workspace }}/.python-cache
 
+      - name: Setup Homebrew PATH
+        if: ${{ inputs.runner == 'self-hosted' }}
+        run: |
+          echo "/usr/local/Homebrew/bin" >> $GITHUB_PATH
+          echo "/usr/local/Homebrew/sbin" >> $GITHUB_PATH
+          echo "/opt/homebrew/bin" >> $GITHUB_PATH
+          echo "/opt/homebrew/sbin" >> $GITHUB_PATH
+      
       - name: Install dependencies
         run: |
           brew install llvm lld dtc mtools

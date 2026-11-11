@@ -1,13 +1,13 @@
-name: Build dizi kernel
+name: Build Kernel
 
 on:
   workflow_dispatch:
     inputs:
       runner:
-        description: 'Choose the runner'
+        description: 'Runner'
         required: true
         type: choice
-        default: 'self-hosted'
+        default: 'macos-15'
         options:
           - 'macos-13'
           - 'macos-14'
@@ -15,11 +15,11 @@ on:
           - 'macos-26'
           - 'self-hosted'
       defconfig:
-        description: 'Kernel defconfig'
+        description: 'Defconfig'
         required: true
         default: 'dizi_defconfig'
       publish_release:
-        description: 'Publish as release'
+        description: 'Publish Release'
         type: boolean
         default: false
 
@@ -40,20 +40,20 @@ jobs:
           path: ${{ env.UNIXNU_DIR }}
           submodules: recursive
 
-      - name: Checkout device repository
+      - name: Checkout Device
         uses: actions/checkout@v4
         with:
           repository: vildangil/UniXNU-Dizi-Ruan
           path: ${{ env.DEVICE_DIR }}
           submodules: recursive
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           tool-cache-path: ${{ github.workspace }}/.python-cache
 
-      - name: Setup Homebrew PATH
+      - name: Setup Brew
         if: ${{ inputs.runner == 'self-hosted' }}
         run: |
           echo "/usr/local/Homebrew/bin" >> $GITHUB_PATH
@@ -61,23 +61,24 @@ jobs:
           echo "/opt/homebrew/bin" >> $GITHUB_PATH
           echo "/opt/homebrew/sbin" >> $GITHUB_PATH
 
-      - name: Install Xcode Command Line Tools
+      - name: Setup Xcode
         if: ${{ inputs.runner == 'self-hosted' }}
         run: |
-          if ! xcode-select -p &>/dev/null; then
-            sudo touch /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
-            PROD=$(softwareupdate -l 2>/dev/null | grep -o '.*Command Line Tools.*' | head -1 | sed 's/^[* ]*//')
-            sudo softwareupdate -i "$PROD" --verbose
-            sudo rm -f /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
+          sudo touch /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
+          PROD=$(softwareupdate -l 2>/dev/null | grep -o '.*Command Line Tools.*' | head -1 | sed 's/^[* ]*//' || true)
+          if [ -n "$PROD" ]; then
+            sudo softwareupdate -i "$PROD" --verbose || true
           fi
-          xcode-select -p
-          
-      - name: Install dependencies
+          sudo rm -f /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
+          sudo xcode-select -s /Library/Developer/CommandLineTools || true
+          sudo xcodebuild -license accept || true
+
+      - name: Install Dependencies
         run: |
           brew install llvm lld dtc mtools
           pip install --upgrade pip
 
-      - name: Cache XNU Sources
+      - name: Cache Sources
         uses: actions/cache@v4
         with:
           path: |
@@ -87,30 +88,30 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-xnu-feeds-
 
-      - name: Generate defconfig
+      - name: Configure Kernel
         working-directory: ${{ env.UNIXNU_DIR }}
         run: |
           ./unixnu defconfig ${{ inputs.defconfig }} -D ../${{ env.DEVICE_DIR }}
           ./unixnu status --json -D ../${{ env.DEVICE_DIR }}
 
-      - name: Fetch sources
+      - name: Fetch Sources
         working-directory: ${{ env.UNIXNU_DIR }}
         run: |
           ./unixnu fetch -D ../${{ env.DEVICE_DIR }}
 
-      - name: Build kernel
+      - name: Build Kernel
         working-directory: ${{ env.UNIXNU_DIR }}
         run: |
           ./unixnu build kernel -D ../${{ env.DEVICE_DIR }}
 
-      - name: Upload artifacts
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: dizi-kernel
           path: ${{ env.UNIXNU_DIR }}/out/dizi/kernel/
           if-no-files-found: error
 
-      - name: Publish release
+      - name: Publish Release
         if: ${{ inputs.publish_release == 'true' }}
         uses: softprops/action-gh-release@v2
         with:

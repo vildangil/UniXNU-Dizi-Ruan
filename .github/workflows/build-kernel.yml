@@ -64,7 +64,7 @@ jobs:
       - name: Build kernel
         working-directory: ${{ env.UNIXNU_DIR }}
         run: |
-          ./unixnu build kernel -D ../${{ env.DEVICE_DIR }} --steps ${{ github.event.inputs.steps }}
+          ./unixnu build kernel -D ../${{ env.DEVICE_DIR }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

@@ -1,5 +1,5 @@
 [[source]]
 kind = "soc"
-name = "sm8550"
-git = "https://github.com/UniXNU/UniXNU-sm8550-common.git"
+name = "sm7435"
+git = "https://github.com/vildangil/UniXNU-sm7435-common.git"
 commit = "a9f45dc60c035084b95463781538380f4c3606c9"

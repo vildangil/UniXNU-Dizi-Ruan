@@ -50,6 +50,12 @@ windows = [
 defconfig = "dizi_defconfig"
 config_fragments = []
 
+[kernel.archives]
+ArmVirtPlatform = "armvirt"
+RamBlock = "ramblock"
+VirtioMmioBlock = "virtiommio"
+VirtioMmioConsole = "virtiocons"
+
 [kernel.prelink]
 tool = "kits/NativePrelink/emit_prelink.py"
 kernel = "build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/mach.development.bcm2837.unstripped.noctf"

@@ -85,6 +85,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-xnu-feeds-
 
+      - name: Set some things
+        if: ${{ inputs.runner == 'self-hosted' }}
+        run: |
+          echo "CC=/usr/local/opt/llvm/bin/clang" >> $GITHUB_ENV
+          echo "CXX=/usr/local/opt/llvm/bin/clang++" >> $GITHUB_ENV
+          echo "CFLAGS=-Wno-error=unknown-warning-option" >> $GITHUB_ENV
+          echo "CXXFLAGS=-Wno-error=unknown-warning-option" >> $GITHUB_ENV
+
       - name: Configure Kernel
         working-directory: ${{ env.UNIXNU_DIR }}
         run: |

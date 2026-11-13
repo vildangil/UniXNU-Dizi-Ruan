@@ -51,29 +51,26 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          tool-cache-path: ${{ github.workspace }}/.python-cache
 
-      - name: Setup Brew
+      - name: Setup Paths
         if: ${{ inputs.runner == 'self-hosted' }}
         run: |
           echo "/usr/local/Homebrew/bin" >> $GITHUB_PATH
           echo "/usr/local/Homebrew/sbin" >> $GITHUB_PATH
           echo "/opt/homebrew/bin" >> $GITHUB_PATH
           echo "/opt/homebrew/sbin" >> $GITHUB_PATH
+          echo "/usr/local/opt/llvm/bin" >> $GITHUB_PATH
+          echo "/usr/local/opt/lld/bin" >> $GITHUB_PATH
 
       - name: Setup Xcode
         if: ${{ inputs.runner == 'self-hosted' }}
         run: |
-          sudo touch /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
-          PROD=$(softwareupdate -l 2>/dev/null | grep -o '.*Command Line Tools.*' | head -1 | sed 's/^[* ]*//' || true)
-          if [ -n "$PROD" ]; then
-            sudo softwareupdate -i "$PROD" --verbose || true
-          fi
-          sudo rm -f /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
-          sudo xcode-select -s /Library/Developer/CommandLineTools || true
+          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer || true
           sudo xcodebuild -license accept || true
+          xcode-select -p
 
       - name: Install Dependencies
+        if: ${{ inputs.runner != 'self-hosted' }}
         run: |
           brew install llvm lld dtc mtools
           pip install --upgrade pip

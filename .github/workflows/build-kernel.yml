@@ -55,12 +55,21 @@ jobs:
       - name: Setup Paths
         if: ${{ inputs.runner == 'self-hosted' }}
         run: |
+          echo "/opt/local/libexec/llvm-20/bin" >> $GITHUB_PATH
+          echo "/opt/local/bin" >> $GITHUB_PATH
+          echo "/opt/local/sbin" >> $GITHUB_PATH
           echo "/usr/local/Homebrew/bin" >> $GITHUB_PATH
-          echo "/usr/local/Homebrew/sbin" >> $GITHUB_PATH
-          echo "/opt/homebrew/bin" >> $GITHUB_PATH
-          echo "/opt/homebrew/sbin" >> $GITHUB_PATH
-          echo "/usr/local/opt/llvm/bin" >> $GITHUB_PATH
-          echo "/usr/local/opt/lld/bin" >> $GITHUB_PATH
+          echo "/usr/local/bin" >> $GITHUB_PATH
+
+      - name: Set Compiler Environment
+        if: ${{ inputs.runner == 'self-hosted' }}
+        run: |
+          CLANG_BIN=$(which clang)
+          echo "Using compiler: $CLANG_BIN"
+          echo "CC=$CLANG_BIN" >> $GITHUB_ENV
+          echo "CXX=$CLANG_BIN++" >> $GITHUB_ENV
+          echo "CFLAGS=-Wno-error=unknown-warning-option" >> $GITHUB_ENV
+          echo "CXXFLAGS=-Wno-error=unknown-warning-option" >> $GITHUB_ENV
 
       - name: Setup Xcode
         if: ${{ inputs.runner == 'self-hosted' }}
@@ -84,14 +93,6 @@ jobs:
           key: ${{ runner.os }}-xnu-feeds-${{ github.run_id }}
           restore-keys: |
             ${{ runner.os }}-xnu-feeds-
-
-      - name: Set some things
-        if: ${{ inputs.runner == 'self-hosted' }}
-        run: |
-          echo "CC=/usr/local/opt/llvm/bin/clang" >> $GITHUB_ENV
-          echo "CXX=/usr/local/opt/llvm/bin/clang++" >> $GITHUB_ENV
-          echo "CFLAGS=-Wno-error=unknown-warning-option" >> $GITHUB_ENV
-          echo "CXXFLAGS=-Wno-error=unknown-warning-option" >> $GITHUB_ENV
 
       - name: Configure Kernel
         working-directory: ${{ env.UNIXNU_DIR }}

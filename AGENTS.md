@@ -1,9 +1,15 @@
 # Agent instructions
 
-This repository owns sheng board configuration, peripherals, firmware
-selection, partition layout, power policy, and packaging. Shared SM8550
-resources and operations belong to `UniXNU-sm8550-common`. The documentation
-site, component catalog, and common build tools belong to `UniXNU`.
+This repository owns the dizi (Xiaomi Redmi Pad Pro, SM7435) board
+configuration, peripherals, firmware selection, partition layout, power
+policy, and packaging. Shared SM7435 resources and XNU patches belong to
+`UniXNU-sm7435-common`. UEFI for dizi lives in Mu-Silicium `diziPkg`. The
+documentation site, component catalog, and common build tools belong to
+`UniXNU`.
+
+Do not copy SM8550 (sheng) addresses, clocks, GPU, SMMU, UFS or power values
+into dizi. Files still named `sheng*` are leftovers from the fork; the README
+lists them. They are not dizi support.
 
 Read the following before editing:
 
@@ -23,21 +29,27 @@ ABI, and board dependencies. Use canonical component names in sources,
 paths, build commands, and dependencies. Preserve source filenames,
 runtime classes, bundle IDs, plugin filenames, symbols, and protocol IDs.
 
-Use `dts/sheng.dts` for board hardware and include the selected SoC DTSI.
-Keep GPU votes and signed ZAP firmware inputs with the board. Inspect
-`local.toml` and CLI overrides before changing source pins.
+Use `dts/dizi.dts` for board hardware; it includes `sm7435.dtsi` from the
+SoC repository. UniXNU's ADT generator needs a single contiguous memory
+range. Inspect `local.toml` and CLI overrides before changing source pins.
+After changing UniXNU-sm7435-common, push it and update the commit in
+`feeds.toml` and `unixnu.lock` together.
 
 Run from the UniXNU checkout:
 
 ```sh
-./unixnu defconfig sheng_defconfig --device ../UniXNU-sheng
-./unixnu status --device ../UniXNU-sheng --json
-./unixnu tree --device ../UniXNU-sheng
-./unixnu build kernel --device ../UniXNU-sheng
+./unixnu defconfig dizi_defconfig --device ../UniXNU-Dizi-Ruan
+./unixnu status --device ../UniXNU-Dizi-Ruan --json
+./unixnu tree --device ../UniXNU-Dizi-Ruan
+./unixnu build kernel --device ../UniXNU-Dizi-Ruan
 ```
 
-Use the README for firmware and payload inputs. Run existing checks
-relevant to the change. Report commands, outputs, missing inputs, and
+Use the README for firmware, payload and boot steps. On macOS use
+MacPorts, not Homebrew. Only boot test images with `fastboot boot`; do not
+flash partitions without the owner's approval. Run existing checks
+relevant to the change, including
+`python3 scripts/porting-record.py check --device ../UniXNU-Dizi-Ruan`
+from UniXNU. Report commands, outputs, missing inputs, and
 hardware observations separately. Record device boot, storage, display,
 input, and GPU checkpoints.
 

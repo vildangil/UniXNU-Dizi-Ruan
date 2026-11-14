@@ -1,111 +1,141 @@
-# UniXNU sheng
+# UniXNU dizi
 
-Device support for Xiaomi Pad 6S Pro 12.4, codename `sheng`, with Qualcomm
-SM8550. The device profile selects
-[UniXNU-sm8550-common](https://github.com/UniXNU/UniXNU-sm8550-common). One
-branch builds every OS profile; `--os 17|26|27` picks the target (the 27
-profile is the one under active maintenance).
+UniXNU device support for the Xiaomi Redmi Pad Pro, codename `dizi`
+(Qualcomm SM7435, "Parrot"). The Redmi Pad Pro 5G (`ruan`) is not tested.
 
-## Structure
+The board uses the [UniXNU-sm7435-common](https://github.com/vildangil/UniXNU-sm7435-common)
+SoC profile, the iPadOS 17.7.11 (21H461) OS profile, and Mu-Silicium
+[diziPkg](https://github.com/vildangil/Mu-Silicium/tree/main/Platforms/Xiaomi/diziPkg)
+for UEFI.
 
-| Path | Contents |
-| --- | --- |
-| `porting.toml` | Subsystem inputs, findings, evidence and completion criteria |
-| `board.toml` | Device configuration and component selection |
-| `feeds.toml` | Pinned SoC source |
-| `configs/sheng_defconfig` | Device kernel settings |
-| `dts/sheng.dts` | Memory, CPU selection, and peripheral configuration |
-| `patches/xnu/series` | Board patches |
-| `proprietary-files.txt` | Firmware input paths |
-| `package/` | Device policy, display, input, and diagnostics |
-| `scripts/` | Device build and inspection tools |
+## Status
 
-`Adreno740` and `AdrenoMetal` provide the GPU implementation. Shared GMU,
-command database, and GPU SMMU operations are in the SoC repository's
-`Sm8550Platform` kit. sheng supplies GPU votes, signed ZAP firmware,
-reserved memory, and display integration. GPU initialization uses the
-staged platform build. The hardware DTS contains GPU resources; the ADT
-exports nodes with `unixnu,adt-name`.
+Checked on a real dizi on 2026-11-14, booted once with `fastboot boot`:
 
-`ShengUfs` includes the device's storage and persistence policy.
-`ShengHidInput` and `ShengNovatekTouch` provide the input integration.
-`QcomGeniSpi` provides the shared SPI controller interface.
-`Ath12kWifi` supplies the Wi-Fi stack through board PCIe, MSI, DMA,
-and network interfaces. The payload volume is 208 MiB. The device selects
-sRGB display properties and a 120 Hz display timing request.
+| Stage | State | Notes |
+| --- | --- | --- |
+| UEFI firmware and UniXNU menu | Works | Menu loads `\EFI\UniXNU\unixnu.toml` from the payload |
+| Payload discovery | Works | Payload follows the LZ4 vendor ramdisk; UniXNURamDiskDxe skips it |
+| Menu buttons | Partly | PMIC key reader from the old-ChatGPT build; Volume Down retuned, not re-tested |
+| DarwinBoot handoff | Works | Green bar drawn, ExitBootServices passes (KEP hook disabled) |
+| XNU entry and MMU-on | Works | Blue and magenta probe bands; reset after MMU-on |
+| `arm_init`, VM, IOKit, AMFI | Works | Needs the SoC virtual-timer patch and ADT `vmm-present = 1` |
+| Root filesystem | Missing | Stops at `Failed to mount root device` (IOKitBSDInit.cpp:984) |
+| Secondary CPUs | Not tested | `cpus=1` is the default |
+| Storage, display driver, touch, Wi-Fi, audio, GPU | Not started | |
 
-## Development record
+The root filesystem is the next stage: a storage driver for dizi's UFS and
+an iPadOS root image (`unixnu build userdata`). [porting.toml](porting.toml)
+records every area with its findings and evidence.
 
-Maintain [porting.toml](porting.toml) with every subsystem change. It records
-hardware, configuration, procedures, findings, evidence and completion criteria.
-The [device page](https://unixnu.com/devices/sheng) renders this record.
-Maintainers and agents follow the [same guide](https://unixnu.com/porting/records).
-The required `Porting record` CI check validates structure, component coverage
-and updates to findings or evidence for changed code.
+## Repositories
 
-This repository owns the ShengUfs, ShengHidInput, ShengNovatekTouch and
-ShengPreflight submodules. Shared components come from the selected profiles
-and UniXNU catalog. Read the [UFS guide](https://unixnu.com/porting/ufs) before
-changing storage resources or policy.
-
-## Build
-
-One command from this repository builds everything: dependencies, preflight,
-patches, kernel, package, firmware, payload, boot image and the manifest.
+Clone all four side by side (the build expects these folder names):
 
 ```sh
-UNIXNU_UNIQUE_CHIP_ID=<8 hex digits> scripts/package.sh --os 27 --uefi ../uefi-sheng
+git clone --recurse-submodules https://github.com/UniXNU/UniXNU
+git clone https://github.com/vildangil/UniXNU-Dizi-Ruan
+git clone https://github.com/vildangil/UniXNU-sm7435-common
+git clone --recurse-submodules https://github.com/vildangil/Mu-Silicium
 ```
 
-- The firmware inputs come from the official fastboot archive pinned in
-  `board.toml` `[firmware.image]`: the preflight downloads it with concurrent
-  HTTP ranges, keeps only the porting inputs, deletes the archive and
-  generates the `Binaries/sheng` modules the firmware volume builds from.
-  Extracted firmware lives in no repository.
-- `UNIXNU_UNIQUE_CHIP_ID` is the platform seed of the device, 8 hex digits.
-  It is baked into the images and stays out of every repository.
-- The kernelcache, trust caches and OS volumes come from the IPSW the OS
-  profile pins; the generated GPU headers come from the pinned sources the
-  kernel archives fetch.
-- Outputs land under `out/sheng/<profile>/<config>/` of the UniXNU checkout:
-  `boot/boot.img`, `payload/payload.img`, `kernel/kernel.macho` and
-  `package.manifest.json`.
-- `--check` stops after deps, preflight and patches; `--no-deps` skips
-  fetching on a machine whose sources are already pinned.
+| Repository | Contents |
+| --- | --- |
+| UniXNU-Dizi-Ruan (this) | `board.toml`, `configs/dizi_defconfig`, `dts/dizi.dts`, `porting.toml` |
+| UniXNU-sm7435-common | SoC DTSI, config fragment and XNU patches (SMP, virtual timer) |
+| Mu-Silicium | UEFI for dizi, SEC FDT handoff, dizi menu keys (`diziPkg/Library/UniXNULibDizi`) |
+| UniXNU | Build tool, components, OS profiles |
 
-See the [packaging script](https://unixnu.com/porting/packaging) page for the
-fixed steps, the board.toml keys and the verification the run performs.
+UniXNU upstream does not yet have three fixes this port needs: the LZ4
+payload skip in `UniXNURamDiskDxe`, NOP padding in `patch-xnu-entry-probe.py`
+and `-Wno-unknown-warning-option` for Xcode 26.3. They are on a local
+`dizi-bringup` branch of UniXNU until they are upstreamed or forked.
 
-## Build on GitHub
+## Build on macOS
 
-`.github/workflows/package.yml` runs the same script on a macOS runner and
-offers the images as the run's artifacts.
+Requirements: Xcode (26.3 tested), [MacPorts](https://www.macports.org) and a
+path without spaces. Do not use Homebrew.
 
-1. Fork this repository and set its `UNIXNU_UNIQUE_CHIP_ID` secret to the
-   platform seed of the device.
-2. Actions, package, Run workflow, pick the OS profile.
-3. Download the run's artifacts, then delete the run. The images serve the one
-   device whose seed they bake; they are not kept.
+```sh
+sudo port install python314 llvm-20 dtc mtools ninja cmake android-platform-tools
+```
 
-The run installs and asserts its own tools; nothing else is needed on the
-runner.
+UniXNU's scripts call `python3` and need Python 3.11 or newer. If `python3`
+is the system 3.9, put a link to MacPorts Python first in `PATH`:
 
-## Documentation
+```sh
+mkdir -p ~/dizi-work/.bin && ln -sf /opt/local/bin/python3.14 ~/dizi-work/.bin/python3
+export PATH=~/dizi-work/.bin:/opt/local/libexec/llvm-20/bin:/opt/local/bin:$PATH
+```
 
-The documentation site is maintained in UniXNU:
+Local inputs stay out of Git:
 
-- [sheng device guide](https://unixnu.com/devices/sheng)
-- [Building](https://unixnu.com/building)
-- [Device repository specification](https://unixnu.com/porting/device-repository)
-- [Device-tree specification](https://unixnu.com/porting/device-tree)
-- [Component catalog](https://unixnu.com/reference/components)
-- [Migration](https://unixnu.com/porting/migration)
+- `UniXNU/unixnu.local.toml` sets `device`, `uefi`, `dtb`, `trust_cache` and
+  `unique_chip_id`. The chip ID is a random nonzero 8-digit hex seed
+  (`openssl rand -hex 4`). Keep it the same for every build of one tablet;
+  it is that tablet's identity to iPadOS.
+- `UniXNU-Dizi-Ruan/local.toml` can point the SoC feed at a local
+  UniXNU-sm7435-common checkout while you change it.
 
-Report build results and device boot, storage, display, input, and GPU
-observations separately, with source revisions and commands.
+Build everything from the UniXNU checkout:
 
-## GPU frame diagnostics
+```sh
+cd UniXNU
+./unixnu defconfig dizi_defconfig -D ../UniXNU-Dizi-Ruan
+./unixnu fetch
+./unixnu build kernel
+./unixnu build firmware --uefi ../Mu-Silicium
+./unixnu ipsw fetch
+python3 scripts/bundle-ipsw-trust.py out/dizi/ipados-17.7.11-21H461/dizi/trust/ipsw-trust.bundle \
+  out/ipsw/21H461/044-76040-038.dmg.trustcache out/ipsw/21H461/044-76034-038.dmg.trustcache
+./unixnu build payload
+./unixnu bootimg
+```
 
-`gpu-trace=1 diag-export=240` exports the latency capture at 240 seconds of boot-log time. It does not schedule a reboot. The capture holds the render server's frame trace, GPU submission and display arrival, large GPU allocations, CPU occupancy, render thread waits, faults, shared-region unnests and the touch report times. `scripts/read-sheng-log.py` extracts the files and runs the decoders; the `*.touch.*` outputs keep only the touch windows. See [GPU frame diagnostics](https://unixnu.com/porting/gpu-diagnostics).
+The boot image is `out/dizi/ipados-17.7.11-21H461/dizi/boot/boot.img`
+(about 58 MiB; the boot partition is 100 MiB). The trust bundle's SHA-256
+must be `7416ca4f…`, the value the iPadOS 17 profile allows.
 
-On macOS, starting the Ethernet controller without the BSD wait and the display's hot plug binding follow [macOS-DroidVM](https://github.com/Droid-VM/macOS-DroidVM), the DroidVM port booted with UniXNU.
+## Boot
+
+The bootloader must be unlocked. `fastboot boot` starts the image once and
+flashes nothing; a reboot returns to Android.
+
+```sh
+fastboot getvar product      # must print dizi
+fastboot boot out/dizi/ipados-17.7.11-21H461/dizi/boot/boot.img
+```
+
+The menu boots the UniXNU entry after 3 seconds. Volume keys move the
+selection and Power confirms. Give Volume Down a firm press of about half a
+second; a guard filters false PMIC presses.
+
+## Reading the screen
+
+The payload enables UniXNU's entry probe and panic screen
+([debugging guide](https://unixnu.com/guide/debugging)):
+
+| Screen | Meaning |
+| --- | --- |
+| Green band | DarwinBoot exited boot services and branched to XNU |
+| Blue band | XNU entry code ran (MMU off) |
+| Magenta band | XNU reached the MMU enable |
+| White text under the bands | Kernel panic message and backtrace |
+
+Resolve backtrace addresses against
+`out/dizi/ipados-17.7.11-21H461/dizi/kernel/kernel.macho` with
+`llvm-symbolizer`. Hold Power to leave the panic screen.
+
+## Files inherited from sheng
+
+This repository started as a fork of
+[UniXNU-sheng](https://github.com/UniXNU/UniXNU-sheng). These parts are
+still sheng's and are not used by `dizi_defconfig`: the `sheng_*`
+defconfigs, `drivers/`, `firmware/`, `hal/`, most of `package/` and
+`scripts/`, `patches/xnu/zzy*`, `patches/xnu-12377/` and
+`.github/workflows/package.yml`. `build-kernel.yml` and
+`porting-record.yml` are set up for dizi.
+
+## License
+
+See [LICENSE](LICENSE).

@@ -8,61 +8,76 @@ os_profile = "ipados-17.7.11-21H461"
 description = "Xiaomi Redmi Pad Pro"
 kit = "dizi"
 
+# Bring-up set: CPU, interrupts, timer and the UEFI GOP framebuffer only.
+# Sheng (SM8550) storage, input, Wi-Fi and GPU components stay out until dizi
+# equivalents exist.
 [components]
 include = [
     "ArmDTPlatform",
     "ArmCpu",
     "SoftwareAES",
     "GopFramebuffer",
-    "QcomGeniSpi",
     "XnuPrelink",
     "DarwinBoot",
 ]
 
-[ipsw]
-url = "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/122-77166/DCA6CFE8-90E9-4B92-880D-3DE171798E40/iPad_Pro_HFR_17.7.11_21H461_Restore.ipsw"
-product = "iPad7,1"
-version = "17.7.11"
-build = "21H461"
-device_class = "j120ap"
-chip_id = 0x8011
-board_id = 12
-fetch = ["KernelCache", "DeviceTree", "StaticTrustCache", "Cryptex1,SystemTrustCache"]
-
-[ipsw.sha256]
-"044-76040-038.dmg" = "3f99b859c9728379110b66657c7b15285bcb1925ad8b5726542e2cdcf8b1028d"
-"044-76034-038.dmg" = "b4908cde41d23e6bc05e6af51a2c9eeb00cf0f863a6a18b1600c96a3fd70414f"
-
-[userdata]
-first_lba = 0x2d3000
-last_lba = 0x38417fa
-lba_bytes = 4096
-windows = [
-    { name = "OS", component = "OS" },
-    { name = "SystemOS", component = "Cryptex1,SystemOS" },
-]
+# The OS profile pins the IPSW, prelink roots and userdata windows.
 
 [kernel]
 defconfig = "dizi_defconfig"
-config_fragments = []
+config_fragments = ["arch:configs/common.config", "soc:configs/sm7435.config", "os:configs/ipados.config"]
+patch_series = ["arch:patches/xnu/series", "soc:patches/xnu/series", "os:patches/xnu/series", "device:patches/xnu/series"]
 
-[kernel.archives]
-ArmVirtPlatform = "armvirt"
-RamBlock = "ramblock"
-VirtioMmioBlock = "virtiommio"
-VirtioMmioConsole = "virtiocons"
+[device_tree]
+source = "device:dts/dizi.dts"
+include_dirs = ["soc:dts"]
 
-[kernel.prelink]
-tool = "kits/NativePrelink/emit_prelink.py"
-kernel = "build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/mach.development.bcm2837.unstripped.noctf"
-slide = "-0x1000000"
-roots = [
-    "com.apple.driver.AppleMobileFileIntegrity",
-    "com.apple.driver.AppleARMPlatform",
-    "com.apple.driver.AppleARMWatchdogTimer",
-    "com.apple.driver.AppleAudioClockLibs",
-    "com.apple.driver.AppleEffaceableStorage",
-    "com.apple.driver.AppleIISController",
-    "com.apple.driver.AppleM2ScalerCSCDriver",
-    "com.apple.driver.ApplePMGR",
-]
+[firmware]
+# Mu-Silicium diziPkg (https://github.com/vildangil/Mu-Silicium).
+config = "dizi"
+dsc = "Platforms/Xiaomi/diziPkg/dizi.dsc"
+fd = "Build/diziPkg/{target}_CLANGPDB/FV/SILICIUM_UEFI.fd"
+packages = ["{uefi}", "{uefi}/Platforms/Xiaomi", "{tree}/package", "{tree}/drivers/DarwinBoot", "{edk2}", "{uefi}/Common/Mu", "{uefi}/Common/Mu_OEM_Sample", "{uefi}/Silicon/Qualcomm", "{uefi}/Silicon/Silicium", "{uefi}/Silicium-ACPI", "{uefi}/Silicium-ACPI/Platforms/Xiaomi", "{uefi}/Silicium-ACPI/Silicon/Qualcomm"]
+
+[firmware.defines]
+# Same defaults as Mu-Silicium build_uefi.py (secure boot off, model 0).
+ENABLE_SECUREBOOT = "0"
+DEVICE_MODEL = "0"
+# Leave out the Windows Kernel Errata Patcher: its ExitBootServices hook faulted
+# on dizi when handing off to XNU (old-ChatGPT branch hardware test, BdsDxe RVA 0x3EAC).
+DISABLE_KEP = "1"
+
+[bootimg]
+# Bootloader DTB captured in Mu-Silicium Resources/DTBs/dizi.dtb.
+dtb = "build/dizi/dizi.dtb"
+
+[payload]
+volume = "DIZIESP"
+# dizi boot partition is 100 MiB. Payload holds about 50 MiB (kernel, ADT, trust cache); the boot image adds about 1.7 MiB (firmware, DTB). Up to about 96 is safe.
+size_mib = 56
+loader = "firmware"
+title = "UniXNU"
+# cpus=1: secondary CPU startup is not confirmed on dizi yet (old-ChatGPT branch notes).
+kernel_args = ["-v", "serial=3", "debug=0x14e", "cpus=1"]
+# Bring-up diagnostics (UniXNU docs/guide/debugging.md): blue band = kernel entry ran,
+# magenta band = reached MMU enable; a kernel panic draws its message on the screen.
+# 2026-11-14 on dizi: green, blue and magenta shown, then a reset about 6 s after
+# MMU-on with entry_probe_reset_delay = 6. panic_screen does not fit next to that
+# reset stage in this kernel's _start padding, so the reset is off here.
+panic_screen = true
+
+[payload.adt]
+chip_id = "8011"
+unique_chip_id = "required"
+
+[package]
+unixnu = "../UniXNU"
+
+[package.defconfig]
+"ipados-17.7.11-21H461" = "dizi_defconfig"
+
+# dizi's firmware publishes no Apple PMGR. Without this flag AMFI waits for an
+# ApplePMGRNub and panics with "AMFI: No PMGR?" at ConfigurationSettings.cpp:235
+# (dizi panic screen 2026-11-14). Same fix as the vermeer port's ADT defaults.
+[adt.defaults.u32]
+vmm-present = 1

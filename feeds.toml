@@ -2,4 +2,4 @@
 kind = "soc"
 name = "sm7435"
 git = "https://github.com/vildangil/UniXNU-sm7435-common.git"
-commit = "a9f45dc60c035084b95463781538380f4c3606c9"
+commit = "1765d1bc3601d288f00fa6f7be9b7634b4e10e18"

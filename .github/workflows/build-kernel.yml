@@ -58,7 +58,6 @@ jobs:
           echo "/opt/local/libexec/llvm-20/bin" >> $GITHUB_PATH
           echo "/opt/local/bin" >> $GITHUB_PATH
           echo "/opt/local/sbin" >> $GITHUB_PATH
-          echo "/usr/local/Homebrew/bin" >> $GITHUB_PATH
           echo "/usr/local/bin" >> $GITHUB_PATH
 
       - name: Set Compiler Environment
@@ -78,11 +77,8 @@ jobs:
           sudo xcodebuild -license accept || true
           xcode-select -p
 
-      - name: Install Dependencies
-        if: ${{ inputs.runner != 'self-hosted' }}
-        run: |
-          brew install llvm lld dtc mtools
-          pip install --upgrade pip
+      # The kernel step only needs Xcode and Python. Self-hosted runners use
+      # MacPorts (llvm-20, dtc, mtools) for the firmware steps; no Homebrew.
 
       - name: Cache Sources
         uses: actions/cache@v4
@@ -114,14 +110,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dizi-kernel
-          path: ${{ env.UNIXNU_DIR }}/out/dizi/kernel/
+          path: ${{ env.UNIXNU_DIR }}/out/dizi/ipados-17.7.11-21H461/dizi/kernel/
           if-no-files-found: error
 
       - name: Publish Release
-        if: ${{ inputs.publish_release == 'true' }}
+        if: ${{ inputs.publish_release }}
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ env.UNIXNU_DIR }}/out/dizi/kernel/*
+          files: ${{ env.UNIXNU_DIR }}/out/dizi/ipados-17.7.11-21H461/dizi/kernel/*
           tag_name: dizi-kernel-${{ github.run_number }}
           name: Dizi kernel build ${{ github.run_number }}
           draft: true

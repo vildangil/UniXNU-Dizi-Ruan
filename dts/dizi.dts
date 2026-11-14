@@ -1,0 +1,16 @@
+/dts-v1/;
+/include/ "sm7435.dtsi"
+
+/ {
+    model = "Xiaomi Redmi Pad Pro (dizi)";
+    compatible = "xiaomi,dizi", "qcom,sm7435", "qcom,parrot";
+
+    // UniXNU's ADT handoff takes one contiguous DRAM range. This is DDR
+    // region0 from the dizi bootloader FDT (Mu-Silicium Resources/DTBs/dizi.dts,
+    // ddr-regions/region0), the same layout sheng uses. DarwinBoot excludes the
+    // firmware-reserved holes inside it at boot.
+    memory@80000000 {
+        device_type = "memory";
+        reg = <0x0 0x80000000 0x0 0x80000000>;
+    };
+};

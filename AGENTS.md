@@ -44,9 +44,8 @@ Run from the UniXNU checkout:
 ./unixnu build kernel --device ../UniXNU-Dizi-Ruan
 ```
 
-Use the README for firmware, payload and boot steps. On macOS use
-MacPorts, not Homebrew. Only boot test images with `fastboot boot`; do not
-flash partitions without the owner's approval. Run existing checks
+Only boot test images with `fastboot boot`; do not flash partitions
+without the owner's approval. Run existing checks
 relevant to the change, including
 `python3 scripts/porting-record.py check --device ../UniXNU-Dizi-Ruan`
 from UniXNU. Report commands, outputs, missing inputs, and

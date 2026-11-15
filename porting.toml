@@ -92,17 +92,17 @@ evidence = []
 
 [[area]]
 id = "input"
-status = "planned"
+status = "implemented"
 components = []
 paths = ["drivers/ShengHidInput", "drivers/ShengNovatekTouch", "package/*Touch*", "package/*Button*", "scripts/*touch*", "scripts/*hid*"]
 inputs = ["Identify the input hardware, resources and existing component interfaces for this board."]
 configuration = ["Record the board.toml fields, DTS properties and defconfig values used for input."]
 procedure = ["Follow the input stage in the porting guide and record the actual commands."]
-findings = ["Collect the first input observation, its cause when established, and the resulting implementation decision."]
+findings = ["UniXNU menu: Volume Up, Volume Down and Power work through the PMIC/SPMI key reader in Mu-Silicium diziPkg/Library/UniXNULibDizi (from the old-ChatGPT build). Each press must be held about one second (2026-11-15).", "No touch or button input in XNU yet."]
 completion = ["Touches map to the display, simultaneous contacts keep stable IDs, release events arrive, and buttons produce expected HID reports."]
 limits = ["Hardware inputs and implementation are pending for dizi."]
 next_action = ["Inventory the required input inputs before implementation."]
-evidence = []
+evidence = [{ kind = "source", reference = "https://github.com/vildangil/Mu-Silicium/tree/main/Platforms/Xiaomi/diziPkg/Library/UniXNULibDizi", result = "Menu keys confirmed on dizi 2026-11-15" }]
 
 [[area]]
 id = "gpu"

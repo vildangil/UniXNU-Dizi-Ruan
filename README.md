@@ -16,7 +16,7 @@ Checked on a real dizi on 2026-11-14:
 | --- | --- | --- |
 | UEFI firmware and UniXNU menu | Works | Menu loads `\EFI\UniXNU\unixnu.toml` from the payload |
 | Payload discovery | Works | Payload follows the LZ4 vendor ramdisk; UniXNURamDiskDxe skips it |
-| Menu buttons | Not tested | PMIC key reader from the earlier build that worked; not yet tried on this build |
+| Menu buttons | Works | Volume Up, Volume Down and Power; hold each about one second |
 | DarwinBoot handoff | Works | Green bar drawn, ExitBootServices passes (KEP hook disabled) |
 | XNU entry and MMU-on | Works | Blue and magenta probe bands; reset after MMU-on |
 | `arm_init`, VM, IOKit, AMFI | Works | Needs the SoC virtual-timer patch and ADT `vmm-present = 1` |
@@ -39,8 +39,8 @@ fastboot boot boot.img
 ```
 
 The menu boots the UniXNU entry after 3 seconds. Volume keys move the
-selection and Power confirms. Give Volume Down a firm press of about half a
-second; a guard filters false PMIC presses.
+selection and Power confirms. Hold each button about one second; the PMIC key
+reader samples slowly and filters false presses.
 
 ### iPadOS root on UFS
 

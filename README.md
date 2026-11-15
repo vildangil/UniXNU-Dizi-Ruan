@@ -25,8 +25,9 @@ Checked on a real dizi on 2026-11-14:
 | Boot-progress page | Works | Milestones, processes and console on screen (`boot-progress=1`) |
 | Display driver, touch, Wi-Fi, audio, GPU | Not started | |
 
-The next stage is mounting the SystemOS cryptex so launchd can load the dyld shared cache. [porting.toml](porting.toml) records every area with
-its findings and evidence.
+The next stage is mounting the SystemOS cryptex so launchd can load the dyld
+shared cache. [porting.toml](porting.toml) records every area with its findings
+and evidence.
 
 ## Boot
 
@@ -41,7 +42,33 @@ The menu boots the UniXNU entry after 3 seconds. Volume keys move the
 selection and Power confirms. Give Volume Down a firm press of about half a
 second; a guard filters false PMIC presses.
 
+### iPadOS root on UFS
+
+The root comes from the `userdata` partition. Flashing it **erases all Android
+user data**; Android itself stays, and `fastboot -w` gives back an empty
+`userdata`.
+
+```sh
+fastboot flash userdata userdata-root.img
+fastboot boot boot.img
+```
+
+`userdata-root.img` holds the iPadOS 17.7.11 `OS` and `SystemOS` volumes
+(8.74 GiB). The image is read only; flashing takes about half an hour over USB.
+
 ## Reading the screen
+
+With `boot-progress=1` the kernel draws a status page:
+
+| Part | Meaning |
+| --- | --- |
+| Top line | `t=` seconds since boot, `irq=` interrupts, `procs`/`exec`/`exit` counts, `mem=` RAM for XNU |
+| Milestone boxes | KERNEL, VM, SCREEN, SCHED, IOKIT, BSD, ROOTFS, LAUNCHD, DAEMONS, BACKBOARD, SPRINGBOARD; grey not reached, green reached, yellow the latest, red failed |
+| Events | Kernel stages, PID 1 system calls that failed, launchd output |
+| Processes | Every started process: green running, grey exited 0, red failed, yellow signature refused |
+| Console | The kernel log |
+
+Without the page, the early boot shows coloured bands:
 
 | Screen | Meaning |
 | --- | --- |
@@ -50,7 +77,8 @@ second; a guard filters false PMIC presses.
 | Magenta band | XNU reached the MMU enable |
 | White text under the bands | Kernel panic message and backtrace |
 
-Hold Power to leave the panic screen.
+Hold Power to leave a panic screen. If DarwinBoot shows `NO WINDOW … Out of
+Resources`, the requested memory window does not fit dizi's UEFI memory map.
 
 ## License
 

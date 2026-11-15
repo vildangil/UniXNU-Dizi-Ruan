@@ -1,0 +1,23 @@
+--- a/bsd/kern/bsd_init.c
++++ b/bsd/kern/bsd_init.c
+@@ -1097,7 +1097,19 @@
+ 			}
+ #endif
+ 			if (autherr && !owner_authorized) {
+-				panic("rootvp not authenticated after mounting");
++				/*
++				 * dizi bring-up: the UFS root windows are published without the owner policy bundle
++				 * (native-ufs-allow-unverified=1, ShengUfs built without NATIVE_VERIFIED_BLOCK), so APFS
++				 * cannot authenticate the sealed root. Accept it only with that boot-arg and only read-only;
++				 * every other case panics as before.
++				 */
++				unsigned allow_unverified = 0;
++				if (PE_parse_boot_argn("native-ufs-allow-unverified", &allow_unverified, sizeof(allow_unverified)) &&
++				    allow_unverified == 1 && (vfs_flags(vnode_mount(rootvnode)) & MNT_RDONLY)) {
++					printf("rootvp not authenticated (error %d): accepted read-only for UFS bring-up\n", autherr);
++				} else {
++					panic("rootvp not authenticated after mounting");
++				}
+ 			}
+ #if defined(XNU_OWNER_ROOT_TRUST) && XNU_OWNER_ROOT_TRUST
+ 			{

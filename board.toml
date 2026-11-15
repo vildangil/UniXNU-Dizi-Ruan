@@ -17,6 +17,8 @@ include = [
     "ArmCpu",
     "SoftwareAES",
     "GopFramebuffer",
+    # UFS transport (sheng's driver; dizi has the same UFS host at 0x1d84000, SPI 265, with SMMU stream 0x20).
+    "ShengUfs",
     "XnuPrelink",
     "DarwinBoot",
 ]
@@ -27,6 +29,31 @@ include = [
 defconfig = "dizi_defconfig"
 config_fragments = ["arch:configs/common.config", "soc:configs/sm7435.config", "os:configs/ipados.config"]
 patch_series = ["arch:patches/xnu/series", "soc:patches/xnu/series", "os:patches/xnu/series", "device:patches/xnu/series"]
+# The arm64 profile's list plus the UFS root pieces, as the amethyst port does: ShengUfs bound to the original
+# IOBlockStorageDevice taken from a previous prelinked kernel (no KDK), and sheng's PMGR bridge (pmgr=2).
+# The candidate is a dizi kernel built without ShengUfs (out/.../candidate/bootstrap-candidate.macho; amethyst calls it
+# the bootstrap candidate).
+archives = [
+    "build-corecrypto-14.py",
+    "build-corecrypto-14.py --namespace",
+    "component:ArmDTPlatform",
+    "component:ArmCpu",
+    "component:SoftwareAES",
+    "build-software-aes-bindings.py",
+    "build-mockfs-fixture.py",
+    "build-libpthread-kernel.py",
+    "component:ShengUfs",
+    "build-ufs-original-bindings.py --candidate ../candidate/bootstrap-candidate.macho",
+    "build-platform-power.py",
+    "build-boot-progress-ruan.py",
+]
+
+# userdata on dizi: GPT entry 20 on UFS LUN 0, read by ShengUfs (native-ufs-probe=9, 2026-11-14), and
+# fastboot partition-size 0x19B9DD3000 bytes (~110 GB, F2FS by stock), 4 KiB blocks. Both agree.
+[userdata]
+first_lba = 0x35a228
+last_lba = 0x1d13ffa
+lba_bytes = 4096
 
 [device_tree]
 source = "device:dts/dizi.dts"
@@ -57,8 +84,9 @@ volume = "DIZIESP"
 size_mib = 56
 loader = "firmware"
 title = "UniXNU"
-# cpus=1: secondary CPU startup is not confirmed on dizi yet (old-ChatGPT branch notes).
-kernel_args = ["-v", "serial=3", "debug=0x14e", "cpus=1"]
+# All 8 cores (4x A55 + 4x A78): needs sm7435-type-clusters.patch and the cluster ids in dts/dizi.dts.
+# Tested on dizi 2026-11-14 with cpus=2 and cpus=8 (XNU reaches the root mount).
+kernel_args = ["-v", "serial=3", "debug=0x14e", "cpus=8", "smp=1", "armcpu-spi-ipi=1", "armcpu-self-ipi=1"]
 # Bring-up diagnostics (UniXNU docs/guide/debugging.md): blue band = kernel entry ran,
 # magenta band = reached MMU enable; a kernel panic draws its message on the screen.
 # 2026-11-14 on dizi: green, blue and magenta shown, then a reset about 6 s after
@@ -68,6 +96,12 @@ panic_screen = true
 
 [payload.adt]
 chip_id = "8011"
+# iPadOS 17.7.11 (21H461) root volume, matched by UUID when native-ufs-root=1 publishes userdata.
+root_match_volume_uuid = "04769D26-2CA0-4825-B443-E2E5F88300F2"
+# DarwinBoot window for XNU. The default is 256 MiB (boot-progress mem=256M; launchd could not run). ruan's
+# 0xB0000000 does not fit dizi's UEFI memory map: DarwinBoot reported "NO WINDOW B0000000 BIG RUN 7AB00000 @ 840000000"
+# (2026-11-15), so take 1952 MiB, inside that largest free run.
+# owned_memory_size = "0x7A000000"   # high window (0x840000000): boot stopped at setconf with irq=0, then reset
 unique_chip_id = "required"
 
 [package]

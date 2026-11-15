@@ -1,0 +1,44 @@
+From the UniXNU ruan port (F-e-n-y-x/UniXNU-iPadOS-on-Redmi-Pad-Pro-5G, BSD-2-Clause-Patent): dyld_flags seeds the
+commpage before launchd (bit 3 = no libignition); PID 1's failed syscalls go to the boot-progress page.
+
+--- a/bsd/dev/arm/systemcalls.c
++++ b/bsd/dev/arm/systemcalls.c
+@@ -180,6 +180,16 @@
+ 	AUDIT_SYSCALL_ENTER(code, proc, uthread);
+ 	error = (*(callp->sy_call))(proc, &uthread->uu_arg[0], &(uthread->uu_rval[0]));
+ 	AUDIT_SYSCALL_EXIT(code, proc, uthread, error);
++	/* ruan: PID 1's failed syscalls and its shared-region/code-signature calls on the boot-progress page (no-op without it). */
++	if (__improbable(proc_getpid(proc) == 1)) {
++		extern void boot_progress_pid1_syscall(int, int, const uint64_t *, uint64_t);
++		boot_progress_pid1_syscall(code, error, (const uint64_t *)&uthread->uu_arg[0], (uint64_t)uthread->uu_rval[0]);
++	}
++	/* ruan: what the boot tasks and early daemons (mount, keybagd, ...) write to stdout/stderr, on the events panel. */
++	else if (__improbable(proc_getpid(proc) < 64 && (code == 4 || code == 397) && !error)) {
++		extern void boot_progress_early_write(int, const uint64_t *);
++		boot_progress_early_write(proc_getpid(proc), (const uint64_t *)&uthread->uu_arg[0]);
++	}
+ 
+ #if CONFIG_MACF
+ skip_syscall:
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -8187,6 +8187,19 @@
+ load_init_program(proc_t p)
+ {
+ 	boot_progress_stage("load_init_program enter");
++	{
++		/* ruan: the boot-arg dyld_flags only reaches dyld through the commpage, which nothing seeds at boot; bit 3 makes
++		 * dyld skip libignition (no Preboot/cryptex1 on a RAM root) and open /System/Library/Caches/com.apple.dyld. */
++		extern uint64_t dyld_flags;
++		extern void commpage_update_dyld_flags(uint64_t);
++		if (dyld_flags) {
++			commpage_update_dyld_flags(dyld_flags);
++		}
++		char seeded[64];
++		snprintf(seeded, sizeof(seeded), "dyld_flags 0x%llx -> commpage 0x%llx", (unsigned long long)dyld_flags,
++		    (unsigned long long)*(volatile uint64_t *)(_COMM_PAGE_DYLD_FLAGS + _COMM_PAGE_RW_OFFSET));
++		boot_progress_stage(seeded);
++	}
+ 	uint32_t i;
+ 	int error;
+ 	vm_map_t map = current_map();

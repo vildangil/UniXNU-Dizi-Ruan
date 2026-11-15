@@ -1,0 +1,28 @@
+From the UniXNU ruan port (F-e-n-y-x/UniXNU-iPadOS-on-Redmi-Pad-Pro-5G, BSD-2-Clause-Patent): boot-progress
+hooks always linked (package/BootProgressRuan.c, boot-progress=<n> turns them on) and -v selects the text console.
+
+--- a/osfmk/kern/boot_progress.h
++++ b/osfmk/kern/boot_progress.h
+@@ -2,7 +2,8 @@
+ #ifndef XNU_BOOT_PROGRESS_H
+ #define XNU_BOOT_PROGRESS_H
+ #include <stdint.h>
+-#if defined(XNU_BOOT_PROGRESS) && XNU_BOOT_PROGRESS
++/* ruan: package/BootProgress.c is always linked (build-ram-root-probe.py); boot-progress=<n> turns it on. */
++#if 1
+ void boot_progress_init(void);
+ void boot_progress_start(void);
+ int boot_progress_active(void);
+--- a/pexpert/arm/pe_init.c
++++ b/pexpert/arm/pe_init.c
+@@ -534,7 +534,9 @@
+ 	 */
+ 	check_for_panic_log();
+ 
+-	if (PE_state.video.v_display) {
++	/* ruan: DarwinBoot always hands over v_display = 1 (graphics), so -v never got the text console (as UniXNU-j716f). */
++	unsigned int verbose = 0;
++	if (PE_state.video.v_display && !PE_parse_boot_argn("-v", &verbose, sizeof(verbose))) {
+ 		PE_initialize_console(&PE_state.video, kPEGraphicsMode);
+ 	} else {
+ 		PE_initialize_console(&PE_state.video, kPETextMode);

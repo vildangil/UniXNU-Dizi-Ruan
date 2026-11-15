@@ -1,0 +1,217 @@
+dizi changes to drivers/ShengUfs (UniXNU/ShengUfs 2f6c7b0). Apply in drivers/ShengUfs with: git apply ../../patches/drivers/ShengUfs-dizi.patch
+Boot-args: native-ufs-stream=0x20 (dizi SMMU stream), native-ufs-smmu-reuse=1 (keep the hypervisor's mapping), native-ufs-zero-copy=0,
+native-ufs-allow-unverified=1 (publish the root without the owner bundle). Also: the probe 8 survey reports the stream's bank, and
+the timing helpers are outside NATIVE_VERIFIED_BLOCK and read the virtual counter.
+
+diff --git a/NativeUfs.cpp b/NativeUfs.cpp
+index f698d71..4c48356 100644
+--- a/NativeUfs.cpp
++++ b/NativeUfs.cpp
+@@ -59,6 +59,18 @@ void boot_progress_poll (void) __attribute__((weak));
+ volatile uint32_t native_ufs_probe_calls = 0;
+ volatile uint32_t native_ufs_matched = 0;
+ volatile uint32_t native_ufs_probe_requested = 0;
++
++// SMMU stream ID of the UFS host: sheng (SM8550) 0x60, dizi (SM7435) 0x20, from the
++// board DT's `iommus = <&apps_smmu ID 0x0>`. native-ufs-stream=0xNN overrides the default.
++static uint16_t gUfsStream = 0x60;
++// native-ufs-smmu-reuse=1: the firmware already maps the UFS stream and a hypervisor owns the SMMU's
++// translation side (dizi/SM7435 under Gunyah: GR0 stream matching reads, GR1 and the context banks
++// abort). Keep the firmware's mapping, through which UEFI's own UFS DMA already works; write nothing.
++static bool gUfsSmmuReuse = false;
++// native-ufs-allow-unverified=1 (bring-up, from the amethyst port's NativeUfs fork): in a build without
++// NATIVE_VERIFIED_BLOCK, publish the OS/SystemOS windows without the owner policy bundle. Reads stay
++// unauthenticated; without the boot-arg such a build still refuses to publish a root.
++static bool gAllowUnverifiedRoot = false;
+ volatile uint32_t native_ufs_mapped = 0;
+ volatile uint32_t native_ufs_status = 0;
+ // Root start: 1 entered, 2 host up, 3 layout found; the last soft-failure reason (a static string), for the boot page.
+@@ -396,6 +408,26 @@ static void smmuBypassStream (uint16_t stream, OSSharedPtr<IOMemoryMap> &keep, u
+   if (!smmu) {
+     panic ("NATIVE_UFS smmu: map failed");
+   }
++  if (gUfsSmmuReuse && stream == gUfsStream) {
++    uint32_t groups = read32 (smmu, 0x20) & 0xff;   // IDR0.NUMSMRG (GR0, readable under the hypervisor)
++    for (uint32_t g = 0; g < groups && g < 128; g++) {
++      uint32_t smr = read32 (smmu, 0x800 + 4 * g);
++      uint32_t mask = (smr >> 16) & 0x7fff;
++      if ((smr & 0x80000000U) && (((smr ^ stream) & 0x7fffU) & ~mask) == 0) {
++        uint32_t s2cr = read32 (smmu, 0xc00 + 4 * g);
++        gRootDiagnostic.smmuSlot = g;
++        gRootDiagnostic.smr = smr; gRootDiagnostic.s2cr = s2cr;
++        report[0] = g | (0xffffU << 16);   // no context bank of ours
++        report[1] = s2cr;
++        report[2] = 0;
++        return;
++      }
++    }
++    gRootDiagnostic.stage = "SMMU reuse";
++    gRootDiagnostic.result = static_cast<uint32_t> (kIOReturnNotReady);
++    rootDiagnosticFailure ("no firmware stream mapping to reuse");
++    panic ("NATIVE_UFS smmu reuse: no firmware mapping for stream 0x%x (groups=%u)", stream, groups);
++  }
+   UfsSmmuPlan plan = planUfsSmmu (stream, dma, bytes, [smmu](unsigned offset) { return read32 (smmu, offset); });
+   gRootDiagnostic.smmuId1 = read32 (smmu, 0x24);
+   gRootDiagnostic.smmuId2 = read32 (smmu, 0x28);
+@@ -478,7 +510,7 @@ void NativeUfs::adoptAndRead (unsigned level)
+   unsigned stopLoops = 10000;
+   while ((read32 (hc, 0x60) & 1) && stopLoops--) IODelay (10);
+   if (read32 (hc, 0x60) & 1) panic ("NATIVE_UFS adopt: request list did not stop");
+-  smmuBypassStream (0x60, smmuMap, smmuReport, phys, 16384);
++  smmuBypassStream (gUfsStream, smmuMap, smmuReport, phys, 16384);
+   write32 (hc, 0x50, static_cast<uint32_t> (phys));
+   write32 (hc, 0x54, static_cast<uint32_t> (phys >> 32));
+   write32 (hc, 0x20, 0xffffffffU);  // clear stale status
+@@ -846,7 +878,7 @@ void NativeUfs::inspectSmmu (void)
+       valid++;
+       typeCount[(s2cr >> 16) & 3]++;
+       uint32_t mask = (smr >> 16) & 0x7fff;
+-      if (match == 0xffff && (((smr ^ 0x60U) & 0x7fffU) & ~mask) == 0) {
++      if (match == 0xffff && (((smr ^ gUfsStream) & 0x7fffU) & ~mask) == 0) {
+         match = index;
+         matchSmr = smr;
+         matchS2cr = s2cr;
+@@ -856,9 +888,9 @@ void NativeUfs::inspectSmmu (void)
+   panic ("NATIVE_UFS smmu\n"
+          "scr0=%08x idr0=%08x idr1=%08x gfsr=%08x\n"
+          "nsmr=%u valid=%u types t0=%u t1=%u t2=%u\n"
+-         "sid0x60 match=%x smr=%08x s2cr=%08x",
++         "sid0x%x match=%x smr=%08x s2cr=%08x",
+          scr0, idr0, idr1, gfsr, count, valid, typeCount[0], typeCount[1], typeCount[2],
+-         match, matchSmr, matchS2cr);
++         gUfsStream, match, matchSmr, matchS2cr);
+ }
+ 
+ // Read-only context-bank survey (native-ufs-probe=8): CBAR/CBA2R in gr1 and SCTLR/TTBR0 in the
+@@ -892,6 +924,28 @@ void NativeUfs::inspectContextBanks (void)
+     }
+   }
+   uintptr_t cb0 = smmu + globalPages * 0x1000, cb1 = cb0 + 0x1000, cbLast = cb0 + (numCb - 1) * 0x1000;
++  // The UFS stream's own entry (stream-match group) and its context bank: whether that bank translates.
++  uint32_t groups = read32 (smmu, 0x20) & 0xff;   // IDR0.NUMSMRG
++  uint32_t slot = 0xffff, smr = 0, s2cr = 0;
++  for (uint32_t g = 0; g < groups && g < 128; g++) {
++    uint32_t value = read32 (smmu, 0x800 + 4 * g);
++    uint32_t mask = (value >> 16) & 0x7fff;
++    if ((value & 0x80000000U) && (((value ^ gUfsStream) & 0x7fffU) & ~mask) == 0) {
++      slot = g; smr = value; s2cr = read32 (smmu, 0xc00 + 4 * g); break;
++    }
++  }
++  uint32_t bank = s2cr & 0xff;
++  uintptr_t cbU = cb0 + (bank < numCb ? bank : 0) * 0x1000;
++  if (slot != 0xffff && bank < numCb) {
++    panic ("NATIVE_UFS cb survey sid%x\n"
++           "slot=%u smr=%08x s2cr=%08x bank=%u ncb=%u pages=%u\n"
++           "cbar=%08x cba2r=%08x sctlr=%08x tcr=%08x tcr2=%08x\n"
++           "ttbr0=%08x%08x mair0=%08x fsr=%08x far=%08x%08x",
++           gUfsStream, slot, smr, s2cr, bank, numCb, globalPages,
++           read32 (smmu, 0x1000 + 4 * bank), read32 (smmu, 0x1800 + 4 * bank), read32 (cbU, 0x0),
++           read32 (cbU, 0x30), read32 (cbU, 0x10), read32 (cbU, 0x24), read32 (cbU, 0x20), read32 (cbU, 0x38),
++           read32 (cbU, 0x58), read32 (cbU, 0x64), read32 (cbU, 0x60));
++  }
+   panic ("NATIVE_UFS cb survey\n"
+          "ncb=%u pages=%u cbar0=%u sctlr0=%u msset=%u both0=%u first0=%x\n"
+          "cbar[0]=%08x cbar[1]=%08x cbar[%u]=%08x\n"
+@@ -1232,7 +1286,7 @@ static bool hostBringUp (const char **why)
+   uint32_t report[3] = { 0, 0, 0 };
+   gRootDiagnostic.stage = "SMMU and request list";
+   if (!hostStopQueue (why)) return false;
+-  smmuBypassStream (0x60, gHost.smmuMap, report, gHost.phys, gHost.dmaBytes);
++  smmuBypassStream (gUfsStream, gHost.smmuMap, report, gHost.phys, gHost.dmaBytes);
+   gHost.smmu = gHost.smmuMap->getVirtualAddress ();
+   // The board's WiFi endpoint (wifi=2 or more) needs a pass-through stream of its own, set up here with the same code and at the same moment as the
+   // storage stream: the registers of the stream matching group are not safe to touch from another thread later (a read of the first one never returned).
+@@ -1361,12 +1415,12 @@ static bool hostBringUp (const char **why)
+     }
+   }
+   uint32_t idr1 = read32 (gHost.smmu, 0x24);
+-  gHost.cb = gHost.smmu + ((1U << (((idr1 >> 28) & 7) + 1)) + (report[0] >> 16)) * 4096;
++  gHost.cb = gUfsSmmuReuse ? 0 : gHost.smmu + ((1U << (((idr1 >> 28) & 7) + 1)) + (report[0] >> 16)) * 4096;
+   if (gRootDiagnosticEnabled) {
+     gRootDiagnostic.gfsrBefore = read32 (gHost.smmu, 0x48);
+-    gRootDiagnostic.fsrBefore = read32 (gHost.cb, 0x58);
++    gRootDiagnostic.fsrBefore = gHost.cb ? read32 (gHost.cb, 0x58) : 0;
+     gRootDiagnostic.smmuId2 = read32 (gHost.smmu, 0x28);
+-    gRootDiagnostic.cba2r = read32 (gHost.smmu, 0x1800 + 4 * (report[0] >> 16));
++    gRootDiagnostic.cba2r = gHost.cb ? read32 (gHost.smmu, 0x1800 + 4 * (report[0] >> 16)) : 0;   // GR1: blocked with reuse
+   }
+   {
+     uint64_t limit = wide ? ~0ULL : 0x100000000ULL;
+@@ -1988,6 +2042,11 @@ static RootWindow gRootObject[4];
+ static uint32_t gRootObjects;
+ static uint64_t gRootObjectBase;
+ 
++// Read and verify timing; used by the root read path with or without NATIVE_VERIFIED_BLOCK.
++// The virtual counter: a hypervisor (Gunyah on SM7435) can trap EL1 access to the physical one.
++volatile uint64_t native_ufs_verify_ticks = 0, native_ufs_read_ticks = 0;
++static inline uint64_t timerTicks (void) {uint64_t v; __asm__ volatile ("isb\n\tmrs %0, cntvct_el0" : "=r" (v)); return v;}
++
+ #if defined(NATIVE_VERIFIED_BLOCK) && NATIVE_VERIFIED_BLOCK
+ volatile uint64_t native_ufs_verified_blocks = 0;
+ 
+@@ -2014,8 +2073,6 @@ static bool readPolicyTable (const char *window, uint8_t *table, uint64_t tableB
+   return true;
+ }
+ // Time spent hashing/verifying and reading from the UFS transport, in generic-timer ticks (diagnostic only).
+-volatile uint64_t native_ufs_verify_ticks = 0, native_ufs_read_ticks = 0;
+-static inline uint64_t timerTicks (void) {uint64_t v; __asm__ volatile ("isb\n\tmrs %0, cntpct_el0" : "=r" (v)); return v;}
+ volatile uint32_t native_ufs_integrity_failures = 0;
+ 
+ bool NativeUfsBlock::configureVerification ()
+@@ -2322,12 +2379,14 @@ static NativeUfs *gPendingProvider;
+ 
+ static bool mediaWithUuidExists (const char *uuid, NativeUfsBlock *window)
+ {
++  // An empty UUID (unverified bring-up) waits for any media below the window.
++  const bool anyUuid = !uuid || !uuid[0];
+   OSDictionary *matching = IOService::serviceMatching ("IOMedia");
+-  OSDictionary *properties = OSDictionary::withCapacity (1);
+-  OSString *wanted = OSString::withCString (uuid);
++  OSDictionary *properties = anyUuid ? nullptr : OSDictionary::withCapacity (1);
++  OSString *wanted = anyUuid ? nullptr : OSString::withCString (uuid);
+   bool found = false;
+-  if (matching && properties && wanted && properties->setObject ("UUID", wanted) &&
+-      matching->setObject ("IOPropertyMatch", properties)) {
++  if (matching && (anyUuid || (properties && wanted && properties->setObject ("UUID", wanted) &&
++      matching->setObject ("IOPropertyMatch", properties)))) {
+     OSIterator *iterator = IOService::getMatchingServices (matching);
+     if (iterator) {
+       for (unsigned matches = 0; matches < 64 && !found; ++matches) {
+@@ -2517,6 +2576,22 @@ bool NativeUfs::start (IOService *provider)
+   unsigned probe = 0, rootMode = 0;
+   PE_parse_boot_argn ("native-ufs-probe", &probe, sizeof (probe));
+   PE_parse_boot_argn ("native-ufs-root", &rootMode, sizeof (rootMode));
++  unsigned stream = 0;
++  if (PE_parse_boot_argn ("native-ufs-stream", &stream, sizeof (stream)) && stream != 0 && stream <= 0x7fff) {
++    gUfsStream = static_cast<uint16_t> (stream);
++  }
++  unsigned reuse = 0;
++  PE_parse_boot_argn ("native-ufs-smmu-reuse", &reuse, sizeof (reuse));
++  gUfsSmmuReuse = reuse != 0;
++  unsigned allowUnverified = 0;
++  PE_parse_boot_argn ("native-ufs-allow-unverified", &allowUnverified, sizeof (allowUnverified));
++  gAllowUnverifiedRoot = allowUnverified == 1;
++  // native-ufs-zero-copy=0: every transfer goes through the slot data areas of the host's own DMA buffer
++  // instead of DMA straight into the caller's pages (what native_ufs_set_zero_copy does for board code).
++  unsigned zeroCopy = 1;
++  if (PE_parse_boot_argn ("native-ufs-zero-copy", &zeroCopy, sizeof (zeroCopy))) {
++    gZeroCopy = zeroCopy != 0;
++  }
+   native_ufs_probe_requested = probe != 0;
+   // Default: match for observability only, never touch the controller. Hardware work runs once,
+   // from the root-device personality; the ufshc nub match stays observation-only.
+@@ -2710,7 +2785,13 @@ bool NativeUfs::startRoot (IOService *provider)
+       }
+       return true;
+ #else
+-      return false; // Root publication requires owner verification in every build.
++      if (!gAllowUnverifiedRoot) {
++        return false; // Root publication requires owner verification in every build.
++      }
++      // Bring-up only: the plan already required distinct OS/SystemOS labels. Leave the UUIDs empty so the
++      // publisher waits for any media below each window instead of a signed volume identity.
++      for (unsigned i = 0; i < gPending; ++i) gPendingUuid[i][0] = 0;
++      return true;
+ #endif
+     }
+     bool schedule () {

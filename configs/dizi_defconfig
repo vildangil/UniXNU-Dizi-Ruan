@@ -12,13 +12,15 @@ CONFIG_XNU_CRYPTO_BOOTSTRAP="prelinked"
 CONFIG_XNU_BUILD_ARCHIVES=y
 # CONFIG_XNU_NATIVE_LEGACY_DISPLAY is not set
 # CONFIG_XNU_SOURCE_MOCKFS is not set
-# CONFIG_XNU_NATIVE_UFS is not set
+CONFIG_XNU_NATIVE_UFS=y
 # CONFIG_XNU_NATIVE_AES is not set
 # CONFIG_XNU_NATIVE_RAM_BLOCK is not set
 # CONFIG_XNU_NATIVE_MOBILE_DISPLAY is not set
 # CONFIG_XNU_NATIVE_ADRENO is not set
 # CONFIG_XNU_NATIVE_VIRTIO_BLOCK is not set
 # CONFIG_XNU_NATIVE_VIRTIO_CONSOLE is not set
-# CONFIG_XNU_SHENG_PMGR is not set
+CONFIG_XNU_SHENG_PMGR=y
 # CONFIG_XNU_ARMVIRT_PLATFORM is not set
 # CONFIG_XNU_BOOT_PROGRESS is not set
+# Boot-progress page (package/BootProgressRuan.c, scripts/build-boot-progress-ruan.py).
+CONFIG_XNU_EXTRA_LD_ARCHIVES="{tree}/build/boot-progress-ruan/libBootProgressRuan.a"

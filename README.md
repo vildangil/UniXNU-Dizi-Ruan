@@ -20,12 +20,12 @@ Checked on a real dizi on 2026-11-14:
 | DarwinBoot handoff | Works | Green bar drawn, ExitBootServices passes (KEP hook disabled) |
 | XNU entry and MMU-on | Works | Blue and magenta probe bands; reset after MMU-on |
 | `arm_init`, VM, IOKit, AMFI | Works | Needs the SoC virtual-timer patch and ADT `vmm-present = 1` |
-| Root filesystem | Missing | Stops at `Failed to mount root device` (IOKitBSDInit.cpp:984) |
-| Secondary CPUs | Not tested | `cpus=1` is the default |
-| Storage, display driver, touch, Wi-Fi, audio, GPU | Not started | |
+| Root filesystem (UFS) | Partly | iPadOS root mounts read-only from `userdata` and launchd starts; dyld needs the SystemOS cryptex mounted |
+| All 8 CPU cores | Works | `cpus=8 smp=1` |
+| Boot-progress page | Works | Milestones, processes and console on screen (`boot-progress=1`) |
+| Display driver, touch, Wi-Fi, audio, GPU | Not started | |
 
-The root filesystem is the next stage: a storage driver for dizi's UFS and
-an iPadOS root image. [porting.toml](porting.toml) records every area with
+The next stage is mounting the SystemOS cryptex so launchd can load the dyld shared cache. [porting.toml](porting.toml) records every area with
 its findings and evidence.
 
 ## Boot

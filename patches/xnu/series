@@ -1,3 +1,9 @@
 # Board patch paths, one per line in application order.
 # The zzyd/zzye/zzyf patches are sheng (SM8550) audio, idle and AMP changes
 # and are not applied on dizi.
+# Bring-up: accept the unauthenticated read-only UFS root with native-ufs-allow-unverified=1.
+dizi-ufs-unverified-root.patch
+# Boot-progress page and text console with -v (from the ruan port).
+dizi-boot-progress.patch
+# dyld_flags=8 skips libignition; PID 1 syscalls on the boot-progress page (from the ruan port).
+dizi-pid1-dyld.patch

@@ -13,4 +13,27 @@
         device_type = "memory";
         reg = <0x0 0x80000000 0x0 0x80000000>;
     };
+
+    // UEFI framebuffer, kept out of XNU's memory (as on ruan).
+    reserved-memory {
+        #address-cells = <2>;
+        #size-cells = <2>;
+        ranges;
+
+        splash_region: splash_region@b8000000 {
+            reg = <0x0 0xb8000000 0x0 0x2b00000>;
+            label = "cont_splash_region";
+        };
+    };
 };
+
+// CPU topology for XNU: cluster 0 = 4x Cortex-A55 (E), cluster 1 = 4x Cortex-A78 (P).
+// Same values as the ruan (Redmi Pad Pro 5G) port, which runs all 8 cores.
+&cpu0 { unixnu,die-cluster-id = <0>; unixnu,cluster-core-id = <0>; };
+&cpu1 { unixnu,die-cluster-id = <0>; unixnu,cluster-core-id = <1>; };
+&cpu2 { unixnu,die-cluster-id = <0>; unixnu,cluster-core-id = <2>; };
+&cpu3 { unixnu,die-cluster-id = <0>; unixnu,cluster-core-id = <3>; };
+&cpu4 { unixnu,die-cluster-id = <1>; unixnu,cluster-core-id = <0>; };
+&cpu5 { unixnu,die-cluster-id = <1>; unixnu,cluster-core-id = <1>; };
+&cpu6 { unixnu,die-cluster-id = <1>; unixnu,cluster-core-id = <2>; };
+&cpu7 { unixnu,die-cluster-id = <1>; unixnu,cluster-core-id = <3>; };

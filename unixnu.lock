@@ -22,7 +22,7 @@ commit = "a00a4cc36da2110578bcf3b8eeeeb93dcc7f4e11"
 commit = "c0e60fb5ecfc54cf379c261d3f9572cc22ded891"
 
 [source."sm7435"]
-commit = "1765d1bc3601d288f00fa6f7be9b7634b4e10e18"
+commit = "376890878019f96e9d3aac49d4306a1f90195384"
 
 [source."sm8550"]
 commit = "a9f45dc60c035084b95463781538380f4c3606c9"

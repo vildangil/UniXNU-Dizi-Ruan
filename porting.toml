@@ -74,7 +74,7 @@ findings = ["ShengUfs drives dizi's UFS host (0x1d84000, SPI 265) with SMMU stre
 completion = ["Host: register, clock, link and SMMU facts match the board inventory.", "Reads: SCSI capacity, GPT and known blocks are correct; OS/SystemOS windows stay within userdata.", "Root: the configured volume mounts and launchd starts. Persistence: writes survive reboot within the allocated Data region."]
 limits = ["The OS and SystemOS volumes are not authenticated, and the boot-manifest-hash is a placeholder, not an Apple manifest digest. No writable Data volume."]
 next_action = ["Mount a writable Data volume at /private/var (UFS-backed region of userdata, or a RAM seed)."]
-evidence = [{ kind = "source", reference = "patches/drivers/ShengUfs-dizi.patch", result = "dizi changes to ShengUfs: stream, SMMU reuse, zero-copy switch, unverified root, unverified volume queries" }]
+evidence = [{ kind = "source", reference = "patches/drivers/ShengUfs-dizi.patch", result = "dizi changes to ShengUfs: stream, SMMU reuse, zero-copy switch, unverified root, unverified volume queries" }, { kind = "device", reference = "https://github.com/vildangil/UniXNU-Dizi-Ruan/commit/0d560de946ba7ce41b4687677d3baabca165a677", command = "fastboot boot boot.img", revision = "0d560de946ba7ce41b4687677d3baabca165a677", result = "2026-11-16: SystemOS mount returned; launchd ran 17 processes and stopped at tzinit (read-only /private/var)" }]
 
 [[area]]
 id = "display"

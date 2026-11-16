@@ -10,7 +10,7 @@ for UEFI.
 
 ## Status
 
-Checked on a real dizi on 2026-11-14:
+Checked on a real dizi on 2026-11-16:
 
 | Stage | State | Notes |
 | --- | --- | --- |
@@ -20,13 +20,13 @@ Checked on a real dizi on 2026-11-14:
 | DarwinBoot handoff | Works | Green bar drawn, ExitBootServices passes (KEP hook disabled) |
 | XNU entry and MMU-on | Works | Blue and magenta probe bands; reset after MMU-on |
 | `arm_init`, VM, IOKit, AMFI | Works | Needs the SoC virtual-timer patch and ADT `vmm-present = 1` |
-| Root filesystem (UFS) | Partly | iPadOS root mounts read-only from `userdata` and launchd starts; dyld needs the SystemOS cryptex mounted |
+| Root filesystem (UFS) | Partly | iPadOS OS and SystemOS volumes mount read-only from `userdata`; no writable Data volume yet |
+| launchd | Partly | Runs the early boot tasks (17 processes); stops at `tzinit` because `/private/var` is read-only |
 | All 8 CPU cores | Works | `cpus=8 smp=1` |
 | Boot-progress page | Works | Milestones, processes and console on screen (`boot-progress=1`) |
 | Display driver, touch, Wi-Fi, audio, GPU | Not started | |
 
-The next stage is mounting the SystemOS cryptex so launchd can load the dyld
-shared cache. [porting.toml](porting.toml) records every area with its findings
+The next stage is a writable Data volume at `/private/var`. [porting.toml](porting.toml) records every area with its findings
 and evidence.
 
 ## Boot

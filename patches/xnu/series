@@ -7,3 +7,5 @@ dizi-ufs-unverified-root.patch
 dizi-boot-progress.patch
 # dyld_flags=8 skips libignition; PID 1 syscalls on the boot-progress page (from the ruan port).
 dizi-pid1-dyld.patch
+# Mount the SystemOS volume as a read-only union over the root before launchd (dyld shared cache).
+dizi-systemos-union.patch

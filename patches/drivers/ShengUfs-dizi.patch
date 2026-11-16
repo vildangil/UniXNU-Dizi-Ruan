@@ -1,13 +1,16 @@
-dizi changes to drivers/ShengUfs (UniXNU/ShengUfs 2f6c7b0). Apply in drivers/ShengUfs with: git apply ../../patches/drivers/ShengUfs-dizi.patch
-Boot-args: native-ufs-stream=0x20 (dizi SMMU stream), native-ufs-smmu-reuse=1 (keep the hypervisor's mapping), native-ufs-zero-copy=0,
-native-ufs-allow-unverified=1 (publish the root without the owner bundle). Also: the probe 8 survey reports the stream's bank, and
-the timing helpers are outside NATIVE_VERIFIED_BLOCK and read the virtual counter.
-
 diff --git a/NativeUfs.cpp b/NativeUfs.cpp
-index f698d71..4c48356 100644
+index f698d71..48bbc62 100644
 --- a/NativeUfs.cpp
 +++ b/NativeUfs.cpp
-@@ -59,6 +59,18 @@ void boot_progress_poll (void) __attribute__((weak));
+@@ -25,6 +25,7 @@ extern const uint8_t verified_root_key[];
+ #include <libkern/c++/OSNumber.h>
+ #include <libkern/c++/OSIterator.h>
+ #include <IOKit/IOBSD.h>
++#include <libkern/crypto/sha2.h>
+ #include <kern/thread.h>
+ #include <kern/sched_prim.h>
+ #include <machine/machine_routines.h>
+@@ -59,6 +60,18 @@ void boot_progress_poll (void) __attribute__((weak));
  volatile uint32_t native_ufs_probe_calls = 0;
  volatile uint32_t native_ufs_matched = 0;
  volatile uint32_t native_ufs_probe_requested = 0;
@@ -26,7 +29,7 @@ index f698d71..4c48356 100644
  volatile uint32_t native_ufs_mapped = 0;
  volatile uint32_t native_ufs_status = 0;
  // Root start: 1 entered, 2 host up, 3 layout found; the last soft-failure reason (a static string), for the boot page.
-@@ -396,6 +408,26 @@ static void smmuBypassStream (uint16_t stream, OSSharedPtr<IOMemoryMap> &keep, u
+@@ -396,6 +409,26 @@ static void smmuBypassStream (uint16_t stream, OSSharedPtr<IOMemoryMap> &keep, u
    if (!smmu) {
      panic ("NATIVE_UFS smmu: map failed");
    }
@@ -53,7 +56,7 @@ index f698d71..4c48356 100644
    UfsSmmuPlan plan = planUfsSmmu (stream, dma, bytes, [smmu](unsigned offset) { return read32 (smmu, offset); });
    gRootDiagnostic.smmuId1 = read32 (smmu, 0x24);
    gRootDiagnostic.smmuId2 = read32 (smmu, 0x28);
-@@ -478,7 +510,7 @@ void NativeUfs::adoptAndRead (unsigned level)
+@@ -478,7 +511,7 @@ void NativeUfs::adoptAndRead (unsigned level)
    unsigned stopLoops = 10000;
    while ((read32 (hc, 0x60) & 1) && stopLoops--) IODelay (10);
    if (read32 (hc, 0x60) & 1) panic ("NATIVE_UFS adopt: request list did not stop");
@@ -62,7 +65,7 @@ index f698d71..4c48356 100644
    write32 (hc, 0x50, static_cast<uint32_t> (phys));
    write32 (hc, 0x54, static_cast<uint32_t> (phys >> 32));
    write32 (hc, 0x20, 0xffffffffU);  // clear stale status
-@@ -846,7 +878,7 @@ void NativeUfs::inspectSmmu (void)
+@@ -846,7 +879,7 @@ void NativeUfs::inspectSmmu (void)
        valid++;
        typeCount[(s2cr >> 16) & 3]++;
        uint32_t mask = (smr >> 16) & 0x7fff;
@@ -71,7 +74,7 @@ index f698d71..4c48356 100644
          match = index;
          matchSmr = smr;
          matchS2cr = s2cr;
-@@ -856,9 +888,9 @@ void NativeUfs::inspectSmmu (void)
+@@ -856,9 +889,9 @@ void NativeUfs::inspectSmmu (void)
    panic ("NATIVE_UFS smmu\n"
           "scr0=%08x idr0=%08x idr1=%08x gfsr=%08x\n"
           "nsmr=%u valid=%u types t0=%u t1=%u t2=%u\n"
@@ -83,7 +86,7 @@ index f698d71..4c48356 100644
  }
  
  // Read-only context-bank survey (native-ufs-probe=8): CBAR/CBA2R in gr1 and SCTLR/TTBR0 in the
-@@ -892,6 +924,28 @@ void NativeUfs::inspectContextBanks (void)
+@@ -892,6 +925,28 @@ void NativeUfs::inspectContextBanks (void)
      }
    }
    uintptr_t cb0 = smmu + globalPages * 0x1000, cb1 = cb0 + 0x1000, cbLast = cb0 + (numCb - 1) * 0x1000;
@@ -112,7 +115,7 @@ index f698d71..4c48356 100644
    panic ("NATIVE_UFS cb survey\n"
           "ncb=%u pages=%u cbar0=%u sctlr0=%u msset=%u both0=%u first0=%x\n"
           "cbar[0]=%08x cbar[1]=%08x cbar[%u]=%08x\n"
-@@ -1232,7 +1286,7 @@ static bool hostBringUp (const char **why)
+@@ -1232,7 +1287,7 @@ static bool hostBringUp (const char **why)
    uint32_t report[3] = { 0, 0, 0 };
    gRootDiagnostic.stage = "SMMU and request list";
    if (!hostStopQueue (why)) return false;
@@ -121,7 +124,7 @@ index f698d71..4c48356 100644
    gHost.smmu = gHost.smmuMap->getVirtualAddress ();
    // The board's WiFi endpoint (wifi=2 or more) needs a pass-through stream of its own, set up here with the same code and at the same moment as the
    // storage stream: the registers of the stream matching group are not safe to touch from another thread later (a read of the first one never returned).
-@@ -1361,12 +1415,12 @@ static bool hostBringUp (const char **why)
+@@ -1361,12 +1416,12 @@ static bool hostBringUp (const char **why)
      }
    }
    uint32_t idr1 = read32 (gHost.smmu, 0x24);
@@ -137,7 +140,7 @@ index f698d71..4c48356 100644
    }
    {
      uint64_t limit = wide ? ~0ULL : 0x100000000ULL;
-@@ -1988,6 +2042,11 @@ static RootWindow gRootObject[4];
+@@ -1988,6 +2043,11 @@ static RootWindow gRootObject[4];
  static uint32_t gRootObjects;
  static uint64_t gRootObjectBase;
  
@@ -149,7 +152,7 @@ index f698d71..4c48356 100644
  #if defined(NATIVE_VERIFIED_BLOCK) && NATIVE_VERIFIED_BLOCK
  volatile uint64_t native_ufs_verified_blocks = 0;
  
-@@ -2014,8 +2073,6 @@ static bool readPolicyTable (const char *window, uint8_t *table, uint64_t tableB
+@@ -2014,8 +2074,6 @@ static bool readPolicyTable (const char *window, uint8_t *table, uint64_t tableB
    return true;
  }
  // Time spent hashing/verifying and reading from the UFS transport, in generic-timer ticks (diagnostic only).
@@ -158,7 +161,7 @@ index f698d71..4c48356 100644
  volatile uint32_t native_ufs_integrity_failures = 0;
  
  bool NativeUfsBlock::configureVerification ()
-@@ -2322,12 +2379,14 @@ static NativeUfs *gPendingProvider;
+@@ -2322,12 +2380,14 @@ static NativeUfs *gPendingProvider;
  
  static bool mediaWithUuidExists (const char *uuid, NativeUfsBlock *window)
  {
@@ -177,7 +180,7 @@ index f698d71..4c48356 100644
      OSIterator *iterator = IOService::getMatchingServices (matching);
      if (iterator) {
        for (unsigned matches = 0; matches < 64 && !found; ++matches) {
-@@ -2517,6 +2576,22 @@ bool NativeUfs::start (IOService *provider)
+@@ -2517,6 +2577,22 @@ bool NativeUfs::start (IOService *provider)
    unsigned probe = 0, rootMode = 0;
    PE_parse_boot_argn ("native-ufs-probe", &probe, sizeof (probe));
    PE_parse_boot_argn ("native-ufs-root", &rootMode, sizeof (rootMode));
@@ -200,7 +203,7 @@ index f698d71..4c48356 100644
    native_ufs_probe_requested = probe != 0;
    // Default: match for observability only, never touch the controller. Hardware work runs once,
    // from the root-device personality; the ufshc nub match stays observation-only.
-@@ -2710,7 +2785,13 @@ bool NativeUfs::startRoot (IOService *provider)
+@@ -2710,7 +2786,13 @@ bool NativeUfs::startRoot (IOService *provider)
        }
        return true;
  #else
@@ -215,3 +218,123 @@ index f698d71..4c48356 100644
  #endif
      }
      bool schedule () {
+@@ -2751,3 +2833,119 @@ void NativeUfs::stop (IOService *provider)
+   fMap.reset ();
+   IOService::stop (provider);
+ }
++
++#if !defined(NATIVE_VERIFIED_BLOCK) || !NATIVE_VERIFIED_BLOCK
++// dizi bring-up stand-ins for the two verified-block queries of XNU's owner SystemOS mount
++// (kern_exec.c native_owner_cache_prepare). With native-ufs-allow-unverified=1 a device counts as
++// authorized when its IOMedia sits on a UFS root window; nothing is authenticated. Without the
++// boot-arg both answer "no", so the mount refuses as in a build that has no verified storage.
++static bool ufsMediaOnWindow (IORegistryEntry *media)
++{
++  for (IORegistryEntry *entry = media; entry; entry = entry->getParentEntry (gIOServicePlane)) {
++    if (OSDynamicCast (NativeUfsBlock, entry)) return true;
++  }
++  return false;
++}
++
++static bool ufsMediaDevice (IORegistryEntry *media, dev_t *device, OSString **name)
++{
++  OSString *bsd = OSDynamicCast (OSString, media->getProperty (kIOBSDNameKey));
++  OSNumber *mjr = OSDynamicCast (OSNumber, media->getProperty (kIOBSDMajorKey));
++  OSNumber *mnr = OSDynamicCast (OSNumber, media->getProperty (kIOBSDMinorKey));
++  if (!bsd || !mjr || !mnr || !bsd->getLength () || mjr->unsigned64BitValue () > 255 ||
++      mnr->unsigned64BitValue () > 0xffffff) return false;
++  *device = static_cast<dev_t> (makedev (mjr->unsigned32BitValue (), mnr->unsigned32BitValue ()));
++  if (name) *name = bsd;
++  return true;
++}
++
++extern "C" int native_verified_block_root_authorized (dev_t device)
++{
++  if (!gAllowUnverifiedRoot || device == NODEV) return 0;
++  OSDictionary *matching = IOService::serviceMatching ("IOMedia");
++  OSIterator *iterator = matching ? IOService::getMatchingServices (matching) : nullptr;
++  OSSafeReleaseNULL (matching);
++  if (!iterator) return 0;
++  int found = 0;
++  while (OSObject *object = iterator->getNextObject ()) {
++    IORegistryEntry *media = OSDynamicCast (IORegistryEntry, object);
++    dev_t candidate = NODEV;
++    if (media && ufsMediaDevice (media, &candidate, nullptr) && candidate == device) {
++      found = ufsMediaOnWindow (media) ? 1 : 0;
++      break;
++    }
++  }
++  iterator->release ();
++  return found;
++}
++
++// Not a manifest digest: SHA-384 over a fixed tag and the volume UUID, only so that XNU can publish a
++// stable /chosen boot-manifest-hash (mount(8) requires one). Answered only for a UFS window volume whose
++// UUID matches.
++extern "C" int native_verified_block_manifest_sha384 (dev_t device, const char *uuid, uint8_t digest[48])
++{
++  static const char tag[] = "UniXNU.dizi.unverified-volume.v1";
++  if (!digest) return 0;
++  bzero (digest, 48);
++  if (!gAllowUnverifiedRoot || !uuid || strlen (uuid) != 36 || device == NODEV) return 0;
++  OSDictionary *matching = IOService::serviceMatching ("IOMedia");
++  OSIterator *iterator = matching ? IOService::getMatchingServices (matching) : nullptr;
++  OSSafeReleaseNULL (matching);
++  if (!iterator) return 0;
++  bool found = false;
++  while (OSObject *object = iterator->getNextObject ()) {
++    IORegistryEntry *media = OSDynamicCast (IORegistryEntry, object);
++    dev_t candidate = NODEV;
++    if (!media || !ufsMediaDevice (media, &candidate, nullptr) || candidate != device) continue;
++    OSString *identity = OSDynamicCast (OSString, media->getProperty ("UUID"));
++    found = identity && !strcmp (identity->getCStringNoCopy (), uuid) && ufsMediaOnWindow (media);
++    break;
++  }
++  iterator->release ();
++  if (!found) return 0;
++  SHA384_CTX context;
++  SHA384_Init (&context);
++  SHA384_Update (&context, tag, sizeof (tag));
++  SHA384_Update (&context, uuid, 36);
++  SHA384_Final (digest, &context);
++  return 1;
++}
++
++extern "C" int native_verified_block_volume_device (const char *uuid, dev_t *device, char *path, size_t size)
++{
++  if (!uuid || !device || !path || size < 6 || strlen (uuid) != 36) return 0;
++  *device = NODEV;
++  path[0] = 0;
++  if (!gAllowUnverifiedRoot) return 0;
++  OSDictionary *matching = IOService::serviceMatching ("IOMedia");
++  OSDictionary *properties = OSDictionary::withCapacity (1);
++  OSString *wanted = OSString::withCString (uuid);
++  bool ready = matching && properties && wanted && properties->setObject ("UUID", wanted) &&
++               matching->setObject ("IOPropertyMatch", properties);
++  OSSafeReleaseNULL (wanted);
++  OSSafeReleaseNULL (properties);
++  OSIterator *iterator = ready ? IOService::getMatchingServices (matching) : nullptr;
++  OSSafeReleaseNULL (matching);
++  if (!iterator) return 0;
++  unsigned matches = 0;
++  dev_t candidate = NODEV;
++  char candidatePath[64] = {};
++  while (OSObject *object = iterator->getNextObject ()) {
++    IORegistryEntry *media = OSDynamicCast (IORegistryEntry, object);
++    OSString *name = nullptr;
++    if (!media || ++matches != 1) continue;
++    if (!ufsMediaOnWindow (media) || !ufsMediaDevice (media, &candidate, &name) ||
++        name->getLength () >= sizeof (candidatePath) - 6 || name->getLength () >= size - 6) {
++      candidate = NODEV;
++      continue;
++    }
++    snprintf (candidatePath, sizeof (candidatePath), "/dev/%s", name->getCStringNoCopy ());
++  }
++  iterator->release ();
++  if (matches != 1 || candidate == NODEV) return 0;
++  *device = candidate;
++  strlcpy (path, candidatePath, size);
++  IOLog ("NativeUfs: unverified volume %s at %s\n", uuid, candidatePath);
++  return 1;
++}
++#endif

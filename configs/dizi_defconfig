@@ -22,5 +22,6 @@ CONFIG_XNU_NATIVE_UFS=y
 CONFIG_XNU_SHENG_PMGR=y
 # CONFIG_XNU_ARMVIRT_PLATFORM is not set
 # CONFIG_XNU_BOOT_PROGRESS is not set
-# Boot-progress page (package/BootProgressRuan.c, scripts/build-boot-progress-ruan.py).
-CONFIG_XNU_EXTRA_LD_ARCHIVES="{tree}/build/boot-progress-ruan/libBootProgressRuan.a"
+# Boot-progress page (package/BootProgressRuan.c, scripts/build-boot-progress-ruan.py) and the Data seed disk
+# (NativeRamBlock, dizi-data-volume.patch; XNU_NATIVE_RAM_BLOCK stays unset: the build script requires NativeAES for it).
+CONFIG_XNU_EXTRA_LD_ARCHIVES="{tree}/build/boot-progress-ruan/libBootProgressRuan.a {tree}/build/ram-block/libRamBlock.a"

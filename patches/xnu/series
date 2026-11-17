@@ -9,3 +9,5 @@ dizi-boot-progress.patch
 dizi-pid1-dyld.patch
 # Mount the SystemOS volume as a read-only union over the root before launchd (dyld shared cache).
 dizi-systemos-union.patch
+# Writable Data volume: NativeRamBlock serves the payload Data seed, mounted on /private/var (data-uuid=<UUID>).
+dizi-data-volume.patch

@@ -4,6 +4,7 @@
  * rows are empty; functions do nothing. Replace each with the real driver when it is ported. */
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 uint64_t arm_vm_outside_base, arm_vm_outside_end;
 uint32_t ml_outside_memory_pages, ml_outside_memory_refused;
@@ -33,3 +34,7 @@ void boot_progress_exit_fault(int pid, unsigned code, char *name, unsigned long 
 void boot_progress_exit_reason(int pid, unsigned code, char *name, unsigned long value) { (void)pid; (void)code; (void)name; (void)value; }
 void boot_progress_user_abort(void *state, unsigned esr, uint64_t far) { (void)state; (void)esr; (void)far; }
 void boot_progress_user_breakpoint(void *state, unsigned esr) { (void)state; (void)esr; }
+
+/* NativeRamBlock (Data seed) weak-imports this to hand the loader's packed seed pages back to the VM; dizi's XNU has no
+ * such hook, and the static kernel link needs a definition. false = keep the boot memory (ruan's RamBlockNoStore.c). */
+bool ml_static_mfree_prepare(uintptr_t address, size_t size) { (void)address; (void)size; return false; }

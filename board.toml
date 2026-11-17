@@ -19,6 +19,8 @@ include = [
     "GopFramebuffer",
     # UFS transport (sheng's driver; dizi has the same UFS host at 0x1d84000, SPI 265, with SMMU stream 0x20).
     "ShengUfs",
+    # Data seed disk for /private/var (NativeRamBlock).
+    "RamBlock",
     "XnuPrelink",
     "DarwinBoot",
 ]
@@ -46,13 +48,20 @@ archives = [
     "build-ufs-original-bindings.py --candidate ../candidate/bootstrap-candidate.macho",
     "build-platform-power.py",
     "build-boot-progress-ruan.py",
+    # The Data seed's disk (UniXNU RamBlock, NativeRamBlock), bound to the original IOBlockStorageDevice like ShengUfs.
+    "component:RamBlock",
+    "build-ufs-original-bindings.py --component NativeRamBlock --candidate ../candidate/bootstrap-candidate.macho",
 ]
 
 # userdata on dizi: GPT entry 20 on UFS LUN 0, read by ShengUfs (native-ufs-probe=9, 2026-11-14), and
 # fastboot partition-size 0x19B9DD3000 bytes (~110 GB, F2FS by stock), 4 KiB blocks. Both agree.
 [userdata]
+# Dual boot (2026-11-17): the old userdata (GPT entry 21, 0x35a228-0x1d13ffa) is split. Entry 22 "unixnu" (32 GiB) starts where
+# userdata did and holds the iPadOS root; entry 21 "userdata" (70.9 GiB, its original GUIDs) follows it for Android.
+# ShengUfs finds the root by name with native-ufs-partition=unixnu (kernel_args). Flash root images to unixnu, never userdata.
+partition = "unixnu"
 first_lba = 0x35a228
-last_lba = 0x1d13ffa
+last_lba = 0xb5a227
 lba_bytes = 4096
 
 [device_tree]
@@ -86,7 +95,7 @@ loader = "firmware"
 title = "UniXNU"
 # All 8 cores (4x A55 + 4x A78): needs sm7435-type-clusters.patch and the cluster ids in dts/dizi.dts.
 # Tested on dizi 2026-11-14 with cpus=2 and cpus=8 (XNU reaches the root mount).
-kernel_args = ["-v", "serial=3", "debug=0x14e", "cpus=8", "smp=1", "armcpu-spi-ipi=1", "armcpu-self-ipi=1"]
+kernel_args = ["-v", "serial=3", "debug=0x14e", "cpus=8", "smp=1", "armcpu-spi-ipi=1", "armcpu-self-ipi=1", "native-ufs-partition=unixnu"]
 # Bring-up diagnostics (UniXNU docs/guide/debugging.md): blue band = kernel entry ran,
 # magenta band = reached MMU enable; a kernel panic draws its message on the screen.
 # 2026-11-14 on dizi: green, blue and magenta shown, then a reset about 6 s after
@@ -98,11 +107,17 @@ panic_screen = true
 chip_id = "8011"
 # iPadOS 17.7.11 (21H461) root volume, matched by UUID when native-ufs-root=1 publishes userdata.
 root_match_volume_uuid = "04769D26-2CA0-4825-B443-E2E5F88300F2"
-# DarwinBoot window for XNU. The default is 256 MiB (boot-progress mem=256M; launchd could not run). ruan's
-# 0xB0000000 does not fit dizi's UEFI memory map: DarwinBoot reported "NO WINDOW B0000000 BIG RUN 7AB00000 @ 840000000"
-# (2026-11-15), so take 1952 MiB, inside that largest free run.
-# owned_memory_size = "0x7A000000"   # high window (0x840000000): boot stopped at setconf with irq=0, then reset
+# DarwinBoot window for XNU: the default 256 MiB (boot-progress mem=256M). ruan's 0xB0000000 does not fit dizi's UEFI memory
+# map: DarwinBoot reported "NO WINDOW B0000000 BIG RUN 7AB00000 @ 840000000" (2026-11-15).
+# Every window above the default 256 MiB failed (2026-11-17): 0x7A000000, 0x78000000 and 0x40000000 all froze the whole tablet about one
+# second into BSD (clock stopped, irq=0), with or without the Data seed, and with the UFS DMA kept below 0x850000000
+# (native-ufs-dma-max). 0x7A000000 also overlaps 0x8B9B00000+6M, a hole in ruan's Android /memory. dizi's low bank has almost no
+# free memory (diziPkg MemoryMapLib), so every window starts at 0x840000000; the likely cause is RAM in that run that UEFI calls
+# free but the hypervisor does not give to HLOS. Android's /sys/firmware/devicetree/base/memory would show which.
+# owned_memory_size = "0x40000000"
 unique_chip_id = "required"
+# The Data seed (make-data-seed.py, --data-ramdisk) is packed: DarwinBoot publishes it as PackedRAMDisk for NativeRamBlock.
+packed_data_ramdisk = true
 
 [package]
 unixnu = "../UniXNU"

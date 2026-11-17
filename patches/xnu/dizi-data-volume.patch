@@ -1,0 +1,41 @@
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -7196,6 +7196,27 @@
+ }
+ #endif
+ 
++/*
++ * dizi bring-up: a writable Data volume on /private/var. The Data seed is the payload's RAM disk
++ * (unixnu build payload --data-ramdisk), served by NativeRamBlock (dizi-data-volume.patch personality,
++ * linked from build/ram-block/libRamBlock.a). Its APFS volume UUID comes from the data-uuid=<UUID> boot-arg,
++ * so a new seed needs no kernel rebuild; without a valid one the Data mount fails with ENOENT and panics.
++ */
++static const char *
++dizi_data_volume_uuid(void)
++{
++	static char uuid[40];
++	if (!uuid[0] && (!PE_parse_boot_arg_str("data-uuid", uuid, sizeof(uuid)) || strlen(uuid) != 36)) {
++		strlcpy(uuid, "00000000-0000-0000-0000-000000000000", sizeof(uuid));
++	}
++	return uuid;
++}
++#undef XNU_OWNER_DATA_MOUNT
++#define XNU_OWNER_DATA_MOUNT 1
++#undef XNU_NATIVE_RAM_BLOCK
++#define XNU_NATIVE_RAM_BLOCK 1
++#undef XNU_OWNER_DATA_VOLUME_UUID
++#define XNU_OWNER_DATA_VOLUME_UUID dizi_data_volume_uuid()
+ #if defined(XNU_OWNER_DATA_MOUNT) && XNU_OWNER_DATA_MOUNT
+ #if !defined(XNU_OWNER_BOOT_MANIFEST) || !XNU_OWNER_BOOT_MANIFEST
+ #error Scratch Data mounting requires the authenticated original OS startup path
+--- a/iokit/KernelConfigTables.cpp	2026-11-16 23:28:46
++++ b/iokit/KernelConfigTables.cpp	2026-11-16 23:28:47
+@@ -83,7 +83,7 @@
+     "     'IOProbeScore'    = 1000:32;"
+     "   }"
+ #endif
+-#if defined(XNU_NATIVE_RAM_BLOCK) && XNU_NATIVE_RAM_BLOCK
++#if 1 /* dizi: NativeRamBlock serves the Data seed (dizi-data-volume.patch) */
+     "   ,{"
+     "     'IOClass'         = NativeRamBlock;"
+     "     'IOMatchCategory' = NativeRamBlock;"

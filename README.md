@@ -10,7 +10,7 @@ for UEFI.
 
 ## Status
 
-Checked on a real dizi on 2026-11-16:
+Checked on a real dizi on 2026-11-17:
 
 | Stage | State | Notes |
 | --- | --- | --- |
@@ -20,14 +20,17 @@ Checked on a real dizi on 2026-11-16:
 | DarwinBoot handoff | Works | Green bar drawn, ExitBootServices passes (KEP hook disabled) |
 | XNU entry and MMU-on | Works | Blue and magenta probe bands; reset after MMU-on |
 | `arm_init`, VM, IOKit, AMFI | Works | Needs the SoC virtual-timer patch and ADT `vmm-present = 1` |
-| Root filesystem (UFS) | Partly | iPadOS OS and SystemOS volumes mount read-only from `userdata`; no writable Data volume yet |
-| launchd | Partly | Runs the early boot tasks (17 processes); stops at `tzinit` because `/private/var` is read-only |
+| Root filesystem (UFS) | Works | iPadOS OS and SystemOS volumes mount read-only from the `unixnu` partition |
+| Data volume (`/private/var`) | Partly | Writable 128 MB volume in RAM; changes are lost on reboot |
+| launchd, daemons, backboardd | Partly | About 85 processes start; SpringBoard starts, then daemons are killed for lack of memory (jetsam) |
+| Memory for XNU | Partly | 256 MiB; larger DarwinBoot windows freeze the tablet one second into BSD |
+| Dual boot with Android | Partly | Android and iPadOS have separate partitions; iPadOS still starts with `fastboot boot` |
 | All 8 CPU cores | Works | `cpus=8 smp=1` |
 | Boot-progress page | Works | Milestones, processes and console on screen (`boot-progress=1`) |
 | Display driver, touch, Wi-Fi, audio, GPU | Not started | |
 
-The next stage is a writable Data volume at `/private/var`. [porting.toml](porting.toml) records every area with its findings
-and evidence.
+The next stages are more memory for XNU and starting iPadOS from the recovery key. [porting.toml](porting.toml) records every
+area with its findings and evidence.
 
 ## Boot
 
@@ -42,19 +45,25 @@ The menu boots the UniXNU entry after 3 seconds. Volume keys move the
 selection and Power confirms. Hold each button about one second; the PMIC key
 reader samples slowly and filters false presses.
 
-### iPadOS root on UFS
+### Partitions
 
-The root comes from the `userdata` partition. Flashing it **erases all Android
-user data**; Android itself stays, and `fastboot -w` gives back an empty
-`userdata`.
+The original `userdata` partition (110 GB) is split in two, so Android and iPadOS each keep their own:
+
+| GPT entry | Name | Size | Holds |
+| --- | --- | --- | --- |
+| 22 | `unixnu` | 32 GiB | iPadOS 17.7.11 `OS` and `SystemOS` volumes (8.74 GiB, read only) |
+| 21 | `userdata` | 70.9 GiB | Android data (F2FS) |
+
+`unixnu` starts where the old `userdata` started (LBA 0x35a228); `userdata` keeps its original GUIDs. Repartitioning
+needs a recovery with `sgdisk` and erases Android's data; back up both partition tables first. Flash the iPadOS root
+to `unixnu`, never to `userdata`:
 
 ```sh
-fastboot flash userdata userdata-root.img
+fastboot flash unixnu userdata-root.img
 fastboot boot boot.img
 ```
 
-`userdata-root.img` holds the iPadOS 17.7.11 `OS` and `SystemOS` volumes
-(8.74 GiB). The image is read only; flashing takes about half an hour over USB.
+Flashing takes about half an hour over USB.
 
 ## Reading the screen
 

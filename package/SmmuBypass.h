@@ -5,6 +5,9 @@
 // CBA2R.VA64=1) is shared by every bypass stream; a stream maps to it with S2CR TYPE=TRANSLATE (a TYPE=BYPASS S2CR reads
 // back as FAULT on this firmware) and S2CR is written before SMR. Unlike the UFS planner this one lets several streams share
 // the bank. Pure planning/configuration over register callbacks; host-tested by TouchBoardTests.c.
+// UniXNU-sheng's, unchanged, for pipa's QUP wrapper 0 stream 0x5a3 when its SPI engine's FIFO is disabled. pipa's apps SMMU (128
+// global pages and 74 context banks, 0xca000 bytes, read on the tablet 2026-10-23) passes the geometry check written for sheng's;
+// its top bank (73) was free of other streams then.
 #ifndef SHENG_SMMU_BYPASS_H
 #define SHENG_SMMU_BYPASS_H
 #include <stdint.h>

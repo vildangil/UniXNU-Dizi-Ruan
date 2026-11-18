@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Board glue for BootResetCore.h: PSCI feature probe, a read-only look at the PMIC arbiter and the reboot-reason cell, and the guarded
-// "restart into fastboot" (boot argument autoreset=<seconds>, see BootLog.c). Nothing here runs without BootLog's boot arguments.
+// "restart into fastboot". From vildangil's UniXNU-Dizi-Ruan; on ruan driven by BootProgress.c (ruan-autoreset=<seconds>).
 #include <kern/thread.h>
 #include <machine/machine_routines.h>
 #include <string.h>
-#include <IOKit/IOLib.h>
 #include <kern/sched.h>
 #include <pexpert/pexpert.h>
 #include "BootResetCore.h"
 
-// Physical windows from the sheng devicetree (spmi@c400000 reg, reg-names core/chnls/obsrvr/cnfg).
+// Physical windows from the sheng devicetree, identical on ruan (spmi@c400000 reg, reg-names core/chnls/obsrvr/cnfg).
 enum {SpmiCore = 0xc400000, SpmiCoreSize = 0x3000, SpmiObsrvr = 0xc440000, SpmiChnls = 0xc500000, SpmiCnfg = 0xc42d000, SpmiCnfgSize = 0x4000};
 enum {PsciVersion = 0x84000000u, PsciFeatures = 0x8400000au, PsciSystemReset = 0x84000009u, PsciSystemReset2_32 = 0x84000012u,
       PsciSystemReset2_64 = 0xc4000012u};
@@ -115,7 +114,8 @@ static void wdt_thread(void *arg, wait_result_t wr) {
   while ((mach_absolute_time() - start) / f < wdt_deadline) {
     smc2(GunyahWdtPing, 0, 0, NULL);
     boot_reset_wdt_stats[3] = boot_reset_wdt_stats[3] + 1;
-    IOSleep(10000);
+    assert_wait_timeout((event_t)&wdt_deadline, THREAD_UNINT, 10000, NSEC_PER_MSEC);
+    thread_block(THREAD_CONTINUE_NULL);
   }
 }
 int boot_reset_watchdog(uint32_t deadline, char *text, unsigned cap) {

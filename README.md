@@ -22,15 +22,19 @@ Checked on a real dizi on 2026-11-17:
 | `arm_init`, VM, IOKit, AMFI | Works | Needs the SoC virtual-timer patch and ADT `vmm-present = 1` |
 | Root filesystem (UFS) | Works | iPadOS OS and SystemOS volumes mount read-only from the `unixnu` partition |
 | Data volume (`/private/var`) | Partly | Writable 128 MB volume in RAM; changes are lost on reboot |
-| launchd, daemons, SpringBoard | Partly | The lock screen appears; SpringBoard then restarts |
+| launchd, daemons, SpringBoard | Works | Lock screen with date, time and battery; SpringBoard stays up with the Data seed settings |
 | Memory for XNU | Works | 256 MiB window plus the RAM above it (`memory-outside=3`, about 3.5 GiB more) |
 | Dual boot with Android | Works | Android boots by default; a KernelSU Action boots iPadOS once from slot b |
 | All 8 CPU cores | Works | `cpus=8 smp=1` |
 | Boot-progress page | Works | Milestones, processes and console on screen (`boot-progress=1`) |
 | Display | Works | backboardd draws through the GOP framebuffer (CPU copy); Apple logo and lock screen |
-| Touch, Wi-Fi, audio, GPU | Not started | |
+| Battery | Works | Level on the lock screen (PM7250B fuel gauge, from the ruan port) |
+| Hardware buttons in iPadOS | Works | Power and volume keys (PMIC) |
+| Touch | Partly | The NT36532 controller reports touches; delivery to iPadOS is being tested |
+| USB debug link | Partly | Starts on the tablet, but the Mac does not see it yet |
+| Wi-Fi, audio, GPU | Not started | |
 
-The next stages are a stable SpringBoard (disabling the jobs that crash without hardware) and touch input. [porting.toml](porting.toml) records every
+The next stages are touch input in iPadOS and the USB debug link. [porting.toml](porting.toml) records every
 area with its findings and evidence.
 
 ## Boot

@@ -3,6 +3,8 @@
 // reboot reason) written through the SPMI PMIC arbiter, then a PSCI SYSTEM_RESET. The register facts are the SM8550 devicetree's
 // (arbiter "core" 0xc400000, "chnls" 0xc500000, "obsrvr" 0xc440000, "cnfg" 0xc42d000, EE 0; SDAM at PMIC SID 0 register 0x7100, reboot-reason
 // cell at byte 0x48 bits 7:1, bootloader = 2) and the arbiter's version-7 layout as the mainline driver documents it.
+// ruan (SM7435) has the same facts: hardware/private/ruan-live.dts spmi@c42d000 (bus 0, qcom,ee 0, same core/chnls/obsrvr
+// windows), pmk8350@0 sdam@7100 restart@48 bits <1 7>, used by qcom,reboot-reason. Copied from vildangil's UniXNU-Dizi-Ruan.
 // The core is pure register-pointer code so a host test can drive it against a software model of the arbiter.
 #ifndef BOOT_RESET_CORE_H
 #define BOOT_RESET_CORE_H

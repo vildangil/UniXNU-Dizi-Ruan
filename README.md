@@ -24,7 +24,7 @@ Checked on a real dizi on 2026-11-17:
 | Data volume (`/private/var`) | Partly | Writable 128 MB volume in RAM; changes are lost on reboot |
 | launchd, daemons, backboardd | Partly | About 85 processes start; SpringBoard starts, then daemons are killed for lack of memory (jetsam) |
 | Memory for XNU | Partly | 256 MiB; larger DarwinBoot windows freeze the tablet one second into BSD |
-| Dual boot with Android | Partly | Android and iPadOS have separate partitions; iPadOS still starts with `fastboot boot` |
+| Dual boot with Android | Works | Android boots by default; a KernelSU Action boots iPadOS once from slot b |
 | All 8 CPU cores | Works | `cpus=8 smp=1` |
 | Boot-progress page | Works | Milestones, processes and console on screen (`boot-progress=1`) |
 | Display driver, touch, Wi-Fi, audio, GPU | Not started | |
@@ -64,6 +64,28 @@ fastboot boot boot.img
 ```
 
 Flashing takes about half an hour over USB.
+
+### Dual boot
+
+Android stays on slot a and boots by default. iPadOS boots once from slot b:
+
+| Partition | Holds |
+| --- | --- |
+| `boot_b` | The UniXNU image (Mu-Silicium UEFI and the payload) |
+| Other slot-b partitions | The same firmware as slot a |
+| `vbmeta_b` | Verification turned off |
+
+The `UniXNU dual boot` KernelSU module ([dualboot/ksu-module](dualboot/ksu-module)) has an Action button. It
+checks that `boot_b` holds UniXNU, makes slot b active through the boot control HAL, and gives `boot_b` one retry
+without marking it successful. The bootloader boots iPadOS once; on the next reboot it marks slot b unbootable and
+switches back to Android by itself.
+
+Android needs root (KernelSU) for the button. The module bundles AOSP's `bootctl`, which HyperOS does not ship.
+Something that copies `boot_a` to the inactive slot (for example after an OTA) replaces UniXNU in `boot_b`; the
+button then refuses to switch until UniXNU is written back.
+
+The recovery key cannot start UniXNU: the bootloader drops to fastboot for a `recovery_a` image that carries its own
+kernel.
 
 ## Reading the screen
 

@@ -1,0 +1,642 @@
+ruan: DRAM outside DarwinBoot's window becomes VM memory (UniXNU 8f5a4e9, via UniXNU-gts7xlwifi's xnu-10063 port)
+
+UniXNU's window-outside-memory-adoption.patch exists only for the macOS profile (xnu-12377); this is UniXNU-gts7xlwifi's
+t970-memory-outside.patch (the same mechanism on xnu-10063.141.1: vm_page_create per page, aperture VA inside
+pmap_virtual_region 3 below the low globals, a probe load per run, opt-in), regenerated against ruan's patched tree,
+with one change for ruan: gts7 only took runs below gPhysBase and gave up when they spanned more than 4 GiB. ruan's
+generic DarwinBoot fills /chosen/darwinboot-memory-outside from the UEFI map with runs on both sides of the window and in
+the 0x80000000 bank, so here one side is taken (memory-outside=1 the side with more bytes, 2 below, 3 above), clipped to
+4 GiB next to the window, minus /chosen/darwinboot-memory-outside-kept (board.toml owned_memory_outside_reserved).
+pa_valid/pa_index/pmap_has_managed_page accept the outside range on either side. Off without memory-outside=N.
+
+--- a/osfmk/arm/pmap/pmap.c
++++ b/osfmk/arm/pmap/pmap.c
+@@ -465,6 +465,11 @@
+ 
+ SECURITY_READ_ONLY_LATE(pmap_paddr_t)   vm_first_phys = (pmap_paddr_t) 0;
+ SECURITY_READ_ONLY_LATE(pmap_paddr_t)   vm_last_phys = (pmap_paddr_t) 0;
++/* gts7xlwifi: memory outside the managed span (pmap_data.h): its range, the index of its first page's entries, its adopted pages. */
++SECURITY_READ_ONLY_LATE(pmap_paddr_t)   vm_outside_first_phys = (pmap_paddr_t) 0;
++SECURITY_READ_ONLY_LATE(pmap_paddr_t)   vm_outside_last_phys = (pmap_paddr_t) 0;
++SECURITY_READ_ONLY_LATE(unsigned int)   vm_outside_first_index = UINT_MAX;
++SECURITY_READ_ONLY_LATE(uint64_t *)     vm_outside_valid = NULL;
+ 
+ SECURITY_READ_ONLY_LATE(boolean_t)      pmap_initialized = FALSE;       /* Has pmap_init completed? */
+ 
+@@ -1506,7 +1511,7 @@
+ {
+ 	pvh_assert_locked(pai);
+ 
+-	const vm_offset_t kva = phystokv(vm_first_phys + (pmap_paddr_t)ptoa(pai));
++	const vm_offset_t kva = phystokv(pai_to_pa(pai));
+ 	pt_entry_t * const ptep = pmap_pte(kernel_pmap, kva);
+ 
+ 	pmap_set_pte_xprr_perm(ptep, expected_perm, new_perm);
+@@ -2781,7 +2786,8 @@
+ 	 *	structures for pages we allocate to be page tables in
+ 	 *	pmap_expand().
+ 	 */
+-	_vm_object_allocate(mem_size, pmap_object);
++	/* gts7xlwifi: a page's offset in the object is its index in the per-page tables: the span's pages, then those outside it. */
++	_vm_object_allocate(mem_size + (vm_outside_last_phys - vm_outside_first_phys), pmap_object);
+ 	pmap_object->copy_strategy = MEMORY_OBJECT_COPY_NONE;
+ 
+ 	/*
+@@ -4054,7 +4060,7 @@
+ {
+ #if __ARM_PTE_PHYSMAP__
+ 	pvh_assert_locked(pai);
+-	vm_offset_t kva = phystokv(vm_first_phys + (pmap_paddr_t)ptoa(pai));
++	vm_offset_t kva = phystokv(pai_to_pa(pai));
+ 	pt_entry_t *pte_p = pmap_pte(kernel_pmap, kva);
+ 
+ 	pt_entry_t tmplate = *pte_p;
+@@ -4114,6 +4120,11 @@
+ 	if (__improbable((pmap == kernel_pmap) && (va >= physmap_base) && (va < physmap_end))) {
+ 		panic("%s: attempt to remove mappings from the physical aperture for va: %p", __func__, (const void *) va);
+ 	}
++	/* gts7xlwifi: the aperture's addresses of the memory outside the managed span (arm_vm_init.c) likewise. */
++	extern const vm_map_address_t arm_vm_outside_va, arm_vm_outside_va_end;
++	if (__improbable((pmap == kernel_pmap) && (va >= arm_vm_outside_va) && (va < arm_vm_outside_va_end))) {
++		panic("%s: attempt to remove mappings from the physical aperture for va: %p", __func__, (const void *) va);
++	}
+ 
+ 	num_removed = 0;
+ 	num_unwired = 0;
+@@ -7634,10 +7645,14 @@
+ boolean_t
+ pmap_has_managed_page(ppnum_t first, ppnum_t last)
+ {
+-	if (ptoa(first) >= vm_last_phys) {
+-		return FALSE;
+-	}
+-	if (ptoa(last) < vm_first_phys) {
++	if ((ptoa(first) >= vm_last_phys) || (ptoa(last) < vm_first_phys)) {
++		/* ruan: outside the span only the adopted pages of the memory outside it (below or above) are managed. */
++		for (pmap_paddr_t pa = MAX(ptoa(first), vm_outside_first_phys); (pa < vm_outside_last_phys) && (pa <= ptoa(last));
++		    pa += PAGE_SIZE) {
++			if (pa_valid(pa)) {
++				return TRUE;
++			}
++		}
+ 		return FALSE;
+ 	}
+ 
+@@ -7645,6 +7660,56 @@
+ }
+ 
+ /*
++ * gts7xlwifi (port of UniXNU 8f5a4e9): make one page of the memory outside the managed span a kernel-managed page:
++ * map it in the physical aperture, as the span's own pages are (kernel read-write, never executable), then mark it.
++ * The caller owns the page: nothing maps it, and it is not handed to the VM before this returns. Not for pages the
++ * firmware keeps.
++ */
++kern_return_t
++pmap_adopt_outside_page(ppnum_t pn)
++{
++	const pmap_paddr_t pa = ptoa(pn);
++
++	if ((pa < vm_outside_first_phys) || (pa >= vm_outside_last_phys)) {
++		return KERN_INVALID_ARGUMENT;
++	}
++	const unsigned int page = (unsigned int)atop(pa - vm_outside_first_phys);
++	const uint64_t bit = 1ULL << (page % 64);
++	if (os_atomic_load(&vm_outside_valid[page / 64], relaxed) & bit) {
++		return KERN_ALREADY_IN_SET;
++	}
++
++	const vm_map_address_t va = phystokv(pa);
++	const pt_attr_t * const pt_attr = pmap_get_pt_attr(kernel_pmap);
++	pt_entry_t *ptep;
++
++	while ((ptep = pmap_pte(kernel_pmap, va)) == PT_ENTRY_NULL) {
++		const kern_return_t kr = pmap_expand(kernel_pmap, va, 0, pt_attr_leaf_level(pt_attr));
++		if (kr != KERN_SUCCESS) {
++			return kr;
++		}
++	}
++	if (__improbable(*ptep != ARM_PTE_EMPTY)) {
++		panic("%s: aperture address %p of page 0x%x is mapped: 0x%llx", __func__, (void *)va, pn, (unsigned long long)*ptep);
++	}
++	pt_entry_t pte = pa_to_pte(pa) | ARM_PTE_TYPE_VALID | ARM_PTE_AF | ARM_PTE_SH(SH_OUTER_MEMORY) |
++	    ARM_PTE_ATTRINDX(CACHE_ATTRINDX_DEFAULT) | ARM_PTE_AP(AP_RWNA) | ARM_PTE_NX | ARM_PTE_PNX;
++#if __ARM_KERNEL_PROTECT__
++	pte |= ARM_PTE_NG;
++#endif /* __ARM_KERNEL_PROTECT__ */
++	write_pte_strong(ptep, pte);
++	/* The loader's map called the page free; a load the system refuses says it is another owner's. */
++	extern bool ml_memory_probe(vm_offset_t va);
++	if (!ml_memory_probe(va)) {
++		write_pte_strong(ptep, ARM_PTE_EMPTY);
++		flush_mmu_tlb_region(va, PAGE_SIZE);
++		return KERN_PROTECTION_FAILURE;
++	}
++	os_atomic_or(&vm_outside_valid[page / 64], bit, release);
++	return KERN_SUCCESS;
++}
++
++/*
+  * The state maintained by the noencrypt functions is used as a
+  * debugging aid on ARM.  This incurs some overhead on the part
+  * of the caller.  A special case check in phys_attribute_clear
+--- a/osfmk/arm/pmap/pmap_data.c
++++ b/osfmk/arm/pmap/pmap_data.c
+@@ -631,7 +631,11 @@
+ 	vm_size_t ptd_root_table_size = num_ptd_pages * PAGE_SIZE;
+ 
+ 	/* Number of VM pages that span all of kernel-managed memory. */
+-	const unsigned int npages = (unsigned int)atop(mem_size);
++	/* gts7xlwifi: the span's pages, then those of the memory outside it (arm_vm_init.c arm_vm_outside_base). */
++	extern pmap_paddr_t arm_vm_outside_base, arm_vm_outside_end;
++	const unsigned int outside_pages = (unsigned int)atop(arm_vm_outside_end - arm_vm_outside_base);
++	const unsigned int npages = (unsigned int)atop(mem_size) + outside_pages;
++	const vm_size_t outside_valid_size = ((outside_pages + 63) / 64) * sizeof(uint64_t);
+ 
+ 	/* The pv_head_table and pp_attr_table both have one entry per VM page. */
+ 	const vm_size_t pp_attr_table_size = npages * sizeof(pp_attr_t);
+@@ -662,7 +666,16 @@
+ 	const pmap_paddr_t pmap_struct_start = avail_start;
+ 
+ 	pp_attr_table = (pp_attr_t *)phystokv(avail_start);
+-	avail_start = PMAP_ALIGN(avail_start + pp_attr_table_size, __alignof(pmap_io_range_t));
++	avail_start = PMAP_ALIGN(avail_start + pp_attr_table_size, __alignof(uint64_t));
++
++	/* One bit a page of the memory outside the span: set when the page is adopted. Cleared with the tables below. */
++	if (outside_pages != 0) {
++		vm_outside_valid = (uint64_t *)phystokv(avail_start);
++		vm_outside_first_phys = arm_vm_outside_base;
++		vm_outside_last_phys = arm_vm_outside_end;
++		vm_outside_first_index = (unsigned int)atop(mem_size);
++	}
++	avail_start = PMAP_ALIGN(avail_start + outside_valid_size, __alignof(pmap_io_range_t));
+ 
+ 	io_attr_table = (pmap_io_range_t *)phystokv(avail_start);
+ 
+@@ -1226,7 +1239,7 @@
+ 	vm_object_lock(pmap_object);
+ 	while (mem != VM_PAGE_NULL) {
+ 		const vm_object_offset_t offset =
+-		    (vm_object_offset_t) ((ptoa(VM_PAGE_GET_PHYS_PAGE(mem))) - gPhysBase);
++		    (vm_object_offset_t) ptoa_64(pa_index(ptoa(VM_PAGE_GET_PHYS_PAGE(mem))));
+ 
+ 		vm_page_insert_wired(mem, pmap_object, offset, VM_KERN_MEMORY_PTE);
+ 		m_prev = mem;
+@@ -1552,7 +1565,7 @@
+ 		 * Remove the page from the pmap's VM object and return it back to the
+ 		 * VM's global free list of pages.
+ 		 */
+-		mem = vm_page_lookup(pmap_object, (pa - gPhysBase));
++		mem = vm_page_lookup(pmap_object, (vm_object_offset_t)ptoa_64(pa_index(pa)));
+ 		assert(mem != VM_PAGE_NULL);
+ 		assert(VM_PAGE_WIRED(mem));
+ 		vm_page_lock_queues();
+@@ -2627,7 +2640,7 @@
+ 	}
+ #endif /* PVH_FLAG_EXEC */
+ 	if (__improbable((pvh_flags & PVH_FLAG_FLUSH_NEEDED) && pvh_test_type(pvh, PVH_TYPE_NULL))) {
+-		pmap_flush_noncoherent_page((pmap_paddr_t)ptoa(pai) + vm_first_phys);
++		pmap_flush_noncoherent_page(pai_to_pa(pai));
+ 	}
+ 
+ 	*is_internal_p = is_internal;
+--- a/osfmk/arm/pmap/pmap_data.h
++++ b/osfmk/arm/pmap/pmap_data.h
+@@ -63,6 +63,16 @@
+ extern pmap_paddr_t vm_first_phys, vm_last_phys;
+ 
+ /**
++ * gts7xlwifi (port of UniXNU 8f5a4e9, window-outside-memory-adoption): memory outside the managed span
++ * (arm_vm_init.c, arm_vm_outside_base): a second range [vm_outside_first_phys, vm_outside_last_phys) below or
++ * above the span whose pages become kernel-managed one by one as they are adopted. A bit in vm_outside_valid marks
++ * an adopted page; its entries in the per-page tables follow those of the span, from index vm_outside_first_index.
++ */
++extern pmap_paddr_t vm_outside_first_phys, vm_outside_last_phys;
++extern unsigned int vm_outside_first_index;
++extern uint64_t *vm_outside_valid;
++
++/**
+  * Return whether the given address represents a kernel-managed physical page.
+  *
+  * Whether a page is considered "kernel-managed" is determined by the BootArgs
+@@ -74,7 +84,15 @@
+ static inline bool
+ pa_valid(pmap_paddr_t pa)
+ {
+-	return (pa >= vm_first_phys) && (pa < vm_last_phys);
++	/* ruan: the outside range may lie below or above the span. */
++	if (__probable((pa >= vm_first_phys) && (pa < vm_last_phys))) {
++		return true;
++	}
++	if ((pa < vm_outside_first_phys) || (pa >= vm_outside_last_phys)) {
++		return false;
++	}
++	const unsigned int page = (unsigned int)atop(pa - vm_outside_first_phys);
++	return (os_atomic_load(&vm_outside_valid[page / 64], relaxed) >> (page % 64)) & 1;
+ }
+ 
+ /**
+@@ -97,9 +115,26 @@
+ static inline unsigned int
+ pa_index(pmap_paddr_t pa)
+ {
++	if (__improbable((pa >= vm_outside_first_phys) && (pa < vm_outside_last_phys))) {
++		return vm_outside_first_index + (unsigned int)atop(pa - vm_outside_first_phys);
++	}
+ 	return (unsigned int)atop(pa - vm_first_phys);
+ }
+ 
++/**
++ * The physical address of the page a physical address index stands for.
++ *
++ * @param pai The index returned by pa_index() for the page.
++ */
++static inline pmap_paddr_t
++pai_to_pa(unsigned int pai)
++{
++	if (__probable(pai < vm_outside_first_index)) {
++		return vm_first_phys + ((pmap_paddr_t)pai << PAGE_SHIFT);
++	}
++	return vm_outside_first_phys + ((pmap_paddr_t)(pai - vm_outside_first_index) << PAGE_SHIFT);
++}
++
+ /* See the definition of pv_head_table for more information. */
+ extern pv_entry_t **pv_head_table;
+ 
+--- a/osfmk/arm64/arm_vm_init.c
++++ b/osfmk/arm64/arm_vm_init.c
+@@ -350,6 +350,156 @@
+ SECURITY_READ_ONLY_LATE(addr64_t) first_avail_phys = 0;
+ 
+ /*
++ * gts7xlwifi (port of UniXNU 8f5a4e9 window-outside-memory-adoption to xnu-10063): memory outside the managed span,
++ * DRAM below gPhysBase. /chosen/darwinboot-memory-outside lists its free runs as (base, size) pairs of 64-bit values;
++ * /chosen/darwinboot-memory-outside-kept lists parts of them to leave alone. The pages of the remaining runs become
++ * ordinary VM pages once the VM is up (ml_adopt_outside_memory), the way pages ml_static_mfree returns do: a vm_page
++ * from the zone (vm_page_create). The span [arm_vm_outside_base, arm_vm_outside_end) covers the runs, aligned to the
++ * twig size; it has one entry in the physical aperture's table, mapped page by page as pages are adopted, and one
++ * entry per page at the end of the pmap's per-page tables. Its addresses [arm_vm_outside_va, arm_vm_outside_va_end)
++ * lie below the low globals, inside pmap_virtual_region 3 (VM_MIN_KERNEL_ADDRESS..LOW_GLOBAL_BASE_ADDRESS), which
++ * kmem_init reserves in the kernel map. Unlike upstream this is opt-in on this board: memory-outside=1, and
++ * memory-outside-floor=ADDR leaves the runs below ADDR alone.
++ */
++#define ARM_VM_OUTSIDE_RANGES 32
++typedef struct {
++	pmap_paddr_t base;
++	pmap_paddr_t end;
++} arm_vm_outside_range_t;
++SECURITY_READ_ONLY_LATE(pmap_paddr_t)                   arm_vm_outside_base;
++SECURITY_READ_ONLY_LATE(pmap_paddr_t)                   arm_vm_outside_end;
++SECURITY_READ_ONLY_LATE(vm_map_address_t)               arm_vm_outside_va;
++SECURITY_READ_ONLY_LATE(vm_map_address_t)               arm_vm_outside_va_end;
++SECURITY_READ_ONLY_LATE(static arm_vm_outside_range_t)  arm_vm_outside_table[ARM_VM_OUTSIDE_RANGES];
++SECURITY_READ_ONLY_LATE(static unsigned int)            arm_vm_outside_count;
++
++/* One (base, size) pair of a device tree property; false past its end. */
++static bool
++arm_vm_outside_pair(const uint8_t *pairs, unsigned int pairs_size, unsigned int index, uint64_t *base, uint64_t *end)
++{
++	const unsigned int offset = index * 2 * sizeof(uint64_t);
++	uint64_t size;
++
++	if (pairs == NULL || offset + 2 * sizeof(uint64_t) > pairs_size) {
++		return false;
++	}
++	memcpy(base, pairs + offset, sizeof(*base));
++	memcpy(&size, pairs + offset + sizeof(*base), sizeof(size));
++	*end = *base + size;
++	return true;
++}
++
++/* Add [base, end) to the table of runs, less the reserved ranges from `from` on. */
++static void
++arm_vm_outside_add(uint64_t base, uint64_t end, const uint8_t *reserved, unsigned int reserved_size, unsigned int from)
++{
++	uint64_t r_base, r_end;
++
++	for (unsigned int i = from; arm_vm_outside_pair(reserved, reserved_size, i, &r_base, &r_end); i++) {
++		if (r_end <= r_base || r_end <= base || r_base >= end) {
++			continue;
++		}
++		if (base < r_base) {
++			arm_vm_outside_add(base, r_base, reserved, reserved_size, i + 1);
++		}
++		if (end > r_end) {
++			arm_vm_outside_add(r_end, end, reserved, reserved_size, i + 1);
++		}
++		return;
++	}
++	/* Whole pages only; a page partly outside the run is not the kernel's. */
++	base = (base + PAGE_MASK) & ~((uint64_t)PAGE_MASK);
++	end &= ~((uint64_t)PAGE_MASK);
++	if (base >= end || arm_vm_outside_count >= ARM_VM_OUTSIDE_RANGES) {
++		return;
++	}
++	arm_vm_outside_table[arm_vm_outside_count].base = base;
++	arm_vm_outside_table[arm_vm_outside_count].end = end;
++	arm_vm_outside_count++;
++}
++
++/*
++ * ruan: read the runs of free memory outside the span. DarwinBoot's table lists runs on both sides of the window
++ * [gPhysBase, gPhysBase + real_phys_size), and on ruan the window may sit anywhere in the 0x8_0000_0000 bank. The
++ * per-page tables and the aperture cover one range of at most 4 GiB next to the window, so only one side is taken:
++ * memory-outside=1 the side with more bytes, 2 below only, 3 above only. Runs farther than 4 GiB from the window
++ * (ruan's 0x80000000 bank of firmware, TZ and hypervisor carve-outs) are clipped off, never adopted.
++ * memory-outside-floor=ADDR adopts only what lies at or above ADDR.
++ */
++#define ARM_VM_OUTSIDE_REACH ((pmap_paddr_t)4 << 30)
++static void
++arm_vm_outside_init(void)
++{
++	DTEntry chosen;
++	const uint8_t *pairs, *reserved = NULL;
++	unsigned int pairs_size, reserved_size = 0;
++	uint32_t wanted = 0;
++	uint64_t base, end, floor = 0, bytes[2] = { 0, 0 };
++	pmap_paddr_t low = ~(pmap_paddr_t)0, high = 0;
++	const pmap_paddr_t win_base = gPhysBase, win_end = gPhysBase + real_phys_size;
++	/* [0] below the window, [1] above it: the addresses each side may use. */
++	const pmap_paddr_t side_lo[2] = { (win_base > ARM_VM_OUTSIDE_REACH) ? win_base - ARM_VM_OUTSIDE_REACH : 0, win_end };
++	const pmap_paddr_t side_hi[2] = { win_base, win_end + ARM_VM_OUTSIDE_REACH };
++	unsigned int side;
++
++	PE_parse_boot_argn("memory-outside", &wanted, sizeof(wanted));
++	PE_parse_boot_argn("memory-outside-floor", &floor, sizeof(floor));
++	if (!wanted || SecureDTLookupEntry(NULL, "/chosen", &chosen) != kSuccess ||
++	    SecureDTGetProperty(chosen, "darwinboot-memory-outside", (void const **)&pairs, &pairs_size) != kSuccess) {
++		return;
++	}
++	if (SecureDTGetProperty(chosen, "darwinboot-memory-outside-kept", (void const **)&reserved, &reserved_size) != kSuccess) {
++		reserved = NULL;
++		reserved_size = 0;
++	}
++	for (side = 0; side < 2; side++) {
++		for (unsigned int i = 0; arm_vm_outside_pair(pairs, pairs_size, i, &base, &end); i++) {
++			base = MAX(MAX(base, side_lo[side]), floor);
++			end = MIN(end, side_hi[side]);
++			if (end > base) {
++				bytes[side] += end - base;
++			}
++		}
++	}
++	side = (wanted == 2) ? 0 : (wanted == 3) ? 1 : (bytes[1] > bytes[0]);
++	for (unsigned int i = 0; arm_vm_outside_pair(pairs, pairs_size, i, &base, &end); i++) {
++		base = MAX(MAX(base, side_lo[side]), floor);
++		end = MIN(end, side_hi[side]);
++		if (end > base) {
++			arm_vm_outside_add(base, end, reserved, reserved_size, 0);
++		}
++	}
++	if (arm_vm_outside_count == 0) {
++		return;
++	}
++	for (unsigned int i = 0; i < arm_vm_outside_count; i++) {
++		low = MIN(low, arm_vm_outside_table[i].base);
++		high = MAX(high, arm_vm_outside_table[i].end);
++	}
++	/* Twig-aligned, but never into the window: its aperture entry would shadow the window's in the PTOV table. */
++	low = MAX(low & ~((pmap_paddr_t)ARM_TT_TWIG_OFFMASK), side ? win_end : 0);
++	high = MIN((high + ARM_TT_TWIG_OFFMASK) & ~((pmap_paddr_t)ARM_TT_TWIG_OFFMASK), side ? ~(pmap_paddr_t)0 : win_base);
++	if (high <= low || high - low > ARM_VM_OUTSIDE_REACH) {
++		arm_vm_outside_count = 0;
++		return;
++	}
++	arm_vm_outside_base = low;
++	arm_vm_outside_end = high;
++}
++
++/* The runs of memory outside the span, in the order the loader listed them; false past the last. */
++bool
++arm_vm_outside_range(unsigned int index, pmap_paddr_t *base, pmap_paddr_t *end)
++{
++	if (index >= arm_vm_outside_count) {
++		return false;
++	}
++	*base = arm_vm_outside_table[index].base;
++	*end = arm_vm_outside_table[index].end;
++	return true;
++}
++
++/*
+  * Bounds of the kernelcache; used for accounting.
+  */
+ SECURITY_READ_ONLY_LATE(vm_offset_t) arm_vm_kernelcache_phys_start;
+@@ -1582,6 +1732,17 @@
+ 
+ 	assert((temp_ptov_table[ptov_index - 1].va + temp_ptov_table[ptov_index - 1].len) <= physmap_end);
+ 
++	if (arm_vm_outside_end != 0) {
++		/* gts7xlwifi: the span of memory outside: translated, mapped page by page when its pages are adopted. */
++		if (__improbable(ptov_index >= PTOV_TABLE_SIZE)) {
++			panic("%s: PTOV table limit exceeded by the memory outside the span", __func__);
++		}
++		temp_ptov_table[ptov_index].pa = arm_vm_outside_base;
++		temp_ptov_table[ptov_index].va = arm_vm_outside_va;
++		temp_ptov_table[ptov_index].len = arm_vm_outside_end - arm_vm_outside_base;
++		++ptov_index;
++	}
++
+ 	// Sort in descending order of segment length.  LUT traversal is linear, so largest (most likely used)
+ 	// segments should be placed earliest in the table to optimize lookup performance.
+ 	qsort(temp_ptov_table, PTOV_TABLE_SIZE, sizeof(temp_ptov_table[0]), cmp_ptov_entries);
+@@ -1609,6 +1770,17 @@
+ 
+ 	assert((temp_ptov_table[ptov_index - 1].va + temp_ptov_table[ptov_index - 1].len) <= physmap_end);
+ 
++	if (arm_vm_outside_end != 0) {
++		/* gts7xlwifi: the span of memory outside: translated, mapped page by page when its pages are adopted. */
++		if (__improbable(ptov_index >= PTOV_TABLE_SIZE)) {
++			panic("%s: PTOV table limit exceeded by the memory outside the span", __func__);
++		}
++		temp_ptov_table[ptov_index].pa = arm_vm_outside_base;
++		temp_ptov_table[ptov_index].va = arm_vm_outside_va;
++		temp_ptov_table[ptov_index].len = arm_vm_outside_end - arm_vm_outside_base;
++		++ptov_index;
++	}
++
+ 	// Sort in descending order of segment length.  LUT traversal is linear, so largest (most likely used)
+ 	// segments should be placed earliest in the table to optimize lookup performance.
+ 	qsort(temp_ptov_table, PTOV_TABLE_SIZE, sizeof(temp_ptov_table[0]), cmp_ptov_entries);
+@@ -1894,6 +2066,23 @@
+ #else
+ 	static_memory_end = physmap_base + mem_size + (PTOV_TABLE_SIZE * ARM_TT_TWIG_SIZE); // worst possible case for block alignment
+ 	physmap_end = physmap_base + real_phys_size + (PTOV_TABLE_SIZE * ARM_TT_TWIG_SIZE);
++	arm_vm_outside_init();
++	if (arm_vm_outside_end != 0) {
++		/*
++		 * gts7xlwifi: the aperture's addresses for the memory outside the span: 4 GiB and the span's own length (to
++		 * a whole twig; upstream's whole L1 entry is 64 GiB with 16 KiB pages and would leave the region) below the
++		 * low globals, inside pmap_virtual_region 3 (VM_MIN_KERNEL_ADDRESS..LOW_GLOBAL_BASE_ADDRESS), which kmem_init
++		 * reserves in the kernel map on this configuration (no KTRR/CTRR, no ARM_LARGE_MEMORY).
++		 */
++		const vm_map_address_t under = (LOW_GLOBAL_BASE_ADDRESS & ~((vm_map_address_t)ARM_TT_L1_OFFMASK)) - ((vm_map_address_t)4 << 30);
++		const vm_map_size_t length = arm_vm_outside_end - arm_vm_outside_base;
++
++		arm_vm_outside_va = under - ROUND_TWIG(length);
++		arm_vm_outside_va_end = arm_vm_outside_va + length;
++		if (arm_vm_outside_va < VM_MIN_KERNEL_AND_KEXT_ADDRESS + ((vm_map_address_t)4 << 30) || arm_vm_outside_va >= under) {
++			panic("%s: no addresses below the low globals for the memory outside the span", __func__);
++		}
++	}
+ #endif // ARM_LARGE_MEMORY
+ #endif
+ 
+--- a/osfmk/arm64/machine_routines.c
++++ b/osfmk/arm64/machine_routines.c
+@@ -1886,6 +1886,100 @@
+ #endif /* defined(CONFIG_SPTM) */
+ 
+ /*
++ * gts7xlwifi (port of UniXNU 8f5a4e9): the free memory outside the managed span (arm_vm_init.c, arm_vm_outside_base:
++ * DRAM below the span) becomes VM pages, as pages ml_static_mfree returns do: each is mapped in the physical aperture
++ * and marked managed in the pmap, then vm_page_create() gives it a vm_page from the zone and frees it. xnu-10063 has
++ * no page radix tree: a page outside the linear vm_pages array keeps its page number in the vm_page itself
++ * (VM_PAGE_GET_PHYS_PAGE), which is all this needs. The pages were never wired or counted, so only the memory sizes
++ * grow.
++ */
++uint32_t ml_outside_memory_pages;
++uint32_t ml_outside_memory_refused;
++
++/*
++ * Whether a load from a kernel address completes. Memory the firmware's map calls free can belong to another owner
++ * (a hypervisor guest, the secure world): a load from it is a synchronous external abort, which the platform error
++ * handler turns into this function's answer instead of a panic while the probe runs on this CPU. On SM8250 an access
++ * the XPU or the hypervisor refuses may instead end in a TrustZone NoC-error reset, so the board lists only memory
++ * Android itself uses as System RAM and does not rely on this probe.
++ */
++static volatile uint32_t ml_memory_probe_cpu;        /* the probing CPU's number plus one */
++static volatile uint32_t ml_memory_probe_faulted;
++
++bool ml_memory_probe_fault(void);
++bool ml_memory_probe(vm_offset_t va);
++
++bool
++ml_memory_probe_fault(void)
++{
++	if (ml_memory_probe_cpu != (uint32_t)cpu_number() + 1) {
++		return false;
++	}
++	ml_memory_probe_faulted = 1;
++	return true;
++}
++
++bool
++ml_memory_probe(vm_offset_t va)
++{
++	static SIMPLE_LOCK_DECLARE(probe_lock, 0);
++	bool readable;
++
++	simple_lock(&probe_lock, LCK_GRP_NULL);     /* preemption is off until the unlock */
++	ml_memory_probe_faulted = 0;
++	ml_memory_probe_cpu = (uint32_t)cpu_number() + 1;
++	__asm__ volatile ("ldr x9, [%0]" : : "r"(va) : "x9", "memory");
++	__builtin_arm_isb(ISB_SY);
++	ml_memory_probe_cpu = 0;
++	readable = !ml_memory_probe_faulted;
++	simple_unlock(&probe_lock);
++	return readable;
++}
++
++extern bool arm_vm_outside_range(unsigned int index, pmap_paddr_t *base, pmap_paddr_t *end);
++
++__startup_func
++static void
++ml_adopt_outside_memory(void)
++{
++	pmap_paddr_t base, end;
++	uint32_t adopted = 0, refused = 0;
++
++	for (unsigned int i = 0; arm_vm_outside_range(i, &base, &end); i++) {
++		for (pmap_paddr_t pa = base; pa < end; pa += PAGE_SIZE) {
++			const ppnum_t pn = (ppnum_t)atop(pa);
++
++			const kern_return_t kr = pmap_adopt_outside_page(pn);
++
++			if (kr == KERN_PROTECTION_FAILURE) {
++				/* Another owner's memory: the rest of the run is left alone, so a run costs one refused load. */
++				refused += (uint32_t)atop(end - pa);
++				break;
++			}
++			if (kr != KERN_SUCCESS) {
++				refused++;
++				continue;
++			}
++			vm_page_create(pn, pn + 1);
++			adopted++;
++		}
++	}
++	if (adopted != 0) {
++		const uint64_t bytes = ptoa_64(adopted);
++
++		max_mem += bytes;
++		max_mem_actual += bytes;
++		mem_actual += bytes;
++		sane_size += bytes;
++		machine_info.max_mem += bytes;
++	}
++	ml_outside_memory_pages = adopted;
++	ml_outside_memory_refused = refused;
++	printf("memory outside the span: %u pages adopted, %u refused\n", adopted, refused);
++}
++STARTUP(EARLY_BOOT, STARTUP_RANK_MIDDLE, ml_adopt_outside_memory);
++
++/*
+  *	Routine:        ml_static_mfree
+  *	Function:
+  */
+--- a/osfmk/arm64/sleh.c
++++ b/osfmk/arm64/sleh.c
+@@ -451,6 +451,16 @@
+ 	kernel_integrity_error_handler(esr, far);
+ #endif
+ 
++	/*
++	 * gts7xlwifi: a probe of memory that may not be the kernel's (ml_memory_probe): the refused load is skipped and
++	 * the probe reports it.
++	 */
++	extern bool ml_memory_probe_fault(void);
++	if ((source == PLAT_ERR_SRC_SYNC) && ml_memory_probe_fault()) {
++		add_saved_state_pc(state, 4);
++		return;
++	}
++
+ 	(void)source;
+ 	cpu_data_t *cdp = getCpuDatap();
+ 
+@@ -1797,6 +1807,11 @@
+ 		}
+ #endif /* CONFIG_XNUPOST */
+ 
++		/* gts7xlwifi: the aperture's addresses of the memory outside the managed span (arm_vm_init.c). */
++		extern const vm_map_address_t arm_vm_outside_va, arm_vm_outside_va_end;
++		if (__improbable(fault_addr >= arm_vm_outside_va) && (fault_addr < arm_vm_outside_va_end)) {
++			panic_with_thread_kernel_state("Unexpected fault in kernel physical aperture (memory outside)", state);
++		}
+ 		if (fault_addr >= gVirtBase && fault_addr < static_memory_end) {
+ 			panic_with_thread_kernel_state("Unexpected fault in kernel static region\n", state);
+ 		}
+@@ -1834,6 +1849,11 @@
+ 
+ 		}
+ 
++		/* gts7xlwifi: the aperture's addresses of the memory outside the managed span (arm_vm_init.c). */
++		extern const vm_map_address_t arm_vm_outside_va, arm_vm_outside_va_end;
++		if (__improbable(fault_addr >= arm_vm_outside_va) && (fault_addr < arm_vm_outside_va_end)) {
++			panic_with_thread_kernel_state("Unexpected fault in kernel physical aperture (memory outside)", state);
++		}
+ 		if (fault_addr >= gVirtBase && fault_addr < static_memory_end) {
+ 			panic_with_thread_kernel_state("Unexpected fault in kernel static region\n", state);
+ 		}
+--- a/osfmk/vm/pmap.h
++++ b/osfmk/vm/pmap.h
+@@ -116,6 +116,10 @@
+ #define cppvKmapb      25
+ 
+ extern boolean_t pmap_has_managed_page(ppnum_t first, ppnum_t last);
++#if defined(__arm64__)
++/* gts7xlwifi: a page of DRAM outside the managed span becomes a managed page, mapped in the physical aperture. */
++extern kern_return_t pmap_adopt_outside_page(ppnum_t pn);
++#endif /* defined(__arm64__) */
+ 
+ #if MACH_KERNEL_PRIVATE || BSD_KERNEL_PRIVATE
+ #include <mach/mach_types.h>

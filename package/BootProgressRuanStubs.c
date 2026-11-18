@@ -6,8 +6,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-uint64_t arm_vm_outside_base, arm_vm_outside_end;
-uint32_t ml_outside_memory_pages, ml_outside_memory_refused;
+/* arm_vm_outside_base/end and ml_outside_memory_pages/refused come from patches/xnu/dizi-memory-outside.patch. */
 
 volatile uint64_t native_legacy_copy_n, native_legacy_copy_last, native_legacy_copy_max, native_legacy_swap_timeouts;
 volatile uint32_t native_legacy_swap_accepted_count, native_legacy_swap_rejected_count;

@@ -95,7 +95,7 @@ loader = "firmware"
 title = "UniXNU"
 # All 8 cores (4x A55 + 4x A78): needs sm7435-type-clusters.patch and the cluster ids in dts/dizi.dts.
 # Tested on dizi 2026-11-14 with cpus=2 and cpus=8 (XNU reaches the root mount).
-kernel_args = ["-v", "serial=3", "debug=0x14e", "cpus=8", "smp=1", "armcpu-spi-ipi=1", "armcpu-self-ipi=1", "native-ufs-partition=unixnu"]
+kernel_args = ["-v", "serial=3", "debug=0x14e", "cpus=8", "smp=1", "armcpu-spi-ipi=1", "armcpu-self-ipi=1", "native-ufs-partition=unixnu", "memory-outside=3"]
 # Bring-up diagnostics (UniXNU docs/guide/debugging.md): blue band = kernel entry ran,
 # magenta band = reached MMU enable; a kernel panic draws its message on the screen.
 # 2026-11-14 on dizi: green, blue and magenta shown, then a reset about 6 s after
@@ -116,6 +116,17 @@ root_match_volume_uuid = "04769D26-2CA0-4825-B443-E2E5F88300F2"
 # free but the hypervisor does not give to HLOS. Android's /sys/firmware/devicetree/base/memory would show which.
 # owned_memory_size = "0x40000000"
 unique_chip_id = "required"
+# Free DRAM outside the window becomes VM memory (patches/xnu/dizi-memory-outside.patch, from the ruan port; memory-outside=3
+# takes the runs above the window, within 4 GiB of it). DarwinBoot lists the 16 largest EfiConventionalMemory runs outside the
+# window in /chosen/darwinboot-memory-outside; the kernel probes each page before it adopts it.
+owned_memory_outside_ranges = 16
+# Never adopted. From Linux's /proc/iomem on dizi (OrangeFox, 2026-11-17): System RAM is 0x800000000-0x83fcfffff,
+# 0x840000000-0x8baafffff, 0x8bb100000-0x8bcefffff and 0x8c0000000-0x8ffffffff. Kept out:
+#   0x80000000+2 GiB   the low bank (hypervisor, PIL, TZ, UEFI, the GOP scanout and the payload), as on ruan
+#   0x830000000+256M   "HYP Reserved" in diziPkg's UEFI memory map
+#   0x8bab00000+6M     not System RAM (the hole the 0x7A000000 window overlapped)
+#   0x8bcf00000+49M    not System RAM, up to the 0x8c0000000 bank
+owned_memory_outside_reserved = ["0x80000000:0x80000000", "0x830000000:0x10000000", "0x8BAB00000:0x600000", "0x8BCF00000:0x3100000"]
 # The Data seed (make-data-seed.py, --data-ramdisk) is packed: DarwinBoot publishes it as PackedRAMDisk for NativeRamBlock.
 packed_data_ramdisk = true
 

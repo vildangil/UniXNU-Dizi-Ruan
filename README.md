@@ -22,14 +22,14 @@ Checked on a real dizi on 2026-11-17:
 | `arm_init`, VM, IOKit, AMFI | Works | Needs the SoC virtual-timer patch and ADT `vmm-present = 1` |
 | Root filesystem (UFS) | Works | iPadOS OS and SystemOS volumes mount read-only from the `unixnu` partition |
 | Data volume (`/private/var`) | Partly | Writable 128 MB volume in RAM; changes are lost on reboot |
-| launchd, daemons, backboardd | Partly | About 85 processes start; SpringBoard starts, then daemons are killed for lack of memory (jetsam) |
-| Memory for XNU | Partly | 256 MiB; larger DarwinBoot windows freeze the tablet one second into BSD |
+| launchd, daemons, backboardd | Partly | About 104 processes start; SpringBoard crash-loops with SIGTRAP |
+| Memory for XNU | Works | 256 MiB window plus the RAM above it (`memory-outside=3`, about 3.5 GiB more) |
 | Dual boot with Android | Works | Android boots by default; a KernelSU Action boots iPadOS once from slot b |
 | All 8 CPU cores | Works | `cpus=8 smp=1` |
 | Boot-progress page | Works | Milestones, processes and console on screen (`boot-progress=1`) |
 | Display driver, touch, Wi-Fi, audio, GPU | Not started | |
 
-The next stages are more memory for XNU and starting iPadOS from the recovery key. [porting.toml](porting.toml) records every
+The next stages are the display and the key store, which SpringBoard needs. [porting.toml](porting.toml) records every
 area with its findings and evidence.
 
 ## Boot

@@ -11,3 +11,5 @@ dizi-pid1-dyld.patch
 dizi-systemos-union.patch
 # Writable Data volume: NativeRamBlock serves the payload Data seed, mounted on /private/var (data-uuid=<UUID>).
 dizi-data-volume.patch
+# DRAM outside DarwinBoot's window becomes VM memory (ruan-memory-outside.patch from the ruan port, unchanged); opt-in with memory-outside=N.
+dizi-memory-outside.patch

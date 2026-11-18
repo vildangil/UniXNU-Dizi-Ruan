@@ -1,0 +1,24 @@
+--- a/NativeLegacyDisplay.cpp
++++ b/NativeLegacyDisplay.cpp
+@@ -439,8 +439,11 @@
+     }
+     // Selector 72's registration of a vsync client ends in kickSwapQueue (slot 290), which arms the tick; the tick stops by itself once
+     // the last client is removed.
++    // ruan: with no client yet, look again in 100 ms instead of waiting for the next kickSwapQueue. backboardd registered its vsync
++    // client after its last swap and nothing armed the tick again (rb10: 3 swaps, 0 vsync, 0 idle ticks, 2026-11-14).
+     void armVsync() {
+-        if(!vsyncTimer || vsyncArmed || !vsyncWanted())return;
++        if(!vsyncTimer || vsyncArmed)return;
++        if(!vsyncWanted()){vsyncArmed=true;vsyncTimer->setTimeoutMS(100);return;}
+         vsyncArmed=true;vsyncNext=mach_absolute_time()+vsyncInterval;
+         vsyncTimer->wakeAtTime(vsyncNext);native_legacy_vsync_observed(0,vsyncHz);
+     }
+@@ -448,7 +451,7 @@
+     void vsyncTick() {
+         vsyncArmed=false;
+         if(!vsyncTimer)return;
+-        if(!vsyncWanted()){native_legacy_vsync_observed(2,vsyncHz);return;}
++        if(!vsyncWanted()){native_legacy_vsync_observed(2,vsyncHz);vsyncArmed=true;vsyncTimer->setTimeoutMS(100);return;}
+         const uint64_t now=mach_absolute_time();
+         native_legacy_vsync_notify(this,now,mach_continuous_time(),vsyncInterval);
+         native_legacy_vsync_observed(1,vsyncHz);

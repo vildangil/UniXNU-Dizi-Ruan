@@ -1,49 +1,89 @@
 #!/usr/bin/env python3
-"""Bind an owned concrete backend to the unchanged original Legacy lifecycle."""
+"""dizi: the ruan port's script (https://github.com/F-e-n-y-x/UniXNU-iPadOS-on-Redmi-Pad-Pro-5G, unixnu-ruan/scripts, commit 5ce47b1), unchanged apart from this note.
+ruan: bind the owned GOP backend to the unchanged original IOMobileFramebufferLegacy (21H461) and archive it with the
+board probe, as build/native-legacy-display/libNativeLegacyDisplay.late.a, which build-xnu-4k-baseline.sh force-loads
+when CONFIG_XNU_NATIVE_LEGACY_DISPLAY=y.
+
+From UniXNU-gts7xlwifi scripts/build-gop-legacy-display.py (itself UniXNU-alioth 520581a / sheng), display path only:
+  drivers/GopFramebuffer/NativeLegacyDisplay.cpp   the owned backend (UniXNU checkout, iOS build: no NATIVE_LEGACY_MACOS)
+  kits/ruan/LegacyDisplayProbe.cpp                 the board half (hooks, the two entries, link stubs)
+  build/native-legacy-display/original-bindings.S  absolute bindings to the prelinked original family
+Left out against gts7: the GPU presenter, HID publisher, key store (libRamRootProbe.a has it), CPU frequency and every
+peripheral service. Every pinned address and instruction is re-checked against the kernel this build links into
+(display-prep/tools/verify-kernel-pins.py ran the same pins on 2026-11-14: 50/50 match), so a mismatch fails the build.
+"""
 import hashlib
 import json
-from pathlib import Path
+import os
+import shutil
 import struct
 import subprocess
 import sys
-from kernel_target import ARCH, IOS_VERSION, TRIPLE
-if ARCH != 'arm64' or IOS_VERSION.split('.')[0] != '17':
-    raise SystemExit('The legacy display ABI builder only supports arm64 iOS 17. '
-                     'Its fixed original addresses and class layout are not qualified for iOS 26.')
-ROOT=Path(__file__).resolve().parents[1];OUT=ROOT/'build/native-legacy-display';OUT.mkdir(parents=True,exist_ok=True)
-sys.path.insert(0,str(ROOT/'kits/XnuPrelink'))
-from native_prelink import macho,backed_offset,exports
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-def run(cmd,**kw):return subprocess.check_output([str(x) for x in cmd],timeout=90,**kw)
-def require(v,why):
-    if not v:raise SystemExit(why)
-def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
-print(run(['python3',ROOT/'scripts/audit-mobile-graphics-legacy.py'],text=True),end='')
-audit=json.loads((ROOT/'build/display-analysis/mobile-graphics-legacy-abi.json').read_text())
-pure=audit['abstract_slots'];methods=audit['methods']
-header='''// SPDX-License-Identifier: BSD-2-Clause-Patent
-// Opaque ABI storage for the exact original class, not source-level access
-// to its private fields. The actual original metadata supplies its full
-// Framebuffer/Service/IOService ancestry. Only qualified base prototypes may
-// be called from source; opaque entries are original dispatch targets only.
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+OUT = ROOT / 'build/native-legacy-display'
+OUT.mkdir(parents=True, exist_ok=True)
+sys.path.insert(0, str(ROOT / 'kits/XnuPrelink'))
+from native_prelink import macho, backed_offset, exports  # noqa: E402
+
+
+def run(cmd, **kw):
+    return subprocess.check_output([str(x) for x in cmd], timeout=300, **kw)
+
+
+def require(value, message):
+    if not value:
+        raise SystemExit(message)
+
+
+def sha(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def write_synced(path, text):
+    with path.open('w') as stream:
+        stream.write(text)
+        stream.flush()
+        os.fsync(stream.fileno())
+
+
+packages = sorted(ROOT.glob('kits/*/LegacyDisplayProbe.cpp'))
+require(len(packages) == 1, 'Expected one device package with LegacyDisplayProbe.cpp')
+PROBE_SOURCE = packages[0]
+
+# The reference candidate is this board's previous prelinked kernel (out/.../kernel): the original families are
+# prelinked unchanged in every build, and the audit checks the family's instruction hash before using it.
+prelink = ROOT / 'build/xnu-prelink'
+prelink.mkdir(parents=True, exist_ok=True)
+for suffix in ('.macho', '.json'):
+    source = ROOT.parent / 'kernel' / ('kernel' + suffix)
+    require(source.is_file(), 'No previous kernel to serve as the reference candidate: ' + str(source))
+    shutil.copyfile(source, prelink / ('native-owner-mobile-graphics-candidate' + suffix))
+# First build of a board: seed only the recorded hash of the pruned QEMU observation of the original class (the constant
+# RUNTIME_SHA in audit-mobile-graphics-legacy.py); every static check of the audit still runs.
+audit_out = ROOT / 'build/display-analysis/mobile-graphics-legacy-abi.json'
+if not audit_out.exists():
+    audit_out.parent.mkdir(parents=True, exist_ok=True)
+    audit_out.write_text(json.dumps({'runtime_metadata_checkpoint_sha256':
+                                     '3044c2beff552911605994c0dc7aa73182066cbb5aed0b396999ceeb5a96da2b'}) + '\n')
+print(run(['python3', ROOT / 'scripts/audit-mobile-graphics-legacy.py'], text=True), end='')
+audit = json.loads(audit_out.read_text())
+pure = audit['abstract_slots']
+methods = audit['methods']
+
+# Opaque ABI storage for the exact original class (unchanged from gts7/alioth: same 21H461 family, same offsets).
+header = '''// SPDX-License-Identifier: BSD-2-Clause-Patent
+// Generated by scripts/build-gop-legacy-display.py. Do not edit.
 #pragma once
 #include <IOKit/IOService.h>
 #include <libkern/libkern.h>
 struct OriginalLegacySwapRequest;
-// Original state request (skip/requested and skip/powered word pairs, then the changed flag) taken by the state setter.
-struct OriginalLegacyStateRequest {uint32_t skipRequested,requested,skipPowered,powered;uint8_t changed;uint8_t pad[11];};
-// Original field offsets: vsync client queue in the display; rectangles, layer masks (updated, disabled, background),
-// options, dimensions and surfaces in a swap request.
-static constexpr unsigned kLegacyVsyncClients=5592;
-static constexpr unsigned kRequestRect0=17,kRequestRect1=81,kRequestMasks=792,kRequestOptions=804,kRequestDims=816,kRequestSurfaces=2624;
-// Backend leaves: pure original slots the owned backend implements only as guards.
-#define NATIVE_LEGACY_LEAVES(LEAF) LEAF(211) LEAF(245) LEAF(246) LEAF(306) LEAF(307) LEAF(338) LEAF(345)
+struct OriginalLegacyStateRequest;
 class IOMobileFramebufferLegacy : public IOService {
  OSDeclareAbstractStructors(IOMobileFramebufferLegacy)
  unsigned char originalPrivate[0x18a0-sizeof(IOService)];
 public:
- // Both fields are qualified by the complete original slot-249 getter.
- // This modifies this object's own mode state, never a vtable or executable.
  void installBootDimensions(uint32_t width,uint32_t height) {
   *reinterpret_cast<uint32_t *>(reinterpret_cast<unsigned char *>(this)+5808)=width;
   *reinterpret_cast<uint32_t *>(reinterpret_cast<unsigned char *>(this)+5812)=height;
@@ -52,12 +92,6 @@ public:
   const OriginalLegacySwapRequest *request=nullptr;
   memcpy(&request,reinterpret_cast<const unsigned char *>(this)+5480,sizeof(request));return request;
  }
- // The real normal scanout backend removes its pending head before calling
- // slot 295. Slot 312 is a discard path (terminal state 8), not presentation.
- // The queue is a tail queue (head at +5480, tail pointer at +5488, each request's next at +2960 and previous-link at +2968): taking the head
- // moves the next request, if a client already queued one behind it (int-132: swap 3 arrived during swap 2's GPU copy and the old
- // single-entry form refused to retire swap 2, so every wait on it stayed busy), up to the head. The original queue's reference
- // moves to the current-swap slot for the original completion body.
  bool activateOnlyPendingSwap(const OriginalLegacySwapRequest *request) {
   auto self=reinterpret_cast<unsigned char *>(this);
   auto bytes=reinterpret_cast<const unsigned char *>(request);
@@ -86,264 +120,220 @@ public:
  IOReturn newUserClient(task_t,void *,UInt32,IOUserClient **) override;
  IOReturn setPowerState(unsigned long,IOService *) override;
 '''
-for i in range(168,358):
-    if i==184:header+=' virtual bool isMainDisplay();\n'
-    elif i==188:header+=' virtual IOReturn getDotPitch(uint32_t *);\n'
-    elif i==213:header+=' virtual IOReturn supportedFrameInfo(uint32_t,uint32_t *,char *,uint32_t *)=0;\n'
-    elif i==249:header+=' virtual void getDisplayDimensions(uint32_t *,uint32_t *);\n'
-    elif i==290:header+=' virtual void kickSwapQueue();\n'
-    elif i==296:header+=' virtual bool validateSwap(const OriginalLegacySwapRequest *);\n'
-    elif i==295:header+=' virtual void completeCurrentSwap();\n'
-    elif i==337:header+=' virtual IOReturn collectCompletionReports(uint32_t,void *,uint32_t *,uint32_t)=0;\n'
-    elif i==288:header+=' virtual bool startHardware();\n'
-    elif i==354:header+=' virtual int applyStateRequest(OriginalLegacyStateRequest *,bool);\n'
-    elif i==301:header+=' virtual bool getRefreshAttributes(uint64_t *,bool);\n'
-    elif i in pure:header+=f' virtual __attribute__((noreturn)) void opaque{i}()=0;\n'
-    else:header+=f' virtual __attribute__((deprecated("Unclassified ABI: never call from source"))) void opaque{i}();\n'
-header+='};\nstatic_assert(sizeof(IOMobileFramebufferLegacy)==0x18a0,"Actual original instance extent");\n'
-(OUT/'OriginalLegacyFramebufferABI.h').write_text(header)
-print(run(['python3',ROOT/'scripts/build-arm-driver.py','NativeLegacyDisplay'],text=True),end='')
-obj=OUT/'NativeLegacyDisplay.o';raw=obj.read_bytes();image=macho(raw)
-st=next(p for c,p,_ in image['commands'] if c==2);sy,count,strings,_=struct.unpack_from('<4I',raw,st+8);symbols=[]
+NAMED = {184: ' virtual bool isMainDisplay();\n', 188: ' virtual IOReturn getDotPitch(uint32_t *);\n',
+         213: ' virtual IOReturn supportedFrameInfo(uint32_t,uint32_t *,char *,uint32_t *)=0;\n',
+         249: ' virtual void getDisplayDimensions(uint32_t *,uint32_t *);\n', 290: ' virtual void kickSwapQueue();\n',
+         296: ' virtual bool validateSwap(const OriginalLegacySwapRequest *);\n', 295: ' virtual void completeCurrentSwap();\n',
+         337: ' virtual IOReturn collectCompletionReports(uint32_t,void *,uint32_t *,uint32_t)=0;\n',
+         288: ' virtual bool startHardware();\n', 301: ' virtual bool getRefreshAttributes(uint64_t *,bool);\n',
+         354: ' virtual int applyStateRequest(OriginalLegacyStateRequest *,bool);\n'}
+for i in range(168, 358):
+    header += NAMED.get(i) or (f' virtual __attribute__((noreturn)) void opaque{i}()=0;\n' if i in pure else
+                               f' virtual __attribute__((deprecated("Unclassified ABI: never call from source"))) void opaque{i}();\n')
+header += '};\nstatic_assert(sizeof(IOMobileFramebufferLegacy)==0x18a0,"Actual original instance extent");\n'
+header += ('enum : unsigned {kRequestSurfaces = 2624, kRequestMasks = 792, kRequestRect0 = 17,\n'
+           '                  kRequestRect1 = 81, kRequestOptions = 804, kRequestDims = 816};\n')
+header += '#define NATIVE_LEGACY_LEAVES(LEAF) ' + ' '.join('LEAF(%d)' % i for i in pure if i not in (213, 337)) + '\n'
+header += ('enum : unsigned {kLegacyStateRequested = 5836, kLegacyStatePowered = 5840};\n'
+           '// Slot 354 reads the first 17 bytes; 28 is the size this port chose (alignment), not an original ABI fact.\n'
+           'struct OriginalLegacyStateRequest {\n'
+           '  uint32_t skipRequested, requested, skipPowered, powered;\n'
+           '  uint8_t changed, pad[11];\n'
+           '};\n'
+           'static_assert(sizeof(OriginalLegacyStateRequest) == 28, "the size this port chose");\n')
+header += ('enum : unsigned {kLegacyVsyncClients = 5592,\n'
+           '                 kRequestBytes = kRequestSurfaces + 4 * sizeof(void *)};\n'
+           'struct OriginalLegacySwapRequest { unsigned char bytes[kRequestBytes]; };\n'
+           'static_assert(sizeof(OriginalLegacySwapRequest) >= kRequestSurfaces + 32, "covers the highest offset read");\n')
+write_synced(OUT / 'OriginalLegacyFramebufferABI.h', header)
+
+# The kernel's C++ recipe (the IOPlatformExpert compile record), for the owned backend and the board half alike. Not
+# scripts/build-arm-driver.py: it drops the record's -Wno- switches, and this host's clang-24 then fails -Wextra
+# (missing-designated-field-initializers) inside XNU's own IOLib.h/kalloc.h/vm_kern.h (measured 2026-11-14).
+record = json.loads((ROOT / 'build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/iokit/DEVELOPMENT/IOPlatformExpert.cpo.json')
+                    .read_text().strip().rstrip(','))
+
+
+def compile_cxx(source, obj):
+    # From a local copy, so a concurrent edit of the source cannot be half-read by the compiler.
+    # Same basename: clang names the static initializer after it (__GLOBAL__sub_I_<file>), which the probe calls.
+    staged = OUT / 'staged' / Path(source).name
+    staged.parent.mkdir(exist_ok=True)
+    shutil.copyfile(source, staged)
+    require(sha(staged) == sha(source), f'{source} changed while it was copied; rerun the build')
+    command, suppressions, arguments, i = [], [], record['arguments'], 0
+    while i < len(arguments):
+        value = arguments[i]
+        if value == record['file']:
+            command.append(str(staged))
+        elif value == '-o':
+            command += ['-o', str(obj)]
+            i += 1
+        elif value == '-Xclang' and arguments[i + 1].startswith('-W'):
+            i += 1
+        elif value.startswith('-Wno-'):
+            suppressions.append(value)
+        elif not value.startswith(('-W', '-DXNU_BOOT_PROGRESS=')):
+            command.append(value)
+        i += 1
+    command += ['-mgeneral-regs-only', '-Wall', '-Wextra', '-Werror', '-Wno-unused-parameter',
+                '-Wno-unnecessary-virtual-specifier', '-Wno-c99-designator', '-Wno-reorder-init-list',
+                '-Wno-deprecated-enum-enum-conversion', '-Wno-missing-designated-field-initializers',
+                '-I', str(record['directory']), '-I', str(ROOT / '.cache/xnu-work/osfmk'), '-I', str(OUT),
+                '-I', str(Path(source).resolve().parent), *suppressions]
+    run(command, cwd=record['directory'])
+    return obj
+
+
+# ruan's fixes to the upstream backend (kits/ruan/gopfb-*.patch, in name order) go into a staged copy of the whole directory: the
+# basename stays NativeLegacyDisplay.cpp (its static initializer name) and the UniXNU checkout stays untouched.
+GOPFB = OUT / 'GopFramebuffer'
+shutil.rmtree(GOPFB, ignore_errors=True)
+shutil.copytree(ROOT / 'drivers/GopFramebuffer', GOPFB, ignore=shutil.ignore_patterns('.git', 'Test'))
+GOPFB_PATCHES = sorted(PROBE_SOURCE.parent.glob('gopfb-*.patch'))
+for patch in GOPFB_PATCHES:
+    run(['patch', '-p1', '--forward', '--no-backup-if-mismatch', '-d', GOPFB, '-i', patch.resolve()])
+obj = compile_cxx(GOPFB / 'NativeLegacyDisplay.cpp', OUT / 'NativeLegacyDisplay.o')
+
+# The owned vtable in slot order: every one of the 358 entries must be a real relocation.
+raw = obj.read_bytes()
+image = macho(raw)
+symbol_table = next(p for c, p, _ in image['commands'] if c == 2)
+symbols_at, count, strings, _ = struct.unpack_from('<4I', raw, symbol_table + 8)
+symbols = []
 for i in range(count):
-    ix,kind,section,_,va=struct.unpack_from('<IBBHQ',raw,sy+i*16)
-    symbols.append((raw[strings+ix:raw.index(b'\0',strings+ix)].decode(),va,kind))
-vtable=next(va for name,va,_ in symbols if name=='__ZTV19NativeLegacyDisplay');relocations={}
+    index, kind, section, _, address = struct.unpack_from('<IBBHQ', raw, symbols_at + i * 16)
+    symbols.append((raw[strings + index:raw.index(b'\0', strings + index)].decode(), address, kind))
+vtable = next(address for name, address, _ in symbols if name == '__ZTV19NativeLegacyDisplay')
+relocations = {}
 for segment in image['segments']:
-    for sec in segment['sections']:
-        if sec['va']<=vtable<sec['va']+sec['size']:
-            ro,rc=struct.unpack_from('<2I',raw,sec['command_offset']+56)
-            for i in range(rc):
-                offset,bits=struct.unpack_from('<2I',raw,ro+i*8)
-                if bits>>27&1 and bits>>28==0 and bits>>25&3==3:relocations[sec['va']+offset]=symbols[bits&0xffffff][0]
-compiled=[relocations.get(vtable+16+i*8) for i in range(358)]
-require(all(compiled) and vtable+16+358*8 not in relocations,'Exact owned 358-entry vtable')
-candidate=ROOT/'build/xnu-prelink/native-owner-mobile-graphics-candidate.macho'
-if not candidate.exists():  # pruned: same fallback as scripts/audit-mobile-graphics-legacy.py (identical original family executable)
-    later=sorted((ROOT/'build/xnu-prelink').glob('native-owner-ufs-cpu-desktop-*-candidate.macho'),key=lambda f:f.stat().st_mtime)
-    require(later,'No reference candidate available');candidate=later[-1]
-old=candidate.read_bytes();old_image=macho(old)
-names={n:v for v,group in exports(old,old_image).items() for n in group}
-def read(va,n):
-    at=backed_offset(old_image['segments'],va,n,len(old));return old[at:at+n]
-bindings={'__ZN25IOMobileFramebufferLegacyC2EPK11OSMetaClass':0xfffffff0057865cc,
-          '__ZN25IOMobileFramebufferLegacyD2Ev':0xfffffff005786618,
-          '__ZN25IOMobileFramebufferLegacy10gMetaClassE':0xfffffff006b35940,
-          '__ZTV25IOMobileFramebufferLegacy':int(audit['legacy_vptr'],16)-16}
-owned=[];native=[]
-for i,name in enumerate(compiled):
-    expected=int(methods[i]['address'],16)
-    if name.startswith(('__ZN19NativeLegacyDisplay','__ZNK19NativeLegacyDisplay')):
-        owned.append(i);require(i in (0,1,7,14,84,86,87,141,155,184,188,288,290,296,301) or i in pure,'Only qualified own methods and guarded leaves override')
+    for section in segment['sections']:
+        if section['va'] <= vtable < section['va'] + section['size']:
+            relocation_offset, relocation_count = struct.unpack_from('<2I', raw, section['command_offset'] + 56)
+            for i in range(relocation_count):
+                offset, bits = struct.unpack_from('<2I', raw, relocation_offset + i * 8)
+                if bits >> 27 & 1 and bits >> 28 == 0 and bits >> 25 & 3 == 3:
+                    relocations[section['va'] + offset] = symbols[bits & 0xffffff][0]
+compiled = [relocations.get(vtable + 16 + i * 8) for i in range(358)]
+require(all(compiled) and vtable + 16 + 358 * 8 not in relocations, 'Exact owned 358-entry vtable')
+
+candidate = prelink / 'native-owner-mobile-graphics-candidate.macho'
+original = candidate.read_bytes()
+original_image = macho(original)
+names = {name: address for address, group in exports(original, original_image).items() for name in group}
+
+
+def read(address, length):
+    at = backed_offset(original_image['segments'], address, length, len(original))
+    return original[at:at + length]
+
+
+bindings = {
+    '__ZN25IOMobileFramebufferLegacyC2EPK11OSMetaClass': 0xfffffff0057865cc,
+    '__ZN25IOMobileFramebufferLegacyD2Ev': 0xfffffff005786618,
+    '__ZN25IOMobileFramebufferLegacy10gMetaClassE': 0xfffffff006b35940,
+    '__ZTV25IOMobileFramebufferLegacy': int(audit['legacy_vptr'], 16) - 16,
+}
+OWNED = [0, 1, 7, 14, 84, 86, 87, 141, 155, 184, 188, 288, 290, 296, 301]
+owned, native = [], []
+for i, name in enumerate(compiled):
+    expected = int(methods[i]['address'], 16)
+    if name.startswith(('__ZN19NativeLegacyDisplay', '__ZNK19NativeLegacyDisplay')):
+        owned.append(i)
+        require(i in OWNED or i in pure, f'Only qualified own methods and guarded leaves override (slot {i})')
     elif '25IOMobileFramebufferLegacy' in name:
-        require(i not in pure,'No unresolved original abstract backend target');bindings[name]=expected
+        require(i not in pure, 'No unresolved original abstract backend target')
+        bindings[name] = expected
     else:
-        require(i<168 and names.get(name)==expected,'Actual inherited native base symbol '+str(i));native.append(i)
-require(owned==sorted([0,1,7,14,84,86,87,141,155,184,188,288,290,296,301]+pure),'Exact owned method set')
-undefined={n for n,_,k in symbols if k==1 and 'IOMobileFramebufferLegacy' in n}
-require(undefined==set(bindings),'All and only actual original-class imports qualified')
-# Exact original IOSurface getters, independently observed through the real
-# original swap request. These aliases call original code; no object layout
-# is substituted and no original method/vtable is patched.
-for name,address,field,wide in [
-    ('descriptor',0xfffffff004b9ead0,48,True),('width',0xfffffff004b9ebbc,88,True),
-    ('height',0xfffffff004b9ebc4,96,True),('stride',0xfffffff004b9ebd4,104,True),
-    ('allocation',0xfffffff004b9ebfc,144,True),('format',0xfffffff004b9ebac,128,False),
-    ('planes',0xfffffff004b9ebf4,152,False)]:
-    expected=(0xf9400000 if wide else 0xb9400000)|((field//(8 if wide else 4))<<10)
-    require(read(address,8)==struct.pack('<2I',expected,0xd65f03c0),'Exact original surface getter '+name)
-    bindings['_native_legacy_surface_'+name]=address
-# The original display-refresh notification sender (self, timestamp, continuous host time, frame interval): it sends the six-word
-# vsync message (type 5) to every client entry queued at +5592, the tail queue that selector 72's registration (slot 208) fills at
-# +5512 + type*16. The platform subclass that normally calls it on each panel vblank is not part of this port.
-require(read(0xfffffff005796720,16)==bytes.fromhex('ff0302d1fd7b07a9fdc30191a0831ff8') and
-        read(0xfffffff005796830,4)==bytes.fromhex('08ed4af9') and
-        read(0xfffffff00579685c,16)==bytes.fromhex('e2230091c3008052240080521684ff97') and
-        read(0xfffffff005795fbc,4)==bytes.fromhex('0ab182d2'),
+        require(i < 168 and names.get(name) == expected, 'Actual inherited native base symbol ' + str(i))
+        native.append(i)
+require(owned == sorted(OWNED + pure), 'Exact owned method set')
+undefined = {name for name, _, kind in symbols if kind == 1 and 'IOMobileFramebufferLegacy' in name}
+require(undefined == set(bindings), 'All and only actual original-class imports qualified')
+
+# Original IOSurface getters (ldr <field>; ret), called through the real original request.
+for name, address, field, wide in [
+        ('descriptor', 0xfffffff004b9ead0, 48, True), ('width', 0xfffffff004b9ebbc, 88, True),
+        ('height', 0xfffffff004b9ebc4, 96, True), ('stride', 0xfffffff004b9ebd4, 104, True),
+        ('allocation', 0xfffffff004b9ebfc, 144, True), ('format', 0xfffffff004b9ebac, 128, False),
+        ('planes', 0xfffffff004b9ebf4, 152, False)]:
+    expected = (0xf9400000 if wide else 0xb9400000) | ((field // (8 if wide else 4)) << 10)
+    require(read(address, 8) == struct.pack('<2I', expected, 0xd65f03c0), 'Exact original surface getter ' + name)
+    # The stride field can hold pixels: LegacyDisplayProbe.cpp wraps the raw getter.
+    bindings['_native_legacy_surface_stride_raw' if name == 'stride' else '_native_legacy_surface_' + name] = address
+
+require(read(0xfffffff005796720, 16) == bytes.fromhex('ff0302d1fd7b07a9fdc30191a0831ff8') and
+        read(0xfffffff005796830, 4) == bytes.fromhex('08ed4af9') and
+        read(0xfffffff00579685c, 16) == bytes.fromhex('e2230091c3008052240080521684ff97') and
+        read(0xfffffff005795fbc, 4) == bytes.fromhex('0ab182d2'),
         'Original vsync sender, its +5592 queue and six-word drop-allowed async send')
-bindings['_native_legacy_vsync_notify']=0xfffffff005796720
-# Slot 301 fills the six refresh words that setDisplayRefreshProperties publishes as IOMFBDisplayRefresh (minimum interval, its mach
-# time, maximum interval, its mach time, step, its mach time; intervals in 32.32 seconds): the generic body fixes the minimum at
-# 0x04444444 (1/60 s), and the render server paces its display timer by it.
-require(int(methods[301]['address'],16)==0xfffffff00579ea5c and read(0xfffffff00579ea68,8)==bytes.fromhex('888888d28888a0f2') and
-        read(0xfffffff00579ec54,4)==bytes.fromhex('08b544f9'),
-        'Original slot-301 refresh words with the 1/60 s minimum, called by setDisplayRefreshProperties')
-# setDisplayRefreshProperties itself (self): fills the six words through slot 301 and publishes them as IOMFBDisplayRefresh. Nothing in
-# the family calls it (the platform subclass does), so without it the render server falls back to its own 1/60 s heartbeat.
-require(read(0xfffffff00579ebb8,16)==bytes.fromhex('ff0302d1fd7b07a9fdc30191a0031ff8') and
-        read(0xfffffff00579ed54,16)==bytes.fromhex('086540f90173ff90218c0c9100013fd6'),
-        'Original setDisplayRefreshProperties publishing IOMFBDisplayRefresh through setProperty')
-bindings['_native_legacy_set_refresh_properties']=0xfffffff00579ebb8
-# Both protected destructors/constructors must follow the exact original chain.
+bindings['_native_legacy_vsync_notify'] = 0xfffffff005796720
+require(int(methods[301]['address'], 16) == 0xfffffff00579ea5c and
+        read(0xfffffff00579ea68, 8) == bytes.fromhex('888888d28888a0f2') and
+        read(0xfffffff00579ec54, 4) == bytes.fromhex('08b544f9'),
+        'Original slot-301 refresh words with the 1/60 s minimum')
+require(read(0xfffffff00579ebb8, 16) == bytes.fromhex('ff0302d1fd7b07a9fdc30191a0031ff8') and
+        read(0xfffffff00579ed54, 16) == bytes.fromhex('086540f90173ff90218c0c9100013fd6'),
+        'Original setDisplayRefreshProperties publishing IOMFBDisplayRefresh')
+bindings['_native_legacy_set_refresh_properties'] = 0xfffffff00579ebb8
+
+
 def branch(pc):
-    word=struct.unpack('<I',read(pc,4))[0];require(word&0xfc000000==0x94000000,'Actual protected base call')
-    value=word&0x3ffffff;return pc+4*(value-(1<<26) if value&(1<<25) else value)
-require(branch(0xfffffff0057865fc)==0xfffffff00577b510 and branch(0xfffffff005786630)==0xfffffff00577b55c,
+    word = struct.unpack('<I', read(pc, 4))[0]
+    require(word & 0xfc000000 == 0x94000000, 'Actual protected base call')
+    value = word & 0x3ffffff
+    return pc + 4 * (value - (1 << 26) if value & (1 << 25) else value)
+
+
+require(branch(0xfffffff0057865fc) == 0xfffffff00577b510 and branch(0xfffffff005786630) == 0xfffffff00577b55c,
         'Original protected Legacy C2/D2 really call their original Service bases')
-# Actual caller passes only self at slot 288 and tests bit zero of w0.
-require(read(0xfffffff005787ef8,16)==bytes.fromhex('080040f9088144f900013fd6e0000037'),
+require(read(0xfffffff005787ef8, 16) == bytes.fromhex('080040f9088144f900013fd6e0000037'),
         'Original bool start_hardware() call and result check')
-getter=int(methods[249]['address'],16)
-for offset,field in [(0x30,5808),(0x58,5812)]:
-    require(struct.unpack('<I',read(getter+offset,4))[0]==0xb9400000|((field//4)<<10)|(8<<5)|8,
+getter = int(methods[249]['address'], 16)
+for offset, field in [(0x30, 5808), (0x58, 5812)]:
+    require(struct.unpack('<I', read(getter + offset, 4))[0] == 0xb9400000 | ((field // 4) << 10) | (8 << 5) | 8,
             'Actual original width/height getter fields')
-require(int(methods[295]['address'],16)==0xfffffff005795b88 and
-        read(0xfffffff005795b98,16)==bytes.fromhex('e00740f9280080520101001272d3ff97'),
+require(int(methods[295]['address'], 16) == 0xfffffff005795b88 and
+        read(0xfffffff005795b98, 16) == bytes.fromhex('e00740f9280080520101001272d3ff97'),
         'Actual original slot-295 passes true to the normal current completion body')
-require(read(0xfffffff00578aa7c,24)==bytes.fromhex('080040f9084545f9030080d2e20303aa0400805200013fd6'),
+require(read(0xfffffff00578aa7c, 24) == bytes.fromhex('080040f9084545f9030080d2e20303aa0400805200013fd6'),
         'Original completion calls optional report slot 337 with null outputs and zero limit')
-require(read(0xfffffff005777e9c,16)==bytes.fromhex('080040f908e142f900013fd6c0000036'),
+require(read(0xfffffff005777e9c, 16) == bytes.fromhex('080040f908e142f900013fd6c0000036'),
         'Original isMainDisplay dispatch uses only self and tests boolean bit zero')
-asm=OUT/'original-bindings.S';asm.write_text(''.join(f'.globl {name}\n.set {name}, {va:#x}\n' for name,va in sorted(bindings.items())))
-sdk=run(['xcrun','--sdk','iphoneos','--show-sdk-path'],text=True).strip()
-run(['xcrun','clang','-target',TRIPLE,'-isysroot',sdk,'-c',asm,'-o',OUT/'original-bindings.o'])
-llvm=Path(run(['brew','--prefix','llvm'],text=True).strip())/'bin';late=OUT/'NativeLegacyDisplay.late.o'
-run([llvm/'llvm-objcopy','--remove-section=__DATA,__mod_init_func','--globalize-symbol=__GLOBAL__sub_I_NativeLegacyDisplay.cpp',obj,late])
-def code(data,info):
-    sec=next(s for g in info['segments'] for s in g['sections'] if s['name']=='__text');return data[sec['fileoff']:sec['fileoff']+sec['size']]
-require(code(raw,image)==code(late.read_bytes(),macho(late.read_bytes())),'Only owned initializer section registration changes')
-r=json.loads((ROOT/'build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/iokit/DEVELOPMENT/IOPlatformExpert.cpo.json').read_text().strip().rstrip(','))
-cmd=[];args=r['arguments'];i=0;source=ROOT/'kits/sheng/LegacyDisplayProbe.cpp'
-while i<len(args):
-    value=args[i]
-    if value==r['file']:cmd.append(str(source))
-    elif value=='-o':cmd+=['-o',str(OUT/'LegacyDisplayProbe.o')];i+=1
-    elif value=='-Xclang' and args[i+1].startswith('-W'):i+=1
-    elif not value.startswith('-W'):cmd.append(value)
-    i+=1
-cmd+=['-Wall','-Wextra','-Werror','-Wno-unused-parameter','-Wno-unnecessary-virtual-specifier','-Wno-c99-designator','-Wno-reorder-init-list',
-      '-Wno-deprecated-enum-enum-conversion','-I',str(ROOT/'.cache/xnu-work/osfmk')]
-run(cmd,cwd=r['directory'])
-hid_source=ROOT/'kits/sheng/HidInputProbe.cpp'
-hid_obj=OUT/'HidInputProbe.o'
-hid_cmd=[str(hid_source) if str(arg)==str(source) else str(hid_obj) if str(arg)==str(OUT/'LegacyDisplayProbe.o') else arg for arg in cmd]
-run(hid_cmd,cwd=r['directory'])
-keystore_source=ROOT/'kits/sheng/KeyStoreProbe.cpp'
-keystore_obj=OUT/'KeyStoreProbe.o'
-keystore_cmd=[str(keystore_source) if str(arg)==str(source) else str(keystore_obj) if str(arg)==str(OUT/'LegacyDisplayProbe.o') else arg for arg in cmd]
-run(keystore_cmd,cwd=r['directory'])
-process_source=ROOT/'kits/sheng/BootProcessProbe.c'
-process_obj=OUT/'BootProcessProbe.o'
-pr=json.loads((ROOT/'build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/startup.o.json').read_text().strip().rstrip(','))
-process_cmd=[];pa=pr['arguments'];j=0
-while j<len(pa):
-    value=pa[j]
-    if value==pr['file']:process_cmd.append(str(process_source))
-    elif value in ('-o','-MF','-MT','-MJ'):
-        if value=='-o':process_cmd+=['-o',str(process_obj)]
-        j+=1
-    elif value=='-Xclang' and pa[j+1].startswith('-W'):j+=1
-    elif not value.startswith('-W'):process_cmd.append(value)
-    j+=1
-process_cmd+=['-Wall','-Wextra','-Werror','-mgeneral-regs-only','-I',str(ROOT/'.cache/xnu-work/osfmk')]
-run(process_cmd,cwd=pr['directory'])
-trace_source=ROOT/'kits/sheng/BootUiTraceProbe.c'
-trace_obj=OUT/'BootUiTraceProbe.o'
-trace_cmd=[str(trace_source) if arg==str(process_source) else str(trace_obj) if arg==str(process_obj) else arg for arg in process_cmd]
-run(trace_cmd,cwd=pr['directory'])
-# UFS diagnostic log writer (log=1) and the guarded fastboot reset (autoreset=<seconds>).
-log_source=ROOT/'kits/sheng/BootLog.c'
-log_obj=OUT/'BootLog.o'
-run([str(log_source) if arg==str(process_source) else str(log_obj) if arg==str(process_obj) else arg for arg in process_cmd]+['-I',str(ROOT/'kits/sheng')],cwd=pr['directory'])
-reset_source=ROOT/'kits/sheng/BootReset.c'
-reset_obj=OUT/'BootReset.o'
-run([str(reset_source) if arg==str(process_source) else str(reset_obj) if arg==str(process_obj) else arg for arg in process_cmd]+['-I',str(ROOT/'kits/sheng')],cwd=pr['directory'])
-# Default-off touch bring-up: C++ board probe plus the generic GENI SPI and Novatek protocol/touch libraries, compiled with the
-# kernel C flags, and the firmware object generated from the copy kept outside Git.
-cmd+=['-I',str(ROOT/'kits/sheng'),'-I',str(ROOT/'kits/Sm8550Platform'),'-I',str(ROOT/'drivers/QcomGeniSpi'),'-I',str(ROOT/'drivers/ShengNovatekTouch'),'-I',str(ROOT/'drivers/ShengUfs')]
-touch_dir=OUT/'touch';touch_dir.mkdir(exist_ok=True)
-touch_cpp=ROOT/'kits/sheng/TouchProbe.cpp';touch_cpp_obj=touch_dir/'TouchProbe.o'
-cpufreq_cpp=ROOT/'kits/sheng/CpuFreqProbe.cpp';cpufreq_obj=touch_dir/'CpuFreqProbe.o'
-gpupower_cpp=ROOT/'kits/sheng/GpuPowerProbe.cpp';gpupower_obj=touch_dir/'GpuPowerProbe.o'
-wifi_cpp=ROOT/'kits/sheng/WifiProbe.cpp';wifi_obj=touch_dir/'WifiProbe.o'
-# The WiFi network side (interface, registry entries, Apple80211 requests): its classes are registered late, like the brightness service's.
-wifinet_cpp=ROOT/'kits/sheng/WifiNet.cpp';wifinet_obj=touch_dir/'WifiNet.o';wifinet_late=touch_dir/'WifiNet.late.o'
-# The WiFi module (Ath12kWifi): the board code includes its interface header, and its objects join the archive.
-import os
-nativewifi=Path(os.environ.get('ATH12K_WIFI_DIR') or os.environ.get('NATIVE_WIFI_DIR') or ROOT/'drivers/Ath12kWifi')
-require((nativewifi/'include/nw_abi.h').exists(),'Ath12kWifi module directory (set ATH12K_WIFI_DIR)')
-# The audio DSP bring-up (adsp): the driver and its protocol cores (firmware images, SMEM, SMP2P, GLINK, AOSS QMP, RPMh). The
-# firmware file reader is BSD code and is built with the boot progress archive; the FAT reader it uses for the firmware partition is here.
-adsp_cpp=ROOT/'kits/sheng/AdspProbe.cpp';adsp_obj=touch_dir/'AdspProbe.o'
-adsp_c=[ROOT/'kits/sheng'/(n+'.c') for n in ('QcomMdt','FatVolume','QcomQrtr','ShengQrtr','QcomSmem','QcomSmp2p','QcomGlink','QcomQmp','QcomRpmh','ShengBattmgr','ShengGpr','ShengAudioReach','ShengCs35l43','MhiBoot')]
-# Speaker playback (audio): amplifiers over I2C, then the speaker graphs on the audio DSP.
-audio_cpp=ROOT/'kits/sheng/AudioProbe.cpp';audio_obj=touch_dir/'AudioProbe.o'
-buttons_cpp=ROOT/'kits/sheng/ButtonProbe.cpp';buttons_obj=touch_dir/'ButtonProbe.o'
-backlight_cpp=ROOT/'kits/sheng/BacklightProbe.cpp';backlight_obj=touch_dir/'BacklightProbe.o'
-dpu_cpp=ROOT/'kits/sheng/DisplayTimingProbe.cpp';dpu_obj=touch_dir/'DisplayTimingProbe.o'
-# The brightness service class: its static initializer leaves __mod_init_func and runs from BacklightProbe.cpp between preModLoad and
-# postModLoad, as the other late classes do.
-backlight_class_cpp=ROOT/'kits/sheng/AppleARMBacklight.cpp';backlight_class_obj=touch_dir/'AppleARMBacklight.o'
-backlight_class_late=touch_dir/'AppleARMBacklight.late.o'
-# The battery power source (battery, values from the audio DSP's battery manager): its class is staged the same way.
-battery_cpp=ROOT/'kits/sheng/BatteryProbe.cpp';battery_obj=touch_dir/'BatteryProbe.o'
-battery_class_cpp=ROOT/'kits/sheng/ShengBattery.cpp';battery_class_obj=touch_dir/'ShengBattery.o'
-battery_class_late=touch_dir/'ShengBattery.late.o'
-# The audio service class the audio server plug-in opens (audio): staged the same way.
-audio_class_cpp=ROOT/'kits/sheng/ShengAudioService.cpp';audio_class_obj=touch_dir/'ShengAudioService.o'
-audio_class_late=touch_dir/'ShengAudioService.late.o'
-# The event-driven GENI I2C core the brightness service drives its two engines with.
-backlight_c=[ROOT/'kits/sheng/GeniI2c.c']
-run([str(touch_cpp) if str(arg)==str(source) else str(touch_cpp_obj) if str(arg)==str(OUT/'LegacyDisplayProbe.o') else arg for arg in cmd],cwd=r['directory'])
-run([str(gpupower_cpp) if str(arg)==str(source) else str(gpupower_obj) if str(arg)==str(OUT/'LegacyDisplayProbe.o') else arg for arg in cmd]+['-I',str(ROOT/'drivers/Adreno740'),'-I',str(ROOT/'kits/ArmSmmu4K'),'-I',str(ROOT/'kits/AdrenoFirmware'),'-I',str(ROOT/'kits/AdrenoPM4')],cwd=r['directory'])
-run([str(cpufreq_cpp) if str(arg)==str(source) else str(cpufreq_obj) if str(arg)==str(OUT/'LegacyDisplayProbe.o') else arg for arg in cmd],cwd=r['directory'])
-run([str(wifi_cpp) if str(arg)==str(source) else str(wifi_obj) if str(arg)==str(OUT/'LegacyDisplayProbe.o') else arg for arg in cmd]+['-I',str(nativewifi/'include')],cwd=r['directory'])
-run([str(wifinet_cpp) if str(arg)==str(source) else str(wifinet_obj) if str(arg)==str(OUT/'LegacyDisplayProbe.o') else arg for arg in cmd]+['-I',str(nativewifi/'include')],cwd=r['directory'])
-run([str(adsp_cpp) if str(arg)==str(source) else str(adsp_obj) if str(arg)==str(OUT/'LegacyDisplayProbe.o') else arg for arg in cmd],cwd=r['directory'])
-run([str(audio_cpp) if str(arg)==str(source) else str(audio_obj) if str(arg)==str(OUT/'LegacyDisplayProbe.o') else arg for arg in cmd],cwd=r['directory'])
-run([str(buttons_cpp) if str(arg)==str(source) else str(buttons_obj) if str(arg)==str(OUT/'LegacyDisplayProbe.o') else arg for arg in cmd],cwd=r['directory'])
-run([str(backlight_cpp) if str(arg)==str(source) else str(backlight_obj) if str(arg)==str(OUT/'LegacyDisplayProbe.o') else arg for arg in cmd],cwd=r['directory'])
-run([str(dpu_cpp) if str(arg)==str(source) else str(dpu_obj) if str(arg)==str(OUT/'LegacyDisplayProbe.o') else arg for arg in cmd],cwd=r['directory'])
-run([str(backlight_class_cpp) if str(arg)==str(source) else str(backlight_class_obj) if str(arg)==str(OUT/'LegacyDisplayProbe.o') else arg for arg in cmd],cwd=r['directory'])
-run([str(battery_cpp) if str(arg)==str(source) else str(battery_obj) if str(arg)==str(OUT/'LegacyDisplayProbe.o') else arg for arg in cmd],cwd=r['directory'])
-run([str(battery_class_cpp) if str(arg)==str(source) else str(battery_class_obj) if str(arg)==str(OUT/'LegacyDisplayProbe.o') else arg for arg in cmd],cwd=r['directory'])
-run([str(audio_class_cpp) if str(arg)==str(source) else str(audio_class_obj) if str(arg)==str(OUT/'LegacyDisplayProbe.o') else arg for arg in cmd],cwd=r['directory'])
-print(run(['python3',ROOT/'scripts/gen-touch-firmware.py'],text=True),end='')
-touch_c=[ROOT/'drivers/QcomGeniSpi/GeniSpi.c',ROOT/'drivers/ShengNovatekTouch/NvtProtocol.c',
-         ROOT/'drivers/ShengNovatekTouch/NvtTouchCore.c',ROOT/'build/native-touch/NvtFirmware.c']
-touch_objs=[]
-for src in touch_c+adsp_c+backlight_c:
-    obj=touch_dir/(src.stem+'.o');touch_objs.append(obj)
-    run([str(src) if arg==str(process_source) else str(obj) if arg==str(process_obj) else arg for arg in process_cmd],cwd=pr['directory'])
-run([llvm/'llvm-objcopy','--remove-section=__DATA,__mod_init_func','--globalize-symbol=__GLOBAL__sub_I_AppleARMBacklight.cpp',
-     backlight_class_obj,backlight_class_late])
-run([llvm/'llvm-objcopy','--remove-section=__DATA,__mod_init_func','--globalize-symbol=__GLOBAL__sub_I_WifiNet.cpp',wifinet_obj,wifinet_late])
-run([llvm/'llvm-objcopy','--remove-section=__DATA,__mod_init_func','--globalize-symbol=__GLOBAL__sub_I_ShengBattery.cpp',
-     battery_class_obj,battery_class_late])
-run([llvm/'llvm-objcopy','--remove-section=__DATA,__mod_init_func','--globalize-symbol=__GLOBAL__sub_I_ShengAudioService.cpp',
-     audio_class_obj,audio_class_late])
-wifi_module_objs=[Path(l.split(' ',1)[1]) for l in subprocess.check_output(['python3',ROOT/'scripts/build-ath12k-wifi.py',nativewifi,touch_dir/'ath12k-wifi'],text=True,timeout=600).splitlines() if l.startswith('OBJ ')]
-archive=OUT/'libNativeLegacyDisplay.late.a';archive.unlink(missing_ok=True)
-print(run(['python3',ROOT/'scripts/build-sheng-hid-input.py'],text=True),end='')
-hid_dir=ROOT/'build/sheng-hid-input'
-print(run(['python3',ROOT/'scripts/build-arm-driver.py','NativeKeyStoreEvents'],text=True),end='')
-keyevents=ROOT/'build/apple-key-store-state'
-keyevents_late=keyevents/'NativeKeyStoreEvents.late.o'
-run([llvm/'llvm-objcopy','--remove-section=__DATA,__mod_init_func',
-     '--globalize-symbol=__GLOBAL__sub_I_NativeKeyStoreEvents.cpp',
-     keyevents/'NativeKeyStoreEvents.o',keyevents_late])
-require(code((keyevents/'NativeKeyStoreEvents.o').read_bytes(),macho((keyevents/'NativeKeyStoreEvents.o').read_bytes()))==
-        code(keyevents_late.read_bytes(),macho(keyevents_late.read_bytes())),'Owned event-service instructions unchanged by late init staging')
-run(['xcrun','ar','rcs',archive,late,OUT/'original-bindings.o',OUT/'LegacyDisplayProbe.o',hid_obj,keystore_obj,process_obj,trace_obj,log_obj,reset_obj,
-     hid_dir/'NativeHidInput.late.o',hid_dir/'hid-original-bindings.o',keyevents_late,touch_cpp_obj,cpufreq_obj,gpupower_obj,wifi_obj,wifinet_late,adsp_obj,audio_obj,buttons_obj,backlight_obj,dpu_obj,backlight_class_late,battery_obj,battery_class_late,audio_class_late,*touch_objs,*wifi_module_objs])
-sources=[ROOT/'drivers/GopFramebuffer/NativeLegacyDisplay.cpp',
-         ROOT/'drivers/GopFramebuffer/NativeLegacyRequest.h',source,hid_source,keystore_source,process_source,trace_source,log_source,reset_source,ROOT/'kits/sheng/BootResetCore.h',ROOT/'kits/sheng/BootUiTraceCore.h',ROOT/'kits/sheng/BootUiTraceDetails.h',
-         ROOT/'drivers/ShengHidInput/NativeHidInput.cpp',ROOT/'scripts/build-sheng-hid-input.py',
-         ROOT/'drivers/AppleKeyStoreState/NativeKeyStoreEvents.cpp',touch_cpp,cpufreq_cpp,wifi_cpp,adsp_cpp,*adsp_c,audio_cpp,buttons_cpp,backlight_cpp,backlight_class_cpp,*backlight_c,ROOT/'kits/sheng/GeniI2c.h',battery_cpp,battery_class_cpp,audio_class_cpp,ROOT/'kits/sheng/TouchBoard.h',
-         ROOT/'drivers/QcomGeniSpi/GeniSpi.c',ROOT/'drivers/QcomGeniSpi/GeniSpi.h',ROOT/'drivers/ShengNovatekTouch/NvtProtocol.c',
-         ROOT/'drivers/ShengNovatekTouch/NvtProtocol.h',ROOT/'drivers/ShengNovatekTouch/NvtTouchCore.c',ROOT/'drivers/ShengNovatekTouch/NvtTouchCore.h']
-print(run(['python3',ROOT/'scripts/build-arm-driver.py','NativeGOPPresenter'],text=True),end='')
-gop=ROOT/'build/native-gop-presenter';gop_late=gop/'NativeGOPPresenter.late.o'
-run([llvm/'llvm-objcopy','--remove-section=__DATA,__mod_init_func','--globalize-symbol=__GLOBAL__sub_I_NativeGOPPresenter.cpp',
-     gop/'NativeGOPPresenter.o',gop_late])
-require(code((gop/'NativeGOPPresenter.o').read_bytes(),macho((gop/'NativeGOPPresenter.o').read_bytes()))==
-        code(gop_late.read_bytes(),macho(gop_late.read_bytes())),'Owned presenter instructions unchanged by late init staging')
-run(['xcrun','ar','rcs',archive,gop_late])
-sources.extend([ROOT/'drivers/GopFramebuffer/NativeGOPPresenter.cpp',ROOT/'drivers/GopFramebuffer/NativeGOPWire.h'])
-(OUT/'build-report.json').write_text(json.dumps(dict(
-    source_sha256={str(p.relative_to(ROOT)):sha(p) for p in sources},generated_abi_sha256=sha(OUT/'OriginalLegacyFramebufferABI.h'),
-    original_candidate_sha256=sha(candidate),original_audit_sha256=sha(ROOT/'build/display-analysis/mobile-graphics-legacy-abi.json'),
-    compiled_object_sha256=sha(obj),late_object_sha256=sha(late),archive_sha256=sha(archive),
-    bindings={n:hex(v) for n,v in bindings.items()},virtual_entries=358,owned_entries=owned,inherited_native_entries=native,
-    guarded_backend_leaves=[i for i in pure if i not in (213,337)],original_instructions_modified=False,driver_initialized=False,display_presented=False,desktop=False),indent=2)+'\n')
-print('Built genuine original Legacy inheritance/dispatch; seven backend leaves still guarded, runtime lifecycle unqualified')
+
+assembly = OUT / 'original-bindings.S'
+write_synced(assembly, ''.join(f'.globl {name}\n.set {name}, {va:#x}\n' for name, va in sorted(bindings.items())))
+run([shutil.which('clang'), '-target', 'arm64-apple-ios17.0', '-c', assembly, '-o', OUT / 'original-bindings.o'])
+
+# The class's static initializer runs from the probe between preModLoad and postModLoad, not from __mod_init_func.
+late = OUT / 'NativeLegacyDisplay.late.o'
+run([shutil.which('llvm-objcopy'), '--remove-section=__DATA,__mod_init_func',
+     '--globalize-symbol=__GLOBAL__sub_I_NativeLegacyDisplay.cpp', obj, late])
+
+
+def code(data):
+    info = macho(data)
+    section = next(s for g in info['segments'] for s in g['sections'] if s['name'] == '__text')
+    return data[section['fileoff']:section['fileoff'] + section['size']]
+
+
+require(code(raw) == code(late.read_bytes()), 'Only owned initializer section registration changes')
+
+# The board half, with the same recipe (as ruan's build-ram-root-probe.py compiles KeyStoreProbe.cpp).
+probe_obj = compile_cxx(PROBE_SOURCE, OUT / 'LegacyDisplayProbe.o')
+
+archive = OUT / 'libNativeLegacyDisplay.late.a'
+archive.unlink(missing_ok=True)
+run([shutil.which('llvm-ar'), 'rcs', archive, late, OUT / 'original-bindings.o', probe_obj])
+
+sources = [GOPFB / 'NativeLegacyDisplay.cpp', GOPFB / 'NativeLegacyRequest.h',
+           GOPFB / 'OriginalMobileFramebufferABI.h', PROBE_SOURCE, OUT / 'OriginalLegacyFramebufferABI.h', *GOPFB_PATCHES]
+(OUT / 'build-report.json').write_text(json.dumps(dict(
+    source_sha256={str(path.relative_to(ROOT)): sha(path) for path in sources},
+    original_candidate_sha256=sha(candidate), original_audit_sha256=sha(audit_out),
+    compiled_object_sha256=sha(obj), late_object_sha256=sha(late), probe_object_sha256=sha(probe_obj),
+    archive_sha256=sha(archive), bindings={name: hex(value) for name, value in bindings.items()},
+    virtual_entries=358, owned_entries=owned, inherited_native_entries=native,
+    guarded_backend_leaves=[i for i in pure if i not in (213, 337)],
+    original_instructions_modified=False, display_presented=False), indent=2) + '\n')
+print(f'PASS: libNativeLegacyDisplay.late.a {sha(archive)} (owned {len(owned)} slots, {len(bindings)} bindings)')

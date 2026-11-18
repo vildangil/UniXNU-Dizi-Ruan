@@ -8,10 +8,7 @@
 
 /* arm_vm_outside_base/end and ml_outside_memory_pages/refused come from patches/xnu/dizi-memory-outside.patch. */
 
-volatile uint64_t native_legacy_copy_n, native_legacy_copy_last, native_legacy_copy_max, native_legacy_swap_timeouts;
-volatile uint32_t native_legacy_swap_accepted_count, native_legacy_swap_rejected_count;
-volatile uint32_t native_legacy_swapstat[16];
-volatile uint64_t native_legacy_vsync_events[6];
+/* The native_legacy_* display counters come from package/LegacyDisplayProbe.cpp and GopFramebuffer NativeLegacyDisplay. */
 
 volatile uint32_t ruan_touch_events, ruan_button_events, ruan_buttons_mask, native_touch_hid_reports;
 volatile uint32_t ruan_touch_raw_x, ruan_touch_raw_y, ruan_touch_max_x, ruan_touch_max_y, ruan_touch_norm_x, ruan_touch_norm_y;

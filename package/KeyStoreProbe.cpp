@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: BSD-2-Clause-Patent
+// dizi: copied unchanged from the ruan port (https://github.com/F-e-n-y-x/UniXNU-iPadOS-on-Redmi-Pad-Pro-5G, unixnu-ruan/package, commit 72cc448); ruan and dizi share the SoC, panel size and iPadOS build.
+// ruan: copied unchanged from UniXNU-gts7xlwifi package/KeyStoreProbe.cpp (iPadOS 17.7.11); started from load_init_program
+// (patches/xnu/ruan-keystore-probe.patch), compiled by scripts/build-ram-root-probe.py with the component object.
 // Mutually exclusive offline probes: unchanged target keystore loading, or
 // ephemeral notification-only service. Neither supplies keys or unlock state.
 #include <IOKit/IOService.h>
@@ -8,6 +11,7 @@
 #include <libkern/c++/OSSymbol.h>
 #include <pexpert/pexpert.h>
 #include <mach/kmod.h>
+#include <libkern/libkern.h>
 extern kmod_info_t g_kernel_kmod_info;
 extern "C" void native_keyevents_static_init(void) __asm__("__GLOBAL__sub_I_NativeKeyStoreEvents.cpp");
 extern "C" IOService *native_keyevents_allocate(void);
@@ -20,7 +24,10 @@ void native_keyevents_open_refused(void) {
 }
 // aks=1: the owned AppleKeyStore answers the state queries (no passcode, nothing locked); counters feed the diagnostic
 // page's extension rows (slots 0-1): opens/calls, then selector:count per selector seen ('e' = the last answer was an error).
-extern char boot_progress_ext[8][48];
+/* The reference board keeps these two rows in its own BootLog. This board's is a different
+ * file, so the probe owns the buffer instead of reaching into it: a strong reference to a
+ * symbol this package only weak-imports links to null and faults on the first write. */
+static char boot_progress_ext[8][48];
 volatile uint32_t native_aks_opens, native_aks_calls;
 static volatile uint32_t aks_count[96];
 static volatile int32_t aks_rc[96];
@@ -41,6 +48,24 @@ uint32_t native_aks_lock_state(void) {
         cached = (int)value;
     }
     return (uint32_t)cached;
+}
+// AppleKeyStoreState (8c70daf+) wraps keychain class keys in software, keyed from this identity. It must be the same at every
+// boot or existing keychain items cannot be unwrapped again, so it is /chosen/unique-chip-id (set by the payload's ADT), as
+// upstream's porting guide prescribes. Read at run time: nothing device-specific is compiled in. Returns 0 if it is missing,
+// and the component then refuses wrap/unwrap (kAksError) rather than using a weak key.
+size_t native_aks_device_id(uint8_t *out, size_t capacity) {
+    if (!out || !capacity) return 0;
+    IORegistryEntry *chosen = IORegistryEntry::fromPath("/chosen", gIODTPlane);
+    if (!chosen) return 0;
+    OSData *data = OSDynamicCast(OSData, chosen->getProperty("unique-chip-id"));
+    size_t n = 0;
+    if (data && data->getLength() > 0) {
+        n = data->getLength() < capacity ? data->getLength() : capacity;
+        memcpy(out, data->getBytesNoCopy(), n);
+    }
+    OSSafeReleaseNULL(chosen);
+    printf("AKS device id %s (%u bytes)\n", n ? "from /chosen/unique-chip-id" : "MISSING", (unsigned)n);
+    return n;
 }
 static void aks_publish(void) {
     // Slot 0: counters; slot 1: selector:count tokens ('e' = the last answer was an error). Slots 2-3 belong to the Data store.
@@ -64,20 +89,6 @@ static void aks_publish(void) {
     for (; i < 47; ++i) boot_progress_ext[1][i] = ' ';
     boot_progress_ext[1][47] = 0;
 }
-// The identity that keys software wrapping. Zero when the platform has none, which fails wrapping.
-size_t native_aks_device_id(uint8_t *out, size_t capacity) {
-    IORegistryEntry *chosen = IORegistryEntry::fromPath("/chosen", gIODTPlane);
-    OSData *id = chosen ? OSDynamicCast(OSData, chosen->getProperty("unique-chip-id")) : nullptr;
-    size_t n = 0;
-    if (id && id->getLength() >= 8 && id->getLength() <= capacity) {
-        const uint8_t *bytes = static_cast<const uint8_t *>(id->getBytesNoCopy());
-        bool nonzero = false;
-        for (unsigned i = 0; i < id->getLength(); ++i) { out[i] = bytes[i]; nonzero |= bytes[i] != 0; }
-        if (nonzero) n = id->getLength();
-    }
-    if (chosen) chosen->release();
-    return n;
-}
 void native_aks_opened(void) {
     native_aks_opens = native_aks_opens + 1;
     aks_publish();
@@ -86,6 +97,14 @@ void native_aks_call(uint32_t selector, int32_t result) {
     native_aks_calls = native_aks_calls + 1;
     if (selector < 96) { aks_count[selector] = aks_count[selector] + 1; aks_rc[selector] = result; }
     aks_publish();
+    /* The counters above only reach the diagnostic page's extension rows, and a boot with the
+     * page off carries no AKS line at all -- usb180's log showed the two rows empty, which is not
+     * the same as "the queries completed". The component's acceptance is that the required state
+     * queries complete, so record the calls in the kernel log too: the first few to show the
+     * order, then every sixteenth to stay readable. */
+    if (native_aks_calls <= 8 || (native_aks_calls % 64) == 0)
+        printf("AKS opens=%u calls=%u sel=%u rc=%d\n",
+               native_aks_opens, native_aks_calls, selector, (int)result);
 }
 static void native_keyevents_probe(void) {
     unsigned enabled = 0, original = 0;

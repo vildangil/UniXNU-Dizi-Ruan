@@ -13,3 +13,5 @@ dizi-systemos-union.patch
 dizi-data-volume.patch
 # DRAM outside DarwinBoot's window becomes VM memory (ruan-memory-outside.patch from the ruan port, unchanged); opt-in with memory-outside=N.
 dizi-memory-outside.patch
+# AppleKeyStore stand-in before launchd (aks=1 offline-key-events=1), from the ruan port.
+dizi-keystore-probe.patch

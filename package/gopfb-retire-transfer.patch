@@ -1,0 +1,62 @@
+--- a/NativeLegacyDisplay.cpp
++++ b/NativeLegacyDisplay.cpp
+@@ -638,7 +638,7 @@ public:
+             stat(8);note(8,-1,request);
+             {const uint32_t colors[4]={0xff000000U,0,0,0};const uint64_t counts[4]={(uint64_t)bw*bh,0,0,0};native_legacy_frame_colors_observed(colors,counts,0);}
+             native_legacy_transfer_observed(kIOReturnSuccess,request,blankLength);
+-            finishTransfer(request);
++            finishTransfer(request,true);
+             return;
+         }
+         if(!surface->metaCast("IOSurface"))return;
+@@ -726,7 +726,7 @@ public:
+             {uint64_t copyEnd;__asm__ volatile("isb\n\tmrs %0, cntpct_el0":"=r"(copyEnd));native_legacy_copy_timing_observed(copyEnd-copyStart,length);}
+             shadowValid=false;OSSafeReleaseNULL(source);transferred=true;countFormat(9);
+             native_legacy_transfer_observed(kIOReturnSuccess,request,length);
+-            finishTransfer(request);
++            finishTransfer(request,true);
+             return;
+         }
+         if(!native_legacy_copy_layout(reinterpret_cast<volatile void *>(bootMapping->getVirtualAddress()),
+@@ -767,7 +767,7 @@ public:
+         {uint64_t copyEnd;__asm__ volatile("isb\n\tmrs %0, cntpct_el0":"=r"(copyEnd));native_legacy_copy_timing_observed(copyEnd-copyStart,stored);}
+         OSSafeReleaseNULL(source);transferred=true;countFormat(8);
+         native_legacy_transfer_observed(kIOReturnSuccess,request,length);
+-        finishTransfer(request);
++        finishTransfer(request,true);
+     }
+     // The GPU client reported its copy (status 0) or lost it. Success retires the swap like a finished copy; anything else uses the CPU copy.
+     void finishGpuSwap(int status) {
+@@ -803,10 +803,10 @@ public:
+         return true;
+     }
+     // Separately gated retirement after a real scanout store, shared by copied and blank frames.
+-    void finishTransfer(const OriginalLegacySwapRequest *request,bool force=false) {
++    void finishTransfer(const OriginalLegacySwapRequest *request,bool force=true) {
+         // Only after the real copy and store barrier: select the actual pending head and let the unchanged family release it and wake
+         // waiters. This reports memory scanout completion, not a panel vblank or hardware fence.
+-        if(!retireSwap(request,force))return;
++        retireSwap(request,force);
+         // The unchanged family has retired this generation and released its current reference. Permit the next independently validated
+         // single pending frame. Keep the latch set while completion can reenter this method, and whenever retirement remains disabled.
+         transferred=false;
+@@ -898,9 +898,7 @@ public:
+         return kIOReturnUnsupported;
+     }
+ #endif
+-#if defined(NATIVE_LEGACY_MACOS) && NATIVE_LEGACY_MACOS
+     bool consoleReleased=false;
+-#endif
+     bool validateSwap(const OriginalLegacySwapRequest *request) override {
+         // Qualified original request fields are packed; use memcpy for each
+         // access. Accept only one full-frame, untransformed, nonplanar BGRA
+@@ -958,9 +956,7 @@ public:
+             // The OS's compositor now owns the panel: the kernel console stops drawing into the framebuffer and stays on the serial
+             // console, as IOFramebuffer does when the window server takes a Mac's display over. With vc-text=1 (text console on the
+             // boot framebuffer), console lines kept landing over the compositor's frames (macOS run35).
+-#if defined(NATIVE_LEGACY_MACOS) && NATIVE_LEGACY_MACOS
+             if(!consoleReleased){consoleReleased=true;PE_initialize_console(nullptr,kPEDisableScreen);}
+-#endif
+             addValidated(request);stat(0);note(1,-1,request);const unsigned depth=validatedCount();if(depth>native_legacy_swapstat[15])native_legacy_swapstat[15]=depth;}
+         else removeValidated(request);
+         native_legacy_swap_validation_observed(accepted,reason,request,surface);return accepted;

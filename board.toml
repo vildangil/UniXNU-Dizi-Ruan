@@ -144,6 +144,12 @@ text_fixups = [
 kernel_args = ["serial=3", "debug=0x14e", "cpus=8", "smp=1", "armcpu-spi-ipi=1", "armcpu-self-ipi=1", "native-ufs-partition=unixnu", "memory-outside=3",
   "offline-mobile-graphics-load=1", "offline-legacy-register=1", "offline-legacy-phase=4", "offline-legacy-gop=1",
   "offline-legacy-pm=1", "offline-legacy-validate=1", "offline-legacy-transfer=1", "offline-legacy-cpu-present=1", "vsync=60",
+  # fb-lowres=1 (package/gopfb-zz-lowres.patch): the display reports 800x1280 and each frame is pixel-doubled to the 1600x2560 GOP,
+  # so the CPU-only compositor draws a quarter of the pixels; display-scale below is 1 with it (still 800x1280 points).
+  "fb-lowres=1",
+  # data-persist=2: the Data disk keeps its changed pages in a store window at the end of the unixnu partition (ShengUfs, RamBlock
+  # PersistOverlay); with the 16 GiB seed (seed-data-grow.py --gib 16) Settings shows 17 GB. data-reset=1 once makes the store anew.
+  "data-persist=2",
   "fb-wc=1", "aks=1", "offline-key-events=1",
   "ruan=1", "ruan_touch=1", "garnet_buttons=1", "ruan-cpufreq=2", "ruan-usbdbg=1",
   "offline-hid-input=1", "offline-hid-home=1", "sheng-touch-hid=1", "ruan-usbdbg-arena=1"]
@@ -193,9 +199,10 @@ unixnu = "../UniXNU"
 [adt.defaults.u32]
 vmm-present = 1
 
-# Display scale for MobileGestalt/FrontBoard: 1600x2560 at 2x = 800x1280 points, as on ruan (same panel size).
+# Display scale for MobileGestalt/FrontBoard: 800x1280 pixels at 1x with fb-lowres=1 = 800x1280 points, the layout ruan has at
+# 1600x2560 and 2x. Without fb-lowres=1 this is 2.
 [adt.chosen.u32]
-display-scale = 2
+display-scale = 1
 display-rotation = 0
 
 # SDR sRGB panel (ruan port, as UniXNU-sm-t733/gts7xlwifi/j716f/sirius): MobileGestalt's hasExtendedColorDisplay compares this

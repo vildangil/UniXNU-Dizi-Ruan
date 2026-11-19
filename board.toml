@@ -109,7 +109,8 @@ title = "UniXNU"
 # The offline-legacy-* args register NativeLegacyDisplay, bind it to the GOP framebuffer under /arm-io after IOKitBSDInit, power
 # it for backboardd and CPU-copy every swap into the scanout (write-combined with fb-wc=1), with a 60 Hz vsync. aks=1 and
 # offline-key-events=1 start the AppleKeyStore stand-in. From the ruan port's board code (scripts/build-boot-progress-ruan.py):
-# ruan_touch=1 (NT36532 touch), garnet_buttons=1 (PMIC power/volume keys), ruan-cpufreq=2 (EPSS 1958/2400 MHz) and
+# ruan=1 (ruan board, not the garnet phone: without it the button driver switches PM6150L GPIO3, the display panel's
+# external VDD on this tablet, as if it were garnet's touch supply), ruan_touch=1 (NT36532 touch), garnet_buttons=1 (PMIC power/volume keys), ruan-cpufreq=2 (EPSS 1958/2400 MHz) and
 # ruan-usbdbg=1 (USB CDC debug link: status, screenshots, kernel log; DMA arena at 0x80D00000, ordinary low-bank RAM on dizi).
 # offline-hid-input=1 starts the HID publisher (package/HidInputProbe.cpp) and sheng-touch-hid=1 sheng-touch-split=1 hand the
 # touches to iPadOS as a separate built-in touch screen; without them the controller reports (tp>0) but iPadOS gets nothing (hid0).
@@ -117,8 +118,8 @@ kernel_args = ["serial=3", "debug=0x14e", "cpus=8", "smp=1", "armcpu-spi-ipi=1",
   "offline-mobile-graphics-load=1", "offline-legacy-register=1", "offline-legacy-phase=4", "offline-legacy-gop=1",
   "offline-legacy-pm=1", "offline-legacy-validate=1", "offline-legacy-transfer=1", "offline-legacy-cpu-present=1", "vsync=60",
   "fb-wc=1", "aks=1", "offline-key-events=1",
-  "ruan_touch=1", "garnet_buttons=1", "ruan-cpufreq=2", "ruan-usbdbg=1",
-  "offline-hid-input=1", "sheng-touch-hid=1", "sheng-touch-split=1"]
+  "ruan=1", "ruan_touch=1", "garnet_buttons=1", "ruan-cpufreq=2", "ruan-usbdbg=1",
+  "offline-hid-input=1", "sheng-touch-hid=1", "sheng-touch-split=1", "ruan-usbdbg-arena=1"]
 # Bring-up diagnostics (UniXNU docs/guide/debugging.md): blue band = kernel entry ran,
 # magenta band = reached MMU enable; a kernel panic draws its message on the screen.
 # 2026-11-14 on dizi: green, blue and magenta shown, then a reset about 6 s after

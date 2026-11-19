@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: BSD-2-Clause-Patent
+// dizi: from the ruan port (commit 72cc448); the only change is the ruan-usbdbg-arena=1 switch in bringUpController().
 // Live USB CDC-ACM diagnostic terminal, ramoops streamer, GSC1 framebuffer capture and (opt-in) reboot to fastboot for the
 // Redmi Pad Pro 5G (ruan, SM7435). Ported from UniXNU-j716f package/UsbDebugCdc.cpp (TB-J716F, SM8250, verified there
 // 2026-11-05) by usb-dev/tools/port-from-j716f.py. Off unless ruan-usbdbg=1; reboot.fastboot also needs ruan-usbdbg-reboot=1.
@@ -920,7 +921,12 @@ static bool bringUpController(TerminalSession &s) {
     UsbHw &hw = s.hw;
     if (!hw.dmaVirt) {
         char why[96];
-        hw.dmaDesc = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(
+        // dizi: ruan-usbdbg-arena=1 skips the allocation and takes the low-bank arena directly. On ruan the allocation failed
+        // and the arena (0x80D00000) is what worked; on dizi it succeeds in high memory, the Mac resets the port over and over
+        // and never configures it (usb r1424 c0), as if the firmware's mapping of the USB stream covered only the low bank.
+        uint32_t forceArena = 0;
+        (void)PE_parse_boot_argn("ruan-usbdbg-arena", &forceArena, sizeof(forceArena));
+        if (!forceArena) hw.dmaDesc = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(
             kernel_task,
             static_cast<IOOptionBits>(kIODirectionInOut) | static_cast<IOOptionBits>(kIOMemoryPhysicallyContiguous),
             DMA_TOTAL_BYTES, 0xFFFFFFF000ULL);

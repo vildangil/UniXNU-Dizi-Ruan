@@ -103,6 +103,32 @@ volume = "DIZIESP"
 size_mib = 56
 loader = "firmware"
 title = "UniXNU"
+# Text fixups, from the ruan port (agy-15-11-26 unixnu-ruan/board.toml; native-text-fixup.patch; a board list REPLACES the OS profile's, so entries 1-4 repeat profiles/os/ipados-17.7.11-21H461/profile.toml verbatim).
+# Kernel limit: 32 entries, 16 bytes each (native-text-fixup.patch). This list has 13.
+# Checked with display-prep/tools/check-text-fixups.py against 044-76034-038.dmg (SystemOS cryptex), 2026-11-14 (display-prep/VERIFY.md).
+text_fixups = [
+  # 1-4: OS profile (unchanged).
+  "dyld_shared_cache_arm64.15,421e8bc,28ad1bb0008544f9,c0035fd6008544f9",
+  "dyld_shared_cache_arm64.13,1b05bec,44008052,24008052",
+  "dyld_shared_cache_arm64.13,1b05b08,44008052,24008052",
+  "BTAudioHALPlugin,38bec,ffc300d1f44f01a9,000080d2c0035fd6",
+  # 5-12: 21H461 display format policy (UniXNU-sm-t733 "21H461-srgb-bgra8-1", as UniXNU-gts7xlwifi board.toml):
+  # RenderBox RB::ColorMode::pixel_format takes its BGRA8 branch; QuartzCore stores false for CADeviceUseCIF10 (MG and
+  # preference), universal + lossy compression, EDR factor, hardware HDR and HDR TV modes. Keeps every layer and the
+  # framebuffer surface 8-bit BGRA, the one format upstream NativeLegacyDisplay copies without conversion.
+  "dyld_shared_cache_arm64.31,40c448,4001899ac2fc1736e7ffff17,4001899ae8ffff17e7ffff17",
+  "dyld_shared_cache_arm64.03,27cfe84,f39c35f060423839c0010034,f39c35f07f423839c0010034",
+  "dyld_shared_cache_arm64.03,27cfebc,e8079f1a68423839e80740f9,e8079f1a7f423839e80740f9",
+  "dyld_shared_cache_arm64.03,272df00,08a2359000813039e00313aa,08a235901f813039e00313aa",
+  "dyld_shared_cache_arm64.03,272dea4,08a2359000412539e00313aa,08a235901f412539e00313aa",
+  "dyld_shared_cache_arm64.03,28d6ae4,490932b028013b39fd7bc1a8,490932b03f013b39fd7bc1a8",
+  "dyld_shared_cache_arm64.03,28d7b7c,4809329000813b39fd7bc1a8,480932901f813b39fd7bc1a8",
+  "dyld_shared_cache_arm64.03,28d7ce0,2900805209c12339c0035fd6,290080521fc12339c0035fd6",
+  # 13: CoreUI, no-GPU only (UniXNU-sirius, also in UniXNU-j716f): +[CUIShapeEffectStack sharedCIContext] reaches
+  # CI::GLContext::init, which calls through a zeroed GL dispatch table (no OpenGL ES driver) and kills iconservicesagent.
+  # The bl at file offset 0x34f3b84 (unslid 0x1a31d7b84) becomes mov x0, xzr: symbol images draw empty instead.
+  "dyld_shared_cache_arm64.11,34f3b84,979701944914d794,e0031faa1f2003d5",
+]
 # All 8 cores (4x A55 + 4x A78): needs sm7435-type-clusters.patch and the cluster ids in dts/dizi.dts.
 # Tested on dizi 2026-11-14 with cpus=2 and cpus=8 (XNU reaches the root mount).
 # No -v: it makes DarwinBoot's console text mode, so isMainDisplay() is false and backboardd never presents (ruan port).
@@ -171,3 +197,8 @@ vmm-present = 1
 [adt.chosen.u32]
 display-scale = 2
 display-rotation = 0
+
+# SDR sRGB panel (ruan port, as UniXNU-sm-t733/gts7xlwifi/j716f/sirius): MobileGestalt's hasExtendedColorDisplay compares this
+# with P3; the OS profile's iPad7,1 value is P3. With the text fixups' 8-bit BGRA policy the render server draws plain sRGB.
+[adt.product.string]
+artwork-display-gamut = "sRGB"

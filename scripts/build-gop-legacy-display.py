@@ -127,14 +127,18 @@ NAMED = {184: ' virtual bool isMainDisplay();\n', 188: ' virtual IOReturn getDot
          296: ' virtual bool validateSwap(const OriginalLegacySwapRequest *);\n', 295: ' virtual void completeCurrentSwap();\n',
          337: ' virtual IOReturn collectCompletionReports(uint32_t,void *,uint32_t *,uint32_t)=0;\n',
          288: ' virtual bool startHardware();\n', 301: ' virtual bool getRefreshAttributes(uint64_t *,bool);\n',
-         354: ' virtual int applyStateRequest(OriginalLegacyStateRequest *,bool);\n'}
+         354: ' virtual int applyStateRequest(OriginalLegacyStateRequest *,bool);\n',
+         # dizi: slot 345, the abstract boolean the original family calls when a swap-wait gives up after 5 s ("CommandWake didn't
+         # happen even after 5 seconds ... cancelling swaps"). GopFramebuffer implements it as cancelSwapsAfterTimeout under
+         # NATIVE_LEGACY_CANCEL_SWAPS (compiled in below); as a guarded leaf it panicked (the ruan port's rbu70, gopfb-zz-slot345-timing).
+         345: ' virtual bool cancelSwapsAfterTimeout()=0;\n'}
 for i in range(168, 358):
     header += NAMED.get(i) or (f' virtual __attribute__((noreturn)) void opaque{i}()=0;\n' if i in pure else
                                f' virtual __attribute__((deprecated("Unclassified ABI: never call from source"))) void opaque{i}();\n')
 header += '};\nstatic_assert(sizeof(IOMobileFramebufferLegacy)==0x18a0,"Actual original instance extent");\n'
 header += ('enum : unsigned {kRequestSurfaces = 2624, kRequestMasks = 792, kRequestRect0 = 17,\n'
            '                  kRequestRect1 = 81, kRequestOptions = 804, kRequestDims = 816};\n')
-header += '#define NATIVE_LEGACY_LEAVES(LEAF) ' + ' '.join('LEAF(%d)' % i for i in pure if i not in (213, 337)) + '\n'
+header += '#define NATIVE_LEGACY_LEAVES(LEAF) ' + ' '.join('LEAF(%d)' % i for i in pure if i not in (213, 337, 345)) + '\n'
 header += ('enum : unsigned {kLegacyStateRequested = 5836, kLegacyStatePowered = 5840};\n'
            '// Slot 354 reads the first 17 bytes; 28 is the size this port chose (alignment), not an original ABI fact.\n'
            'struct OriginalLegacyStateRequest {\n'
@@ -177,6 +181,9 @@ def compile_cxx(source, obj):
         elif not value.startswith(('-W', '-DXNU_BOOT_PROGRESS=')):
             command.append(value)
         i += 1
+    # dizi: the display backend handles slot 345 (cancelSwapsAfterTimeout) instead of panicking.
+    if Path(source).name == 'NativeLegacyDisplay.cpp':
+        command += ['-DNATIVE_LEGACY_CANCEL_SWAPS=1']
     command += ['-mgeneral-regs-only', '-Wall', '-Wextra', '-Werror', '-Wno-unused-parameter',
                 '-Wno-unnecessary-virtual-specifier', '-Wno-c99-designator', '-Wno-reorder-init-list',
                 '-Wno-deprecated-enum-enum-conversion', '-Wno-missing-designated-field-initializers',
@@ -452,6 +459,6 @@ sources = [GOPFB / 'NativeLegacyDisplay.cpp', GOPFB / 'NativeLegacyRequest.h',
     compiled_object_sha256=sha(obj), late_object_sha256=sha(late), probe_object_sha256=sha(probe_obj),
     archive_sha256=sha(archive), bindings={name: hex(value) for name, value in bindings.items()},
     virtual_entries=358, owned_entries=owned, inherited_native_entries=native,
-    guarded_backend_leaves=[i for i in pure if i not in (213, 337)],
+    guarded_backend_leaves=[i for i in pure if i not in (213, 337, 345)],
     original_instructions_modified=False, display_presented=False), indent=2) + '\n')
 print(f'PASS: libNativeLegacyDisplay.late.a {sha(archive)} (owned {len(owned)} slots, {len(bindings)} bindings)')

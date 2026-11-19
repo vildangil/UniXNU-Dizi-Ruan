@@ -92,7 +92,7 @@ evidence = [{ kind = "source", reference = "scripts/build-gop-legacy-display.py"
 
 [[area]]
 id = "input"
-status = "implemented"
+status = "device-verified"
 components = []
 paths = ["drivers/ShengHidInput", "drivers/ShengNovatekTouch", "package/*Touch*", "package/*Button*", "scripts/*touch*", "scripts/*hid*", "package/NativeHidInput.cpp", "package/HidInputProbe.cpp", "package/RuanInput*", "package/RuanTouch.c", "package/RuanButtons.c", "package/hakios.*", "scripts/make-touch-fw-header.py"]
 inputs = ["Identify the input hardware, resources and existing component interfaces for this board."]
@@ -102,7 +102,7 @@ findings = ["UniXNU menu: Volume Up, Volume Down and Power work through the PMIC
 completion = ["Touches map to the display, simultaneous contacts keep stable IDs, release events arrive, and buttons produce expected HID reports."]
 limits = ["Volume Down in iPadOS not confirmed yet; UEFI menu keys need a long hold."]
 next_action = ["Check Volume Down and the volume overlay in iPadOS; shorten the UEFI menu key filter."]
-evidence = [{ kind = "source", reference = "https://github.com/vildangil/Mu-Silicium/tree/main/Platforms/Xiaomi/diziPkg/Library/UniXNULibDizi", result = "Menu keys confirmed on dizi 2026-11-15" }]
+evidence = [{ kind = "source", reference = "https://github.com/vildangil/Mu-Silicium/tree/main/Platforms/Xiaomi/diziPkg/Library/UniXNULibDizi", result = "Menu keys confirmed on dizi 2026-11-15" }, { kind = "device", reference = "https://github.com/vildangil/UniXNU-Dizi-Ruan/commit/af3de3d5944af69e219cc2fc54fbf2f5edbe1c68", command = "fastboot boot boot.img", revision = "af3de3d5944af69e219cc2fc54fbf2f5edbe1c68", result = "2026-11-19: touch works in iPadOS on the lock screen" }]
 
 [[area]]
 id = "gpu"

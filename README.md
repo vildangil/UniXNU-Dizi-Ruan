@@ -30,11 +30,11 @@ Checked on a real dizi on 2026-11-17:
 | Display | Works | backboardd draws through the GOP framebuffer (CPU copy); Apple logo and lock screen |
 | Battery | Works | Level on the lock screen (PM7250B fuel gauge, from the ruan port) |
 | Hardware buttons in iPadOS | Works | Power and volume keys (PMIC) |
-| Touch | Partly | The NT36532 controller reports touches; delivery to iPadOS is being tested |
-| USB debug link | Partly | Starts on the tablet, but the Mac does not see it yet |
+| Touch | Works | NT36532 touch screen in iPadOS (the ruan port's driver, the tablet's own BOE firmware) |
+| USB debug link | Partly | Kernel log over USB after `fastboot boot`; drops after a few minutes, and not available when booted from slot b |
 | Wi-Fi, audio, GPU | Not started | |
 
-The next stages are touch input in iPadOS and the USB debug link. [porting.toml](porting.toml) records every
+The next stages are Volume Down in iPadOS, a stable USB debug link, and the ruan port's GPU work. [porting.toml](porting.toml) records every
 area with its findings and evidence.
 
 ## Boot

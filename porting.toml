@@ -108,11 +108,11 @@ evidence = [{ kind = "source", reference = "https://github.com/vildangil/Mu-Sili
 id = "gpu"
 status = "planned"
 components = []
-paths = ["package/*Gpu*", "package/*Gmu*", "package/*Adreno*", "scripts/*adreno*", "scripts/*gpu*", "scripts/*metal*", "scripts/*turnip*", "scripts/*air*", "package/RuanA710*", "package/RuanGmu*", "package/RuanGpu*", "package/AdrenoHfi*"]
+paths = ["package/*Gpu*", "package/*Gmu*", "package/*Adreno*", "scripts/*adreno*", "scripts/*gpu*", "scripts/*metal*", "scripts/*turnip*", "scripts/*air*", "package/RuanA710*", "package/RuanGmu*", "package/RuanGpu*", "package/AdrenoHfi*", "tools/gpu-*"]
 inputs = ["Identify the gpu hardware, resources and existing component interfaces for this board."]
 configuration = ["Record the board.toml fields, DTS properties and defconfig values used for gpu."]
 procedure = ["Follow the gpu stage in the porting guide and record the actual commands."]
-findings = ["2026-11-19: the ruan port's Adreno 710 headers (AdrenoHfi.h, RuanA710*.h, RuanGmu*.h, RuanGpuPowerBoard.h, UsbDebugGpu.h) are copied because the USB debug link and display probe include them; the GPU code itself (RuanGpuPower.c, AdrenoHfi.c) is not built on dizi, needs Qualcomm's GPU firmware and is experimental on ruan. BootProgressRuanStubs.c answers its entry points with 'not ready'."]
+findings = ["2026-11-19: the ruan port's Adreno 710 headers (AdrenoHfi.h, RuanA710*.h, RuanGmu*.h, RuanGpuPowerBoard.h, UsbDebugGpu.h) are copied because the USB debug link and display probe include them; the GPU code itself (RuanGpuPower.c, AdrenoHfi.c) is not built on dizi, needs Qualcomm's GPU firmware and is experimental on ruan. BootProgressRuanStubs.c answers its entry points with 'not ready'.", "2026-11-19: tools/gpu-prep.sh checks the host tools for the Mesa/Turnip and metal2vulkan builds (MacPorts) and copies the Adreno 710 firmware named in the ruan port (a710_sqe.fw, gmu_gen70000.bin, a710_zap.mdt/.bNN) from Android into .cache/gpu-fw. On this Mac rust, glslang, py312-mako and py312-yaml are missing."]
 completion = ["GPU submissions complete, mapping/fence handling is correct, a known image renders, and the selected Metal client presents it."]
 limits = ["Hardware inputs and implementation are pending for dizi."]
 next_action = ["Inventory the required gpu inputs before implementation."]

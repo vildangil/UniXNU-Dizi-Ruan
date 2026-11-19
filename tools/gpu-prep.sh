@@ -16,11 +16,12 @@ export PATH="/opt/local/bin:/opt/local/sbin:$PATH"
 check_tools() {
     local missing=() t
     # command : MacPorts port
-    for t in meson:meson ninja:ninja cmake:cmake pkg-config:pkgconfig bison:bison flex:flex cargo:rust glslangValidator:glslang \
-             python3:python312; do
+    for t in meson:meson ninja:ninja cmake:cmake pkg-config:pkgconfig bison:bison flex:flex cargo:cargo rustc:rust glslangValidator:glslang \
+             python3.12:python312; do
         command -v "${t%%:*}" >/dev/null 2>&1 && echo "ok       ${t%%:*}" || { echo "missing  ${t%%:*}"; missing+=("${t#*:}"); }
     done
-    python3 -c 'import mako, yaml' 2>/dev/null && echo "ok       python mako, yaml" || { echo "missing  python mako, yaml"; missing+=(py312-mako py312-yaml); }
+    # MacPorts' python3.12 (another python3 may come first in PATH)
+    python3.12 -c 'import mako, yaml' 2>/dev/null && echo "ok       python mako, yaml" || { echo "missing  python mako, yaml"; missing+=(py312-mako py312-yaml); }
     xcrun --find metal >/dev/null 2>&1 && echo "ok       xcrun metal" || echo "missing  xcrun metal (Xcode's Metal toolchain: xcodebuild -downloadComponent MetalToolchain)"
     if ((${#missing[@]})); then
         echo; echo "Install with (sudo asks for your password; type it yourself):"; echo "  sudo port install ${missing[*]}"

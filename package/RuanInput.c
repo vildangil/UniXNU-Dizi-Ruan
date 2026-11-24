@@ -10,14 +10,44 @@
 #include <string.h>
 #include <kern/locks.h>
 #include <libkern/libkern.h>
+#include <pexpert/pexpert.h>
 #include "RuanInputShim.h"
 
 volatile uint32_t native_touch_seq, native_touch_count, native_touch_hid_reports;
 volatile int native_touch_xs[12], native_touch_ys[12], native_touch_ids[12];
-volatile uint32_t ruan_touch_events, ruan_button_events, ruan_buttons_mask, ruan_input_lines;
+volatile uint32_t ruan_touch_events, ruan_button_events, ruan_buttons_mask, ruan_input_lines, ruan_key_presses[3];
 volatile uint32_t ruan_touch_raw_x, ruan_touch_raw_y, ruan_touch_max_x, ruan_touch_max_y, ruan_touch_norm_x, ruan_touch_norm_y;
+volatile uint32_t ruan_touch_multi, ruan_touch_maxfingers, ruan_touch_lastmulti[4];   /* reports with >= 2 fingers, the most at once, last such report: ids and two positions */
 char ruan_input_row[96];
 char ruan_buttons_row[96];   /* RuanButtons.c's last log line (it prints through loader_log_putc; RuanTouch.c uses loader_log_line) */
+
+/* Display power state (macOS/docs/research/power/plan.md). RuanBacklightSvc.cpp calls ruan_screen_set when the backlight goes to or
+ * leaves level 0 (CoreBrightness on the power button). ruan_screen_off: RuanCpuFreq.c caps both CPU domains at their second-lowest
+ * level and RuanGpuPower.c's DCVS at its floor. ruan_sleeping (ruan-sleep=1 and the screen off, suspend-to-idle stage 1): the
+ * lowest CPU levels, idle cores bounded by ruan-sleep-wfi-us (default 10000) instead of ruan-idle-wfi-us
+ * (patches/xnu/ruan-idle-wfi.patch), the touch thread reads only on its interrupt, the buttons every 50 ms. The power key still
+ * reaches SpringBoard, which turns the backlight on again: that is the wake. */
+volatile uint32_t ruan_screen_off, ruan_sleeping, ruan_screen_changes;
+extern uint32_t ruan_idle_wfi_sleep_us;   /* patches/xnu/ruan-idle-wfi.patch */
+
+void ruan_screen_set(int off);
+void
+ruan_screen_set(int off)
+{
+	static uint32_t parsed, sleep_mode, sleep_wfi_us = 10000;
+	if (!parsed) {   /* one caller: the backlight work loop */
+		PE_parse_boot_argn("ruan-sleep", &sleep_mode, sizeof(sleep_mode));
+		PE_parse_boot_argn("ruan-sleep-wfi-us", &sleep_wfi_us, sizeof(sleep_wfi_us));
+		parsed = 1;
+	}
+	if ((uint32_t)(off != 0) == ruan_screen_off) {
+		return;
+	}
+	ruan_sleeping = off && sleep_mode == 1;
+	ruan_idle_wfi_sleep_us = ruan_sleeping ? sleep_wfi_us : 0;
+	ruan_screen_off = off != 0;
+	ruan_screen_changes++;
+}
 
 static void (*volatile touch_sink)(void *), *volatile touch_context;
 static void (*volatile buttons_sink)(void *, uint32_t);
@@ -126,15 +156,21 @@ hakios_tl(const char *format, ...)
 	(void)format;
 }
 
-/* shortcut: one SPMI user (RuanButtons.c; ruan-autoreset is off), so no lock; take a real one if another SPMI client appears. */
+/* RuanButtons.c (power key, now on by default) and RuanBattery.c both read through the arbiter: one transfer at a time.
+ * shortcut: spins without disabling preemption (a hold is ~10 us, at most the 2 ms read timeout). */
+static volatile bool spmi_busy;
+
 void
 hakios_spmi_lock(void)
 {
+	while (__atomic_test_and_set(&spmi_busy, __ATOMIC_ACQUIRE)) {
+	}
 }
 
 void
 hakios_spmi_unlock(void)
 {
+	__atomic_clear(&spmi_busy, __ATOMIC_RELEASE);
 }
 
 void

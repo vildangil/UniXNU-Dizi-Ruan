@@ -151,7 +151,7 @@ kernel_args = ["serial=3", "debug=0x14e", "cpus=8", "smp=1", "armcpu-spi-ipi=1",
   # PersistOverlay); with the 16 GiB seed (seed-data-grow.py --gib 16) Settings shows 17 GB. data-reset=1 once makes the store anew.
   "data-persist=2",
   "fb-wc=1", "aks=1", "offline-key-events=1",
-  "ruan=1", "ruan_touch=1", "garnet_buttons=1", "ruan-cpufreq=2", "ruan-usbdbg=1",
+  "ruan=1", "ruan_touch=1", "garnet_buttons=1", "ruan-cpufreq=3", "ruan-usbdbg=1",
   "offline-hid-input=1", "offline-hid-home=1", "sheng-touch-hid=1", "ruan-usbdbg-arena=1"]
 # Bring-up diagnostics (UniXNU docs/guide/debugging.md): blue band = kernel entry ran,
 # magenta band = reached MMU enable; a kernel panic draws its message on the screen.

@@ -18,7 +18,10 @@ int geni_i2c_prepare(GeniI2c *g, const GeniIo *io, uint8_t address, uint32_t *co
     g->address = address;
     const uint32_t proto = (rd(g, GENI_FW_REVISION) >> 8) & 0xffu, clock = rd(g, GENI_CLK_CFG);
     if (config) *config = (proto << 24) | (clock & 0xffffffu);
-    if (proto != GENI_PROTO_I2C || (rd(g, GENI_IF_DISABLE) & 1u) || !(clock & 1u) || !rd(g, GENI_SCL_COUNTERS)) return -1;
+    /* ruan (rbu168p): only the protocol and the clock. The boot loader leaves ruan's QUP0 SE1 with SCL_COUNTERS or IF_DISABLE in a
+     * state the stricter sheng check refused ("SE not usable (proto/clk 03000021)"), while RuanBacklight.cpp's polled path talks to
+     * the SY7758 through the same engine as it is. */
+    if (proto != GENI_PROTO_I2C || !(clock & 1u)) return -1;
     wr(g, GENI_DMA_MODE, 0);
     /* 8-bit words, 4 per FIFO word, least significant byte first on the wire. */
     wr(g, GENI_TX_PACK0, 0x7f8fe); wr(g, GENI_TX_PACK1, 0xffefe);

@@ -22,6 +22,7 @@ extern void loader_log_line(const char *line);
 extern vm_offset_t ml_io_map(vm_offset_t phys_addr, vm_size_t size);
 extern vm_offset_t ml_io_map_wcomb(vm_offset_t phys_addr, vm_size_t size);
 extern kern_return_t thread_terminate(thread_t thread);
+extern volatile uint32_t ruan_sleeping;   /* RuanInput.c: ruan-sleep=1 with the screen off */
 
 static void
 append_hex8(char *buf, uint32_t *pos, uint8_t val)
@@ -72,6 +73,27 @@ static void
 sleep_ms(uint32_t ms)
 {
 	delay_for_interval(ms, NSEC_PER_MSEC);
+}
+
+extern wait_result_t assert_wait_deadline_with_leeway(event_t event, wait_interrupt_t interruptible,
+    wait_timeout_urgency_t urgency, uint64_t deadline, uint64_t leeway);
+
+extern wait_result_t thread_block(thread_continue_t continuation);
+
+/* touch_fast: a fixed-rate tick. delay_for_interval's timer gets timer-coalescing slop (a kernel thread: 1/8 of the
+ * interval, up to 1 ms, scaled up by the user idle level); TIMEOUT_URGENCY_SYS_CRITICAL gets none. The absolute deadline
+ * keeps the SPI read time from stretching the period. */
+static void
+touch_tick(uint64_t *deadline, uint64_t period)
+{
+	uint64_t now = mach_absolute_time();
+
+	*deadline += period;
+	if (*deadline <= now) {
+		*deadline = now + period;       /* behind (a long read): skip ahead rather than burst */
+	}
+	assert_wait_deadline_with_leeway((event_t)deadline, THREAD_UNINT, TIMEOUT_URGENCY_SYS_CRITICAL, *deadline, 0);
+	thread_block(THREAD_CONTINUE_NULL);
 }
 
 /* ---- pins (TLMM) ------------------------------------------------------------------------------- */
@@ -1367,6 +1389,11 @@ static struct {
 	uint32_t x, y;
 } focaltech_contact[FOCALTECH_MAX_TOUCHES];
 
+/* Resting-finger heartbeat (gestures): last post time per contact, the 8 ms interval (0 = off), alternate y, count. */
+static uint64_t focaltech_posted[FOCALTECH_MAX_TOUCHES], focaltech_heartbeat;
+static uint8_t focaltech_wobble[FOCALTECH_MAX_TOUCHES];
+volatile uint32_t focaltech_heartbeats;
+
 static void
 focaltech_contact_update(uint32_t id, uint32_t event, uint32_t x, uint32_t y,
     uint32_t max_report_x, uint32_t max_report_y)
@@ -1417,6 +1444,7 @@ focaltech_contact_update(uint32_t id, uint32_t event, uint32_t x, uint32_t y,
 	if (!focaltech_contact[id].down) {
 		focaltech_contact[id].down = true;
 		hakios_touch_post(HAKIOS_TOUCH_DOWN, id, norm_x, norm_y);
+		focaltech_posted[id] = mach_absolute_time();
 		static unsigned touch_down_logs = 0;
 		if (touch_down_logs < 15) {
 			touch_down_logs++;
@@ -1436,6 +1464,16 @@ focaltech_contact_update(uint32_t id, uint32_t event, uint32_t x, uint32_t y,
 		}
 	} else if (focaltech_contact[id].x != norm_x || focaltech_contact[id].y != norm_y) {
 		hakios_touch_post(HAKIOS_TOUCH_MOVE, id, norm_x, norm_y);
+		focaltech_posted[id] = mach_absolute_time();
+	} else if (focaltech_heartbeat && mach_absolute_time() - focaltech_posted[id] >= focaltech_heartbeat) {
+		/* A resting finger: SpringBoard's SBTouchHistory averages velocity only over samples inside its time window and
+		 * otherwise reuses the last moving pair, so a silent pause read as a flick (Home, not the App Switcher). Re-post the
+		 * position every 8 ms, y alternating by 4/65535 (about 0.08 pt). docs/research/gestures/plan.md; ruan-touch-hb=0 off. */
+		focaltech_wobble[id] ^= 1;
+		hakios_touch_post(HAKIOS_TOUCH_MOVE, id, norm_x,
+		    focaltech_wobble[id] ? (norm_y > 65531 ? norm_y - 4 : norm_y + 4) : norm_y);
+		focaltech_posted[id] = mach_absolute_time();
+		focaltech_heartbeats++;
 	}
 	focaltech_contact[id].x = norm_x;
 	focaltech_contact[id].y = norm_y;
@@ -1537,6 +1575,38 @@ chip_probe(bool verbose)
 	}
 	touch_reset();
 	return goodix_probe(verbose);
+}
+
+static bool
+touch_any_down(void)
+{
+	for (int i = 0; i < FOCALTECH_MAX_TOUCHES; i++) {
+		if (focaltech_contact[i].down) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/* The NT36532 stops reporting a finger that rests (rbu178u: the switcher gesture still went Home), so the heartbeat cannot ride on
+ * its reports: re-post every resting contact from here when the 8 ms wait passes with nothing new. */
+static void
+touch_heartbeat_tick(void)
+{
+	if (!focaltech_heartbeat) {
+		return;
+	}
+	const uint64_t now = mach_absolute_time();
+	for (uint32_t id = 0; id < FOCALTECH_MAX_TOUCHES; id++) {
+		if (!focaltech_contact[id].down || now - focaltech_posted[id] < focaltech_heartbeat) {
+			continue;
+		}
+		const uint32_t x = focaltech_contact[id].x, y = focaltech_contact[id].y;
+		focaltech_wobble[id] ^= 1;
+		hakios_touch_post(HAKIOS_TOUCH_MOVE, id, x, focaltech_wobble[id] ? (y > 65531 ? y - 4 : y + 4) : y);
+		focaltech_posted[id] = now;
+		focaltech_heartbeats++;
+	}
 }
 
 static void
@@ -1657,14 +1727,47 @@ goodix_thread(__unused void *parameter, __unused wait_result_t result)
 {
 
 	unsigned idle = 0, idle_looks;
-	uint32_t poll_us = 8000, reads = 0;
-	uint64_t before = 0, reading = 0;
+	uint32_t poll_us = 8000, reads = 0, fast = 0, edges = 0;
+	uint64_t before = 0, reading = 0, deadline = mach_absolute_time(), period, last_read = 0;
+	/* touch_irq=1: sleep on the TLMM summary interrupt (hakios.novatek_ruan.h nvt_irq_arm), the tick below until it attaches.
+	 * touch_burst_us=N: without the interrupt, tick every N us for 20 ms after a read (reports come in trains). */
+	uint32_t want_irq = 0, irq_tries = 0, irq_seen = 0, burst_us = 0, lat_n = 0;
+	uint64_t burst = 0, last_try = 0, lat_sum = 0, lat_max = 0;
+	bool irq_armed = false;
 
+	PE_parse_boot_argn("touch_irq", &want_irq, sizeof(want_irq));
+	if (want_irq) {
+		nvt_pin_int = 54;       /* the DT's 0x36; the latch and the interrupt both need the right pin */
+	}
+	PE_parse_boot_argn("touch_burst_us", &burst_us, sizeof(burst_us));
+	if (burst_us >= 100 && burst_us < 1000) {
+		nanoseconds_to_absolutetime((uint64_t)burst_us * NSEC_PER_USEC, &burst);
+	}
+	{
+		uint32_t active = 0;
+
+		PE_parse_boot_argn("touch_active", &active, sizeof(active));
+		nvt_active = active != 0;
+	}
+
+	/* touch_fast=1: NT36532 report line on GPIO 54 (the DT's 0x36), a 1 ms SYS_CRITICAL tick, and while a finger is down a
+	 * blind read only when nothing was read for 5 ms (one 240 Hz report period; the old pin missed most reports) */
+	{	/* resting-finger heartbeat for the App Switcher gesture: ruan-touch-hb=<ms>, default 8, 0 off */
+		uint32_t hb_ms = 8;
+		PE_parse_boot_argn("ruan-touch-hb", &hb_ms, sizeof(hb_ms));
+		if (hb_ms) nanoseconds_to_absolutetime((uint64_t)hb_ms * NSEC_PER_MSEC, &focaltech_heartbeat);
+	}
+	PE_parse_boot_argn("touch_fast", &fast, sizeof(fast));
+	if (fast) {
+		nvt_pin_int = 54;
+		poll_us = 1000;
+	}
 	PE_parse_boot_argn("touch_poll_us", &poll_us, sizeof(poll_us));
 	if (poll_us < 250 || poll_us > 100000) {
 		poll_us = 8000;
 	}
 	idle_looks = 80000 / poll_us;   /* a report read every 80 ms even with the line high, in case it is missed */
+	nanoseconds_to_absolutetime((uint64_t)poll_us * NSEC_PER_USEC, &period);
 
 	loader_log_line("focaltech: thread running, mapping tlmm\n");
 	tlmm = ml_io_map(TLMM_PHYS, TLMM_SIZE);
@@ -1699,9 +1802,61 @@ goodix_thread(__unused void *parameter, __unused wait_result_t result)
 			goodix_command(GOODIX_CMD_HIGH_RATE, 1);
 		}
 	}
+	if (touch_chip == TOUCH_NOVATEK) {
+		nvt_send_active();
+	} else {
+		want_irq = 0;   /* the interrupt path is the NT36532's (GPIO 54) only */
+	}
 	for (unsigned tick = 1;; tick++) {
 		uint64_t looked = micros_now(), read_at;
 
+		if (want_irq && !irq_armed && irq_tries < 30 && looked - last_try >= 1000000) {
+			int rc = nvt_irq_arm();
+
+			last_try = looked;
+			irq_tries++;
+			irq_armed = rc == 0;
+			if (irq_armed || irq_tries == 30) {
+				nvt_log("touch_irq: attach result, tries", (uint32_t)rc, irq_tries);
+			}
+		}
+		if (irq_armed) {
+			uint32_t ev = __atomic_load_n(&nvt_irq_events, __ATOMIC_ACQUIRE);
+
+			if (ev != irq_seen) {
+				uint64_t at = nvt_irq_at, done, ns;
+
+				irq_seen = ev;
+				chip_poll();    /* the read and the post to NativeHidInput (its sink runs on this thread) */
+				done = mach_absolute_time();
+				reads++;
+				last_read = micros_now();
+				absolutetime_to_nanoseconds(done - at, &ns);
+				lat_sum += ns / 1000;
+				lat_max = ns / 1000 > lat_max ? ns / 1000 : lat_max;
+				if (++lat_n == 1024) {
+					/* interrupt -> report delivered, us: mean, worst; then interrupts and summary hits for other pins */
+					nvt_log("touch_irq: irq->hid us mean, max", (uint32_t)(lat_sum / lat_n), (uint32_t)lat_max);
+					nvt_log("touch_irq: irqs, spurious", ev, nvt_irq_spurious);
+					lat_n = 0, lat_sum = 0, lat_max = 0;
+				}
+				continue;
+			}
+			/* nothing pending: sleep until the line fires; with a finger down look after 20 ms anyway, to see a lost lift */
+			/* asleep (ruan-sleep=1, screen off; power/plan.md): only the interrupt, no heartbeat reads */
+			nvt_irq_wait(ev, ruan_sleeping ? 1000 : touch_any_down() ? 8 : 80);   /* 8 ms with a finger down: resting-finger heartbeat */
+			if (__atomic_load_n(&nvt_irq_events, __ATOMIC_ACQUIRE) == ev && !ruan_sleeping) {
+				chip_poll();
+				reads++;
+				touch_heartbeat_tick();
+			}
+			continue;
+		}
+
+		if (ruan_sleeping) {   /* no interrupt path: no reads while asleep, look again in 100 ms */
+			sleep_ms(100);
+			continue;
+		}
 		/* the interrupt line is low while a report waits; look anyway every 80 ms in case it is missed */
 		if (touch_chip == TOUCH_NOVATEK ? nvt_edge_seen() : !gpio_get(PIN_INT)) {
 			idle = 0;
@@ -1709,14 +1864,25 @@ goodix_thread(__unused void *parameter, __unused wait_result_t result)
 			read_at = micros_now();
 			reads++;
 			reading += read_at - looked;
-		} else if (++idle >= idle_looks) {
+			last_read = read_at;
+			if (fast && ++edges == 256) {
+				nvt_log("touch_fast: 256 edges; pin, reads", nvt_pin_int, reads);
+			}
+		} else if (++idle >= idle_looks || (touch_chip == TOUCH_NOVATEK && touch_any_down() &&
+		    (!fast || looked - last_read >= 5000))) {
+			/* ruan: the NT36532 edge latch misses most reports, so while a finger is down read every tick (was 12 Hz: laggy swipes) */
 			idle = 0;
 			chip_poll();
 			reads++;
-			reading += micros_now() - looked;
+			last_read = micros_now();
+			reading += last_read - looked;
 		}
 		before = looked;
-		sleep_us(poll_us);
+		if (fast) {
+			touch_tick(&deadline, burst && micros_now() - last_read < 20000 ? burst : period);
+		} else {
+			sleep_us(poll_us);
+		}
 	}
 }
 

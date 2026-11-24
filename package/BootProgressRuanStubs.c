@@ -40,3 +40,7 @@ void ruan_wifi_init(void) {}
 const char *ruan_wifi_status_str(void) { return "not ported"; }
 void ruan_audio_init(void) {}
 const char *ruan_audio_status_str(void) { return "not ported"; }
+
+/* RuanInput.c sets this when the screen sleeps (ruan-sleep=1); ruan's patches/xnu/ruan-idle-wfi.patch reads it in the idle loop.
+ * dizi does not carry that opt-in patch, so nothing reads it here. */
+uint32_t ruan_idle_wfi_sleep_us;

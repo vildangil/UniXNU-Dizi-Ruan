@@ -84,6 +84,15 @@ def compile_cxx_like(record_name, source, obj, extra=()):
     return build(command, record, obj)
 
 
+def late_object(obj, source_name):
+    """ruan's recipe: drop the object's __mod_init_func and globalize its static initializer, so the class registers only when the
+    board code calls __GLOBAL__sub_I_<source> (as the key store's NativeKeyStoreEvents)."""
+    late = obj.with_suffix('.late.o')
+    subprocess.run(['llvm-objcopy', '--remove-section=__DATA,__mod_init_func', f'--globalize-symbol=__GLOBAL__sub_I_{source_name}',
+                    obj, late], check=True)
+    return late
+
+
 for header in ('hakios.novatek_ruan_fw.h', 'hakios.focaltech_garnet_fw.h'):
     if not (FW / header).is_file():
         raise SystemExit(f'{FW / header} missing: generate it from the stock touch firmware (see this script\'s docstring)')
@@ -108,6 +117,10 @@ objects = [
     compile_like(EXEC, PKG / 'RuanBattery.c', OUT / 'RuanBattery.o', HAKIOS_C),
     compile_cxx_like(PE, PKG / 'HakiosBattery.cpp', OUT / 'HakiosBattery.o'),
     compile_cxx_like(PE, PKG / 'RuanBacklight.cpp', OUT / 'RuanBacklight.o'),
+    # the conforming backlight service (AppleARMBacklight): libEDR inside backboardd starts only for it; without it every frame
+    # waited 5 s in mach_msg (ruan 2026-11-21). Its static initializer runs when RuanBacklight.cpp starts it (ruan-bl-svc).
+    compile_like(EXEC, PKG / 'GeniI2c.c', OUT / 'GeniI2c.o', HAKIOS_C),   # the service's non-blocking GENI I2C transfers
+    late_object(compile_cxx_like(PE, PKG / 'RuanBacklightSvc.cpp', OUT / 'RuanBacklightSvc.o'), 'RuanBacklightSvc.cpp'),
     # CPU frequency (EPSS vote, ruan-cpufreq=2)
     compile_like(STARTUP, PKG / 'RuanCpuFreq.c', OUT / 'RuanCpuFreq.o'),
 ]

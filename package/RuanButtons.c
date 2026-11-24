@@ -347,6 +347,7 @@ garnet_enable_touch_vddio(void)
 #define GPIO_REG_ENABLE         0x46            /* [7] */
 
 #define POLL_MS                 16
+extern volatile uint32_t ruan_sleeping;   /* RuanInput.c */
 #define MINUTE_TICKS            (60 * 1000 / POLL_MS)
 
 static struct button {
@@ -402,6 +403,7 @@ button_look(struct button *b, bool pressed)
 	if (pressed) {
 		b->since = now;
 		b->presses++;
+		ruan_key_presses[b->record - 1]++;
 		printf("buttons: %s PRESSED at %s\n", b->name, when);
 	} else {
 		absolutetime_to_nanoseconds(now - b->since, &held);
@@ -617,7 +619,8 @@ buttons_thread(void *parameter, __unused wait_result_t result)
 			printf("buttons: more than half of %llu reads have failed: giving up\n", bus.reads);
 			break;
 		}
-		delay_for_interval(POLL_MS, NSEC_PER_MSEC);
+		/* ruan (power/plan.md): asleep (ruan-sleep=1, screen off) every 50 ms; two looks still catch a ~100 ms tap */
+		delay_for_interval(ruan_sleeping ? 50 : POLL_MS, NSEC_PER_MSEC);
 	}
 out:
 	if (steps < 5) {
@@ -687,10 +690,18 @@ hakios_buttons_init(void)
 	 */
 	if (!PE_parse_boot_argn("buttons", &enabled, sizeof(enabled)) &&
 	    !PE_parse_boot_argn("garnet_buttons", &enabled, sizeof(enabled))) {
-		uint32_t touch_screen = 0;
+		uint32_t touch_screen = 0, ruan = 0;
 
 		enabled = (PE_parse_boot_argn("touchscreen", &touch_screen, sizeof(touch_screen)) && touch_screen != 0) ||
 		          (PE_parse_boot_argn("garnet_touch", &touch_screen, sizeof(touch_screen)) && touch_screen != 0);
+		/*
+		 * ruan: its built-in boot-args have ruan_touch=1, none of the above, so the thread never ran (USB "touch" said
+		 * buttons=0). ruan-pwrkey (default 1) turns it on: with ruan=1 it only reads (the PM6150L GPIO3 write is skipped).
+		 */
+		if (!enabled && PE_parse_boot_argn("ruan", &ruan, sizeof(ruan)) && ruan != 0) {
+			enabled = 1;
+			PE_parse_boot_argn("ruan-pwrkey", &enabled, sizeof(enabled));
+		}
 	}
 	if (!enabled) {
 		return;

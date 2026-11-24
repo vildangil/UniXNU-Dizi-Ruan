@@ -66,6 +66,11 @@ volatile uint64_t gRequest = 0;
 static vm_offset_t s_se = 0;
 static uint32_t s_hw_max = 1600;   /* chip level for iPadOS full brightness (boot-arg ruan-bl-max, 16..4095) */
 static IOLock *s_lock = nullptr;
+/* ruan-bl-svc=1: the non-blocking service in RuanBacklightSvc.cpp drives the chip; the calls below hand over to it. */
+static bool s_svc = false;
+extern "C" bool ruan_bl_svc_start(volatile uint32_t *se);
+extern "C" int ruan_bl_svc_set_level(uint32_t level);
+extern "C" int ruan_bl_svc_reg(uint8_t reg, int value);
 
 static inline uint32_t se_rd(uint32_t off) { return *(volatile uint32_t *)(s_se + off); }
 static inline void se_wr(uint32_t off, uint32_t v) { *(volatile uint32_t *)(s_se + off) = v; __asm__ volatile("dsb sy" ::: "memory"); }
@@ -131,28 +136,34 @@ extern "C" {
 
 /* Read-only checks first: every clock running, then the engine holds I2C firmware; only then is the SE touched
  * (reading a clock-gated QUP block can bus-fault and reset the tablet, as LPASS did). */
-void ruan_backlight_init(void) {
-    if (g_ruan_backlight.ready || s_se) return;
+/* Every QUP0 clock running, then the SE mapped and holding I2C firmware; false (status says why) leaves the SE untouched. */
+static bool map_checked_se(void) {
     if (!s_lock) s_lock = IOLockAlloc();
     vm_offset_t gcc = ml_io_map((vm_offset_t)GCC_PHYS, (vm_size_t)GCC_SIZE);
-    if (!gcc || !s_lock) { strlcpy(g_ruan_backlight.status, "map/lock failed", sizeof g_ruan_backlight.status); return; }
+    if (!gcc || !s_lock) { strlcpy(g_ruan_backlight.status, "map/lock failed", sizeof g_ruan_backlight.status); return false; }
     for (uint32_t off : kGccCbcr) {
         const uint32_t cbcr = *(volatile uint32_t *)(gcc + off);
         if (cbcr & CLK_OFF) {
             snprintf(g_ruan_backlight.status, sizeof g_ruan_backlight.status, "QUP0 clock off (GCC+%#x = %08x); SE not touched", off, cbcr);
             IOLog("ruan-backlight: %s\n", g_ruan_backlight.status);
-            return;
+            return false;
         }
     }
     s_se = ml_io_map((vm_offset_t)SE_PHYS, (vm_size_t)SE_SIZE);
-    if (!s_se) { strlcpy(g_ruan_backlight.status, "SE map failed", sizeof g_ruan_backlight.status); return; }
+    if (!s_se) { strlcpy(g_ruan_backlight.status, "SE map failed", sizeof g_ruan_backlight.status); return false; }
     const uint32_t proto = (se_rd(GENI_FW_REVISION_RO) >> 8) & 0xff;
-    const uint32_t clk_cfg = se_rd(GENI_SER_M_CLK_CFG), scl = se_rd(I2C_SCL_COUNTERS);
     if (proto != PROTO_I2C) {
         snprintf(g_ruan_backlight.status, sizeof g_ruan_backlight.status, "SE protocol %u, not I2C", proto);
         IOLog("ruan-backlight: %s\n", g_ruan_backlight.status);
-        return;
+        return false;
     }
+    return true;
+}
+
+void ruan_backlight_init(void) {
+    if (g_ruan_backlight.ready || s_se) return;
+    if (!map_checked_se()) return;
+    const uint32_t clk_cfg = se_rd(GENI_SER_M_CLK_CFG), scl = se_rd(I2C_SCL_COUNTERS);
     /* FIFO mode, polled status bits (the interrupt stays masked at the GIC), byte packing as Linux I2C (8 bits,
      * 4 per FIFO word, the same values RuanTouch uses). Clock divider and SCL timing stay as the bootloader set them. */
     se_wr(GENI_DMA_MODE_EN, se_rd(GENI_DMA_MODE_EN) & ~1u);
@@ -198,6 +209,7 @@ void ruan_backlight_init(void) {
 }
 
 int ruan_backlight_set_level(uint32_t level) {
+    if (s_svc) return ruan_bl_svc_set_level(level);
     if (!g_ruan_backlight.ready) return -1;
     if (level > g_ruan_backlight.max_level) level = g_ruan_backlight.max_level;
     uint32_t hw = (uint32_t)(((uint64_t)level * s_hw_max) / g_ruan_backlight.max_level);   /* iPadOS units -> chip */
@@ -221,6 +233,7 @@ int ruan_backlight_set_level(uint32_t level) {
 
 /* USB debug: read (value < 0) or write one SY7758 register; returns the value read back, or -1 on an I2C error. */
 int ruan_backlight_reg(uint8_t reg, int value) {
+    if (s_svc) return ruan_bl_svc_reg(reg, value);
     if (!g_ruan_backlight.ready) return -1;
     uint8_t v = 0;
     IOLockLock(s_lock);
@@ -363,8 +376,87 @@ IOReturn RuanBacklight::setProperties(OSObject *properties) {
 
 static RuanBacklight *s_backlight = nullptr;
 
+#include <libkern/OSKextLib.h>
+#include <mach/kmod.h>
+extern kmod_info_t g_kernel_kmod_info;
+/* RuanBacklightSvc.cpp's static initializer, taken out of __mod_init_func by build-ram-root-probe.py (sheng's BacklightProbe.cpp). */
+extern "C" void ruan_bl_svc_static_init(void) __asm__("__GLOBAL__sub_I_RuanBacklightSvc.cpp");
+
+/* ruan-bl-svc=1: register RuanBacklightSvc's class with the kernel's module, then start it on the checked SE. */
+/* The second SY7758 (ruan has two, one per half of the LED strings, both at 0x2e): i2c@990000 = QUP0 SE4 (live DT line 15668,
+ * GIC SPI 605). Without it the strings it drives stay at the boot loader's level and that part of the panel cannot be dimmed or
+ * brightened (rbu170p). Polled writes after the same read-only checks as the first chip: wrap0 S4 halt 0x274dc (gcc-parrot.c),
+ * the wrap0 AHB and core clocks, then I2C firmware in the engine. ruan-bl-mirror=0 leaves it alone. */
+#define SE2_PHYS 0x00990000ULL
+static vm_offset_t s_se2 = 0;
+static int s_mirror = -1;   /* -1 not tried, 0 unusable, 1 ready */
+extern "C" char ruan_bl_mirror_status[96];
+char ruan_bl_mirror_status[96] = "mirror: not tried";
+static bool mirror_ready(void) {
+    if (s_mirror >= 0) return s_mirror == 1;
+    s_mirror = 0;
+    unsigned on = 1;
+    PE_parse_boot_argn("ruan-bl-mirror", &on, sizeof on);
+    if (!on) { strlcpy(ruan_bl_mirror_status, "mirror: off (ruan-bl-mirror=0)", sizeof ruan_bl_mirror_status); return false; }
+    if (!s_lock) s_lock = IOLockAlloc();
+    vm_offset_t gcc = ml_io_map((vm_offset_t)GCC_PHYS, (vm_size_t)GCC_SIZE);
+    if (!gcc || !s_lock) { strlcpy(ruan_bl_mirror_status, "mirror: map/lock failed", sizeof ruan_bl_mirror_status); return false; }
+    static const uint32_t cbcr[] = {0x274dc, 0x27004, 0x27008, 0x33000};
+    for (uint32_t off : cbcr) {
+        const uint32_t v = *(volatile uint32_t *)(gcc + off);
+        if (v & CLK_OFF) { snprintf(ruan_bl_mirror_status, sizeof ruan_bl_mirror_status, "mirror: clock off (GCC+%#x = %08x)", off, v); return false; }
+    }
+    s_se2 = ml_io_map((vm_offset_t)SE2_PHYS, (vm_size_t)SE_SIZE);
+    if (!s_se2) { strlcpy(ruan_bl_mirror_status, "mirror: SE4 map failed", sizeof ruan_bl_mirror_status); return false; }
+    const uint32_t proto = ((*(volatile uint32_t *)(s_se2 + GENI_FW_REVISION_RO)) >> 8) & 0xff;
+    if (proto != PROTO_I2C) { snprintf(ruan_bl_mirror_status, sizeof ruan_bl_mirror_status, "mirror: SE4 protocol %u, not I2C", proto); return false; }
+    IOLockLock(s_lock);
+    const vm_offset_t saved = s_se; s_se = s_se2;
+    se_wr(GENI_DMA_MODE_EN, se_rd(GENI_DMA_MODE_EN) & ~1u);
+    se_wr(GENI_TX_PACKING_CFG0, 0x0007f8fe); se_wr(GENI_TX_PACKING_CFG1, 0x000ffefe);
+    se_wr(GENI_RX_PACKING_CFG0, 0x0007f8fe); se_wr(GENI_RX_PACKING_CFG1, 0x000ffefe);
+    uint8_t id = 0, ctl = 0;
+    uint32_t e = sy7758_read(SY7758_DEV_ID, &id);
+    if (!e) e = sy7758_read(SY7758_DEV_CTL, &ctl);
+    if (!e) e = sy7758_write(SY7758_DEV_CTL, 0x80 | 0x01 | (2u << 1));   /* register mode, as the first chip (svc kDevCtlRegisterMode) */
+    s_se = saved;
+    IOLockUnlock(s_lock);
+    if (e) { snprintf(ruan_bl_mirror_status, sizeof ruan_bl_mirror_status, "mirror: SY7758 #2 not answering (%08x)", e); return false; }
+    snprintf(ruan_bl_mirror_status, sizeof ruan_bl_mirror_status, "mirror: SY7758 #2 id %02x, dev_ctl %02x -> 85", id, ctl);
+    s_mirror = 1;
+    return true;
+}
+/* The same chip level as the first SY7758 (called by RuanBacklightSvc.cpp as it writes its own). */
+extern "C" void ruan_bl_mirror_level(uint32_t hw) {
+    if (!mirror_ready()) return;
+    IOLockLock(s_lock);
+    const vm_offset_t saved = s_se; s_se = s_se2;
+    uint32_t e = sy7758_write(SY7758_BRT_L, (uint8_t)(hw & 0xff));
+    if (!e) e = sy7758_write(SY7758_BRT_H, (uint8_t)((hw >> 8) & 0x0f));
+    s_se = saved;
+    IOLockUnlock(s_lock);
+    if (e) snprintf(ruan_bl_mirror_status, sizeof ruan_bl_mirror_status, "mirror: level %u write failed (%08x)", hw, e);
+}
+
+static bool ruan_bl_svc_probe(void) {
+    if (!map_checked_se()) return false;
+    void *handle = OSMetaClass::preModLoad(g_kernel_kmod_info.name);
+    if (!handle) { strlcpy(g_ruan_backlight.status, "svc: preModLoad failed", sizeof g_ruan_backlight.status); return false; }
+    ruan_bl_svc_static_init();
+    const OSReturn status = OSMetaClass::postModLoad(handle);
+    if (status) { snprintf(g_ruan_backlight.status, sizeof g_ruan_backlight.status, "svc: postModLoad %#x", status); return false; }
+    s_svc = true;
+    return ruan_bl_svc_start((volatile uint32_t *)s_se);
+}
+
 extern "C" bool ruan_backlight_start(void) {
-    if (s_backlight) return true;
+    if (s_backlight || s_svc) return true;
+    // Default on (rbu167p): the conforming service. This path sets backlight-control without AppleARMBacklight conformance, so
+    // CoreBrightness never starts libEDR and QuartzCore's EDRGetDefaultMinScalingFactor waits out 5 s per frame (sheng int-236,
+    // rbu114u-rbu166p: one frame every 5.0 s). ruan-bl-svc=0 gets this path back.
+    unsigned svc = 1;
+    PE_parse_boot_argn("ruan-bl-svc", &svc, sizeof svc);
+    if (svc == 1) return ruan_bl_svc_probe();
 
     IOService *platform = IOService::getPlatform();
     if (!platform) return false;

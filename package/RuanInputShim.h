@@ -21,4 +21,6 @@ void hakios_spmi_unlock(void);
 #include <stdbool.h>
 bool garnet_enable_touch_vddio(void);
 /* ruan diagnostics (RuanInput.c), shown on the boot-progress banner: the NT36532's raw last point and its fw-info axis maxima. */
+/* hardware presses seen by RuanButtons.c, by HAKIOS_BUTTON_* - 1: power, volume up, volume down (USB "touch" shows them) */
+extern volatile uint32_t ruan_key_presses[3];
 extern volatile uint32_t ruan_touch_raw_x, ruan_touch_raw_y, ruan_touch_max_x, ruan_touch_max_y;

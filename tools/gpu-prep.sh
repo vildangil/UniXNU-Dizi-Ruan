@@ -10,7 +10,7 @@
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/.cache/gpu-fw"
-FIRMWARE=(a710_sqe.fw gmu_gen70000.bin a710_zap.mdt a710_zap.b00 a710_zap.b01 a710_zap.b02)
+FIRMWARE=(a710_sqe.fw gmu_gen70000.bin a710_zap.mdt a710_zap.b00 a710_zap.b01 a710_zap.b02 a710_zap.mbn)
 export PATH="/opt/local/bin:/opt/local/sbin:$PATH"
 
 check_tools() {
@@ -36,8 +36,11 @@ pull_firmware() {
     for f in "${FIRMWARE[@]}"; do
         found=""
         for dir in /vendor/firmware /vendor/firmware_mnt/image /odm/firmware /system/vendor/firmware; do
-            if adb shell su -c "test -f $dir/$f" 2>/dev/null; then
-                adb shell su -c "cat $dir/$f" > "$OUT/$f" && found="$dir/$f"; break
+            # /vendor/firmware is world-readable on dizi; su (KernelSU, shell granted) only as a fallback
+            if adb shell "test -r $dir/$f" 2>/dev/null; then
+                adb exec-out "cat $dir/$f" > "$OUT/$f" && found="$dir/$f"; break
+            elif adb shell "su -c 'test -f $dir/$f'" 2>/dev/null; then
+                adb exec-out "su -c 'cat $dir/$f'" > "$OUT/$f" && found="$dir/$f"; break
             fi
         done
         if [ -n "$found" ]; then echo "copied   $found ($(wc -c < "$OUT/$f") bytes)"; else echo "absent   $f"; rm -f "$OUT/$f"; fi
